@@ -11,7 +11,7 @@ import {
 import { getCalibrationUsers } from "../controllers/compliance/calibrationUsers.controller.js";
 
 import {
-  uploadCalibrationReport as uploadCalibration,
+  uploadCalibrationFile,
   handleMulterError,
 } from "../middlewares/uploadMiddleware.js";
 
@@ -22,9 +22,9 @@ const router = express.Router();
 // ADD or UPDATE ASSET + FILE
 router.post(
   "/addAsset",
-  uploadCalibration.single("file"),
+  uploadCalibrationFile.single("file"),
   handleMulterError,
-  addAsset
+  addAsset,
 );
 
 // GET ALL ASSETS
@@ -42,17 +42,17 @@ router.get("/certs/:id", getCertificates);
 // UPLOAD CERTIFICATE ONLY
 router.post(
   "/uploadCert/:id",
-  uploadCalibration.single("file"),
+  uploadCalibrationFile.single("file"),
   handleMulterError,
-  uploadCertificate
+  uploadCertificate,
 );
 
 // UPLOAD CALIBRATION REPORT
 router.post(
   "/uploadReport/:id",
-  uploadCalibration.single("file"),
+  uploadCalibrationFile.single("file"),
   handleMulterError,
-  uploadCalibrationReport
+  uploadCalibrationReport,
 );
 
 // GET CALIBRATION USERS

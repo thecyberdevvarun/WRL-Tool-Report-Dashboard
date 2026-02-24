@@ -2,7 +2,10 @@ import path from "path";
 import fs from "fs";
 import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
-import { getImageInfo, getImageFilePath } from "../../utils/imageStorage.js";
+import {
+  getImageInfo,
+  getImageFilePath,
+} from "../../utils/storage/imageStorage.js";
 
 /**
  * Serve image file

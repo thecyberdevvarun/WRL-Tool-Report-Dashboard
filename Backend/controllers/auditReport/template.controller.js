@@ -9,7 +9,7 @@ import {
   deleteTemplateFile,
   updateTemplateFile,
   backupTemplateFile,
-} from "../../utils/templateStorage.js";
+} from "../../utils/storage/templateStorage.js";
 
 // Get all templates
 export const getAllTemplates = tryCatch(async (req, res) => {
