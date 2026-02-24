@@ -4,7 +4,7 @@ import { tryCatch } from "../../utils/tryCatch.js";
 import { AppError } from "../../utils/AppError.js";
 import { convertToIST } from "../../utils/convertToIST.js";
 
-// ─── Get Summary Report ─────────────────────────────────────────
+// --- Get Summary Report -----------------------------------------
 export const getStopLossSummary = tryCatch(async (req, res) => {
   const { fromDate, toDate, location } = req.query;
 
@@ -15,6 +15,9 @@ export const getStopLossSummary = tryCatch(async (req, res) => {
   if (!location) {
     throw new AppError("Location is required", 400);
   }
+
+  const isFromDate = convertToIST(fromDate);
+  const isToDate = convertToIST(toDate);
 
   const query = `
     ;WITH EMG AS
@@ -91,8 +94,8 @@ export const getStopLossSummary = tryCatch(async (req, res) => {
   try {
     const request = pool
       .request()
-      .input("fromDate", sql.DateTime, fromDate)
-      .input("toDate", sql.DateTime, toDate)
+      .input("fromDate", sql.DateTime, isFromDate)
+      .input("toDate", sql.DateTime, isToDate)
       .input("location", sql.NVarChar, location);
 
     const result = await request.query(query);
@@ -112,7 +115,7 @@ export const getStopLossSummary = tryCatch(async (req, res) => {
   }
 });
 
-// ─── Get Detail Report ──────────────────────────────────────────
+// --- Get Detail Report ------------------------------------------
 export const getStopLossDetail = tryCatch(async (req, res) => {
   const { fromDate, toDate, location } = req.query;
 
@@ -219,7 +222,7 @@ ORDER BY StationName, EmgOn;
   }
 });
 
-// ─── Get Locations (for dropdown) ───────────────────────────────
+// --- Get Locations (for dropdown) -------------------------------
 export const getStopLossLocations = tryCatch(async (req, res) => {
   const query = `
     SELECT DISTINCT Location 
