@@ -35,6 +35,7 @@ const StopLossReport = lazy(() => import("../pages/Production/StopLossReport"));
 
 const ReworkEntry = lazy(() => import("../pages/Quality/ReworkEntry"));
 const ReworkReport = lazy(() => import("../pages/Quality/ReworkReport"));
+const BrazingReport = lazy(() => import("../pages/Quality/BrazingReport"));
 const GasChargingReport = lazy(
   () => import("../pages/Quality/GasChargingReport"),
 );
@@ -192,6 +193,12 @@ export const ROUTE_CONFIG = [
         path: "/quality/rework-report",
         label: "Rework Report",
         component: ReworkReport,
+        roles: [ROLES.ADMIN],
+      },
+      {
+        path: "/quality/brazing-report",
+        label: "Brazing Report",
+        component: BrazingReport,
         roles: [ROLES.ADMIN],
       },
       {

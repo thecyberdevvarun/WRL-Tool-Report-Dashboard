@@ -8,7 +8,6 @@ import {
 } from "react-icons/fi";
 import { BsBoxSeam } from "react-icons/bs";
 import { MdOutlineCategory } from "react-icons/md";
-import { formatISODateString } from "../../../../utils/dateUtils";
 
 // ─── Info Card ──────────────────────────────────────────────────
 function InfoCard({ icon: Icon, label, value, color = "indigo" }) {
@@ -122,6 +121,12 @@ function DurationBadge({ duration }) {
   );
 }
 
+// ─── Format DateTime ────────────────────────────────────────────
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  return dateStr.replace("T", " ").replace("Z", "").substring(0, 19);
+}
+
 // ─── Main Component ─────────────────────────────────────────────
 function ReworkReportTable({ data }) {
   // ─── Extract common info from first row ─────────────────────
@@ -216,9 +221,9 @@ function ReworkReportTable({ data }) {
 
                     {/* Rework IN */}
                     <td className="px-4 py-2.5 whitespace-nowrap text-xs">
-                      {formatISODateString(item.reworkIN) ? (
+                      {formatDate(item.reworkIN) ? (
                         <span className="text-gray-600">
-                          {formatISODateString(item.reworkIN)}
+                          {formatDate(item.reworkIN)}
                         </span>
                       ) : (
                         <span className="text-gray-300 italic">—</span>
@@ -227,9 +232,9 @@ function ReworkReportTable({ data }) {
 
                     {/* Rework Out */}
                     <td className="px-4 py-2.5 whitespace-nowrap text-xs">
-                      {formatISODateString(item.reworkOut) ? (
+                      {formatDate(item.reworkOut) ? (
                         <span className="text-gray-600">
-                          {formatISODateString(item.reworkOut)}
+                          {formatDate(item.reworkOut)}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">

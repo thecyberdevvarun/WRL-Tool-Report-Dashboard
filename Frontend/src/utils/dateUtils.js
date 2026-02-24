@@ -139,17 +139,3 @@ export const formatDateTimeLocal = (date) => {
   const localDate = new Date(d.getTime() - offset * 60 * 1000);
   return localDate.toISOString().slice(0, 16);
 };
-
-/**
- * Formats an ISO date string by:
- * - Replacing "T" with a space
- * - Removing trailing "Z"
- *
- * @param {string} dateString
- * @returns {string} formatted date string
- */
-export const formatISODateString = (dateString) => {
-  if (!dateString) return "";
-
-  return dateString.replace("T", " ").replace("Z", "");
-};

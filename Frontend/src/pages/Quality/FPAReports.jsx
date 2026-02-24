@@ -26,7 +26,6 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { formatISODateString } from "../../utils/dateUtils.js";
 
 ChartJS.register(
   CategoryScale,
@@ -676,7 +675,7 @@ const FpaReportTable = ({ data }) => {
               <tr key={index} className="hover:bg-gray-100 text-center">
                 <td className="px-1 py-1 border">{row.SRNo}</td>
                 <td className="px-1 py-1 border">
-                  {formatISODateString(row.Date)}
+                  {row.Date ? row.Date.replace("T", " ").replace("Z", "") : ""}
                 </td>
                 <td className="px-1 py-1 border">{row.Model}</td>
                 <td className="px-1 py-1 border">{row.Shift}</td>

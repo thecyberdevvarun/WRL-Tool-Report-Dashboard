@@ -23,7 +23,6 @@ import Title from "../../components/ui/Title";
 import Loader from "../../components/ui/Loader";
 import ExportButton from "../../components/ui/ExportButton";
 import EmptyState from "../../components/ui/EmptyState";
-import { formatISODateString } from "../../utils/dateUtils";
 
 // ─── Inner Tab Config ───────────────────────────────────────────
 const INNER_TABS = [
@@ -925,8 +924,7 @@ function StopLossReport() {
                   Period
                 </p>
                 <p className="text-[11px] font-semibold text-indigo-700 mt-0.5">
-                  {formatISODateString(fromDate)} →{" "}
-                  {formatISODateString(toDate)}
+                  {fromDate?.replace("T", " ")} → {toDate?.replace("T", " ")}
                 </p>
               </div>
             </div>

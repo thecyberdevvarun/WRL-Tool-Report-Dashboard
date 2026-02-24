@@ -379,7 +379,7 @@ function ESTTable({ data = [], tabConfig }) {
                     {item.set_ect_time ?? "—"}
                   </td>
                   <td className="px-3 py-3 border border-gray-100">
-                    {item.read_ect_ohms ?? "0.15 Ohms"}
+                    {item.read_ect_ohms ?? "—"}
                   </td>
                   <td className="px-3 py-3 border border-gray-100">
                     <StatusBadge status={item.ect_result} />
@@ -406,7 +406,7 @@ function ESTTable({ data = [], tabConfig }) {
                     {item.set_ir_time ?? "—"}
                   </td>
                   <td className="px-3 py-3 border border-gray-100">
-                    {item.read_ir_mohms === "> LIMIT" && "0.15 Ohms"}
+                    {item.read_ir_mohms ?? "—"}
                   </td>
                   <td className="px-3 py-3 border border-gray-100">
                     <StatusBadge status={item.ir_result} />
@@ -415,7 +415,7 @@ function ESTTable({ data = [], tabConfig }) {
                     {item.set_lct_ma ?? "—"}
                   </td>
                   <td className="px-3 py-3 border border-gray-100">
-                    {item.set_lct_time ?? "6 Sec"}
+                    {item.set_lct_time ?? "—"}
                   </td>
                   <td className="px-3 py-3 border border-gray-100">
                     {item.read_lct_ln_ma ?? "—"}

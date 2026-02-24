@@ -1,5 +1,4 @@
 import EmptyState from "../../../../components/ui/EmptyState";
-import { getFormattedISTDate } from "../../../../utils/dateUtils";
 
 function ComponentDetailsTable({ data }) {
   const headers = [
@@ -59,7 +58,7 @@ function ComponentDetailsTable({ data }) {
                 </td>
 
                 <td className="px-4 py-2.5 whitespace-nowrap text-gray-500 text-xs">
-                  {getFormattedISTDate(item.scannedOn)}
+                  {item.scannedOn?.replace("T", " ").replace("Z", "")}
                 </td>
               </tr>
             ))

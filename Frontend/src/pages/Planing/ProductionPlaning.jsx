@@ -8,7 +8,6 @@ import axios from "axios";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { baseURL } from "../../assets/assets";
-import { formatISODateString } from "../../utils/dateUtils";
 
 const ProductionPlaning = () => {
   const { user } = useSelector((store) => store.auth);
@@ -127,7 +126,7 @@ const ProductionPlaning = () => {
 
       const res = await axios.put(
         `${baseURL}planing/update-production-plan`,
-        payload,
+        payload
       );
 
       if (res?.data?.success) {
@@ -185,7 +184,7 @@ const ProductionPlaning = () => {
 
       const res = await axios.put(
         `${baseURL}planing/add-production-plan`,
-        payload,
+        payload
       );
 
       if (res?.data?.success) {
@@ -201,7 +200,7 @@ const ProductionPlaning = () => {
     } catch (error) {
       console.error("Failed to add plan:", error);
       toast.error(
-        error.response?.data?.message || "Failed to add production plan",
+        error.response?.data?.message || "Failed to add production plan"
       );
     } finally {
       setLoading(false);
@@ -230,7 +229,7 @@ const ProductionPlaning = () => {
                 value={selectedModelName?.value || ""}
                 onChange={(e) => {
                   const selected = modelNameOptions.find(
-                    (opt) => opt.value === e.target.value,
+                    (opt) => opt.value === e.target.value
                   );
                   if (selected) {
                     setSelectedModelName(selected);
@@ -244,7 +243,7 @@ const ProductionPlaning = () => {
                 value={selectedPlanMonth?.value || ""}
                 onChange={(e) => {
                   const selected = planMonthOptions.find(
-                    (opt) => opt.value === e.target.value,
+                    (opt) => opt.value === e.target.value
                   );
                   if (selected) {
                     setSelectedPlanMonth(selected);
@@ -399,7 +398,8 @@ const ProductionPlaning = () => {
                         <td className="px-1 py-1 border">{item.Remark}</td>
                         <td className="px-1 py-1 border">{item.username}</td>
                         <td className="px-1 py-1 border">
-                          {formatISODateString(item.CreatedOn)}
+                          {item.CreatedOn &&
+                            item.CreatedOn.replace("T", " ").replace("Z", "")}
                         </td>
                       </tr>
                     ))

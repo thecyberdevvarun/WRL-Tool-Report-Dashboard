@@ -8,7 +8,6 @@ import DateTimePicker from "../../components/ui/DateTimePicker";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { baseURL } from "../../assets/assets";
-import { formatISODateString } from "../../utils/dateUtils";
 
 const ErrorLog = () => {
   const groupingOptions = [
@@ -216,7 +215,8 @@ const ErrorLog = () => {
                               {item.ErrorName}
                             </td>
                             <td className="px-1 py-1 border">
-                              {formatISODateString(item.ErrorOn)}
+                              {item.ErrorOn &&
+                                item.ErrorOn.replace("T", " ").replace("Z", "")}
                             </td>
                           </tr>
                         ))

@@ -1,3 +1,4 @@
+// components/FpaDefectDetailModal.jsx
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLazyGetFpaDefectDetailsQuery } from "../redux/api/fpaReportApi";
@@ -5,8 +6,11 @@ import { closeDefectModal } from "../redux/fpaReportSlice";
 import Loader from "./ui/Loader";
 import { IoCloseOutline } from "react-icons/io5";
 import { HiOutlineSearch } from "react-icons/hi";
-import { FiDownload } from "react-icons/fi";
+import { FiImage, FiDownload } from "react-icons/fi";
+import { baseURL } from "../assets/assets.js";
 import toast from "react-hot-toast";
+
+const SERVER_URL = new URL(baseURL).origin;
 
 const FpaDefectDetailModal = () => {
   const dispatch = useDispatch();
@@ -30,7 +34,7 @@ const FpaDefectDetailModal = () => {
   // Build correct image URL
   const getImageUrl = (imageName) => {
     if (!imageName) return null;
-    return `/uploads/FpaDefectImages/${imageName}`;
+    return `${SERVER_URL}/uploads/FpaDefectImages/${imageName}`;
   };
 
   /**

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "react-circular-progressbar": "^2.2.0",
+    "recharts": "^3.7.0"
+  }
+}

@@ -7,7 +7,6 @@ import Loader from "../../components/ui/Loader";
 import toast from "react-hot-toast";
 import ExcelJS from "exceljs";
 import { baseURL } from "../../assets/assets";
-import { formatISODateString } from "../../utils/dateUtils";
 
 const DailyPlan = () => {
   const [loading, setLoading] = useState(false);
@@ -293,7 +292,7 @@ const DailyPlan = () => {
                             {item.RefNo}
                           </td>
                           <td className="px-2 py-1 border text-center">
-                            {formatISODateString(item.RefDate)}
+                            {item.RefDate.replace("T", " ").replace("Z", "")}
                           </td>
                           <td className="px-2 py-1 border text-center">
                             {item.PlanDate.split("T")[0]}

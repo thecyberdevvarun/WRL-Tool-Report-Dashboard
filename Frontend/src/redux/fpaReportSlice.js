@@ -14,10 +14,6 @@ const initialState = {
   // Defect Detail Modal (Query 3)
   isDefectModalOpen: false,
   selectedFGSRNo: null,
-
-  // Serial Search Modal
-  isSerialModalOpen: false,
-  serialData: null, // { modelName, data: [...] }
 };
 
 const fpaReportSlice = createSlice({
@@ -34,8 +30,6 @@ const fpaReportSlice = createSlice({
     resetFpaFilters: (state) => {
       state.filters = { startDate: "", endDate: "" };
       state.activeQuickFilter = null;
-      state.isSerialModalOpen = false;
-      state.serialData = null;
     },
 
     // Model Modal
@@ -57,16 +51,6 @@ const fpaReportSlice = createSlice({
       state.isDefectModalOpen = false;
       state.selectedFGSRNo = null;
     },
-
-    // Serial Search Modal
-    openSerialModal: (state, action) => {
-      state.isSerialModalOpen = true;
-      state.serialData = action.payload; // { modelName, data: [...] }
-    },
-    closeSerialModal: (state) => {
-      state.isSerialModalOpen = false;
-      state.serialData = null;
-    },
   },
 });
 
@@ -78,8 +62,6 @@ export const {
   closeModelModal,
   openDefectModal,
   closeDefectModal,
-  openSerialModal,
-  closeSerialModal,
 } = fpaReportSlice.actions;
 
 export default fpaReportSlice.reducer;

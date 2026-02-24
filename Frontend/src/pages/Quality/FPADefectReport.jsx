@@ -24,7 +24,6 @@ import {
   Legend,
   Title as ChartTitle,
 } from "chart.js";
-import { formatISODateString } from "../../utils/dateUtils";
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -35,7 +34,7 @@ ChartJS.register(
   LineController,
   Tooltip,
   Legend,
-  ChartTitle,
+  ChartTitle
 );
 
 const FpaDefectReport = () => {
@@ -50,14 +49,16 @@ const FpaDefectReport = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    axios.get(`${baseURL}shared/model-variants`).then((res) =>
-      setVariants(
-        res.data.map((x) => ({
-          label: x.MaterialName,
-          value: x.MaterialName,
-        })),
-      ),
-    );
+    axios
+      .get(`${baseURL}shared/model-variants`)
+      .then((res) =>
+        setVariants(
+          res.data.map((x) => ({
+            label: x.MaterialName,
+            value: x.MaterialName,
+          }))
+        )
+      );
   }, []);
 
   const fetchReport = async () => {
@@ -98,7 +99,7 @@ const FpaDefectReport = () => {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <Title title="FPA Defect Report" align="center" />
+      <Title title="📊 FPA Defect Report" align="center" />
 
       <div className="grid md:grid-cols-2 gap-4 mt-6">
         <div className="bg-purple-50 border p-4 rounded-xl shadow space-y-3">
@@ -196,7 +197,8 @@ const FpaDefectReport = () => {
                       v.includes("T") &&
                       v.includes("Z")
                     ) {
-                      value = formatISODateString(v);
+                      value = v.replace("T", " ").replace("Z", "").slice(0, 10);
+                      // If you want only date -> value = v.slice(0,10)
                     }
 
                     return (

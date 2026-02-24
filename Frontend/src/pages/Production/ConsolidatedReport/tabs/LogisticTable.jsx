@@ -1,6 +1,5 @@
 import { BsExclamationCircle } from "react-icons/bs";
 import EmptyState from "../../../../components/ui/EmptyState";
-import { formatISODateString } from "../../../../utils/dateUtils";
 
 function LogisticTable({ data }) {
   const headers = [
@@ -44,35 +43,42 @@ function LogisticTable({ data }) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {Array.isArray(data) && data.length > 0 ? (
-            data.map((item, index) => (
-              <tr
-                key={index}
-                className={`text-center transition-colors duration-150 ${
-                  index % 2 === 0 ? "bg-white" : "bg-gray-50/80"
-                } hover:bg-indigo-50/70`}
-              >
-                {fields.map((field) => {
-                  const value = item?.[field];
-                  const isFallback = value == null;
-                  return (
-                    <td key={field} className="px-4 py-2.5 whitespace-nowrap">
-                      {isFallback ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                          <BsExclamationCircle size={11} />
-                          {fallback[field]}
-                        </span>
-                      ) : (
-                        <span className="text-gray-700">
-                          {typeof value === "string" && value.includes("T")
-                            ? formatISODateString(value)
-                            : value}
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))
+            data.map((item, index) => {
+              return (
+                <tr
+                  key={index}
+                  className={`text-center transition-colors duration-150 ${
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50/80"
+                  } hover:bg-indigo-50/70`}
+                >
+                  {fields.map((field) => {
+                    const value = item?.[field];
+                    const isFallback = value == null;
+
+                    return (
+                      <td key={field} className="px-4 py-2.5 whitespace-nowrap">
+                        {isFallback ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                            <BsExclamationCircle size={11} />
+                            {fallback[field]}
+                          </span>
+                        ) : (
+                          <span
+                            className={`${
+                              field === "Session_ID"
+                                ? "font-mono font-semibold tracking-wide text-indigo-700"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            {value}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td colSpan={8}>

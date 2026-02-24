@@ -12,7 +12,6 @@ import {
   useGetModelVariantsQuery,
   useGetComponentTypesQuery,
 } from "../../redux/api/commonApi.js";
-import { formatISODateString } from "../../utils/dateUtils.js";
 
 const ComponentTraceabilityReport = () => {
   const [loading, setLoading] = useState(false);
@@ -256,10 +255,12 @@ const ComponentTraceabilityReport = () => {
                       <td className="border">{item.Component_Type}</td>
                       <td className="border">{item.Supplier_Name}</td>
                       <td className="border">
-                        {formatISODateString(item.Comp_ScanedOn)}
+                        {item.Comp_ScanedOn &&
+                          item.Comp_ScanedOn.replace("T", " ").replace("Z", "")}
                       </td>
                       <td className="border">
-                        {formatISODateString(item.FG_Date)}
+                        {item.FG_Date &&
+                          item.FG_Date.replace("T", " ").replace("Z", "")}
                       </td>
                       <td className="border">{item.Fg_Sr_No}</td>
                       <td className="border">{item.Asset_tag}</td>

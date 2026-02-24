@@ -7,7 +7,6 @@ import Loader from "../../components/ui/Loader";
 import toast from "react-hot-toast";
 import ExportButton from "../../components/ui/ExportButton";
 import { baseURL } from "../../assets/assets";
-import { formatISODateString } from "../../utils/dateUtils";
 
 const DispatchUnloading = () => {
   const [loading, setLoading] = useState(false);
@@ -414,7 +413,8 @@ const DispatchUnloading = () => {
                           <td className="px-1 py-1 border">{item.BatchCode}</td>
                           <td className="px-1 py-1 border">{item.ScannerNo}</td>
                           <td className="px-1 py-1 border">
-                            {formatISODateString(item.DateTime)}
+                            {item.DateTime &&
+                              item.DateTime.replace("T", " ").replace("Z", "")}
                           </td>
                         </tr>
                       );

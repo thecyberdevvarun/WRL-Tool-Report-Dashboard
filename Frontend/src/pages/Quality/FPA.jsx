@@ -6,7 +6,7 @@ import InputField from "../../components/ui/InputField";
 import Button from "../../components/ui/Button";
 import SelectField from "../../components/ui/SelectField";
 import Loader from "../../components/ui/Loader";
-import { formatISODateString, getFormattedISTDate } from "../../utils/dateUtils.js";
+import { getFormattedISTDate } from "../../utils/dateUtils.js";
 import { baseURL } from "../../assets/assets.js";
 import { Bar } from "react-chartjs-2";
 import {
@@ -507,7 +507,8 @@ const FPA = () => {
                           >
                             <td className="px-1 py-1 border">{item.SRNo}</td>
                             <td className="px-1 py-1 border">
-                              {formatISODateString(item.Date)}
+                              {item.Date &&
+                                item.Date.replace("T", " ").replace("Z", "")}
                             </td>
                             <td className="px-1 py-1 border">{item.Model}</td>
                             <td className="px-1 py-1 border">{item.Shift}</td>

@@ -29,7 +29,6 @@ import {
   getYesterdayRange,
   getMTDRange,
   formatDateTimeLocal,
-  formatISODateString,
 } from "../../utils/dateUtils";
 import { exportToXls } from "../../utils/exportToXls.js";
 import {
@@ -614,7 +613,8 @@ const ESTReport = () => {
                         {item.serial_no}
                       </td>
                       <td className="px-3 py-3">
-                        {formatISODateString(item.date_time)}
+                        {item.date_time &&
+                          item.date_time.replace("T", " ").replace("Z", "")}
                       </td>
                       <td className="px-3 py-3">
                         <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-semibold">

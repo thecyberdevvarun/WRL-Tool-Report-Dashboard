@@ -7,7 +7,6 @@ import Loader from "../../components/ui/Loader";
 import ExportButton from "../../components/ui/ExportButton";
 import toast from "react-hot-toast";
 import { baseURL } from "../../assets/assets";
-import { formatISODateString } from "../../utils/dateUtils";
 
 function StageHistoryReport() {
   const [loading, setLoading] = useState(false);
@@ -206,7 +205,10 @@ function StageHistoryReport() {
                           </td>
                           <td className="px-1 py-1 border">{item.UserName}</td>
                           <td className="px-1 py-1 border">
-                            {formatISODateString(item.ActivityOn)}
+                            {item.ActivityOn?.replace("T", " ").replace(
+                              "Z",
+                              ""
+                            )}
                           </td>
                           <td className="px-1 py-1 border">
                             {item.BarcodeAlias}

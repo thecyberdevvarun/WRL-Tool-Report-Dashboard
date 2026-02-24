@@ -7,7 +7,6 @@ import { CgProfile } from "react-icons/cg";
 import { FaEye } from "react-icons/fa";
 import { baseURL } from "../../assets/assets";
 import Loader from "../../components/ui/Loader";
-import { formatISODateString } from "../../utils/dateUtils";
 
 const History = () => {
   const [allVisitors, setAllVisitors] = useState([]);
@@ -52,18 +51,18 @@ const History = () => {
       filtered = filtered.filter(
         (v) =>
           v.visitor_name?.toLowerCase().includes(searchLower) ||
-          v.company?.toLowerCase().includes(searchLower),
+          v.company?.toLowerCase().includes(searchLower)
       );
     }
 
     if (from) {
       filtered = filtered.filter(
-        (v) => new Date(v.check_in_time) >= new Date(from + "T00:00:00"),
+        (v) => new Date(v.check_in_time) >= new Date(from + "T00:00:00")
       );
     }
     if (to) {
       filtered = filtered.filter(
-        (v) => new Date(v.check_in_time) <= new Date(to + "T23:59:59"),
+        (v) => new Date(v.check_in_time) <= new Date(to + "T23:59:59")
       );
     }
 
@@ -225,7 +224,8 @@ const History = () => {
                 <h3 className="mt-4 text-lg font-semibold">{v.visitor_name}</h3>
                 <p className="text-gray-500 text-sm">{v.company || "N/A"}</p>
                 <p className="text-gray-400 text-sm mt-1">
-                  Last Visit: {formatISODateString(v.check_in_time) || "N/A"}
+                  Last Visit:{" "}
+                  {v.check_in_time?.replace("T", " ").replace("Z", "") || "N/A"}
                 </p>
                 <p className="text-gray-400 text-sm">
                   Visited: {v.employee_name || "N/A"} (
@@ -308,7 +308,9 @@ const History = () => {
                       <div className="space-y-1">
                         <p className="text-gray-700 font-medium text-sm">
                           Check-in:{" "}
-                          {formatISODateString(log.check_in_time) || "N/A"}
+                          {log.check_in_time
+                            ?.replace("T", " ")
+                            .replace("Z", "") || "N/A"}
                         </p>
                         <p className="text-gray-500 text-sm">
                           Employee: {log.employee_name || "N/A"}
@@ -319,7 +321,9 @@ const History = () => {
                       </div>
                       <p className="text-gray-700 font-medium text-sm text-right">
                         Check-out:{" "}
-                        {formatISODateString(log.check_out_time) || "N/A"}
+                        {log.check_out_time
+                          ?.replace("T", " ")
+                          .replace("Z", "") || "N/A"}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-gray-500 text-sm">

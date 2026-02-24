@@ -8,7 +8,6 @@ import toast from "react-hot-toast";
 import Loader from "../../components/ui/Loader";
 import { FaCaretUp, FaCaretDown } from "react-icons/fa";
 import { baseURL } from "../../assets/assets";
-import { formatISODateString } from "../../utils/dateUtils";
 
 const NFCReport = () => {
   const [loading, setLoading] = useState(false);
@@ -450,7 +449,7 @@ const NFCReport = () => {
                         <td className="px-2 py-1 border">{item.CustomerQR}</td>
                         <td className="px-2 py-1 border">{item.NFC_UID}</td>
                         <td className="px-2 py-1 border whitespace-nowrap">
-                          {formatISODateString(item.CreatedOn)}
+                          {item.CreatedOn?.replace("T", " ").replace("Z", "")}
                         </td>
                       </tr>
                     );

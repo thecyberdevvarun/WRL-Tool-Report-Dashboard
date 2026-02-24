@@ -5,20 +5,15 @@ import DateTimePicker from "../../components/ui/DateTimePicker";
 import Button from "../../components/ui/Button";
 import FpaModelDetailModal from "../../components/FpaModelDetailModal";
 import FpaDefectDetailModal from "../../components/FpaDefectDetailModal";
-import FpaSerialSearchModal from "../../components/FpaSerialSearchModal";
 import Title from "../../components/ui/Title";
 import toast from "react-hot-toast";
 
-import {
-  useGetFpaHistoryQuery,
-  useLazyGetFpaBySerialQuery,
-} from "../../redux/api/fpaReportApi";
+import { useGetFpaHistoryQuery } from "../../redux/api/fpaReportApi";
 import {
   setFpaDateRange,
   setFpaQuickFilter,
   resetFpaFilters,
   openModelModal,
-  openSerialModal,
 } from "../../redux/fpaReportSlice";
 import {
   getTodayRange,
@@ -32,13 +27,7 @@ import {
   HiOutlineDocumentReport,
 } from "react-icons/hi";
 import { FiRefreshCw } from "react-icons/fi";
-import {
-  FaSearch,
-  FaRedo,
-  FaCalendarAlt,
-  FaArrowRight,
-  FaBarcode,
-} from "react-icons/fa";
+import { FaSearch, FaRedo, FaCalendarAlt, FaArrowRight } from "react-icons/fa";
 
 const FpaHistory = () => {
   const dispatch = useDispatch();
@@ -50,12 +39,10 @@ const FpaHistory = () => {
   const selectedModel = fpaState?.selectedModel || null;
   const isDefectModalOpen = fpaState?.isDefectModalOpen || false;
   const selectedFGSRNo = fpaState?.selectedFGSRNo || null;
-  const isSerialModalOpen = fpaState?.isSerialModalOpen || false;
 
+  // Local state for datetime-local input binding
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [serialSearch, setSerialSearch] = useState("");
-  const [serialLoading, setSerialLoading] = useState(false);
 
   const {
     data: historyData,
@@ -67,9 +54,13 @@ const FpaHistory = () => {
     { skip: !filters.startDate || !filters.endDate },
   );
 
-  const [triggerSerialSearch] = useLazyGetFpaBySerialQuery();
-
   /* ===================== HANDLERS ===================== */
+
+  /**
+   * Manual search — convert datetime-local value to ISO for API
+   * Input value: "2026-02-19T08:00" → ISO: "2026-02-19T02:30:00.000Z"
+   * Backend will convert ISO → IST using convertToIST()
+   */
   const handleQuery = () => {
     if (!startTime || !endTime) {
       toast.error("Please select both start and end date/time");
@@ -84,6 +75,10 @@ const FpaHistory = () => {
     dispatch(setFpaQuickFilter(null));
   };
 
+  /**
+   * Quick filters — use dateUtils which return ISO dates for API
+   * and local strings for input binding
+   */
   const handleQuickFilter = (type) => {
     let range;
     switch (type) {
@@ -99,6 +94,8 @@ const FpaHistory = () => {
       default:
         return;
     }
+
+    // ISO dates → API (backend will convert to IST)
     dispatch(
       setFpaDateRange({
         startDate: range.startDate,
@@ -106,6 +103,8 @@ const FpaHistory = () => {
       }),
     );
     dispatch(setFpaQuickFilter(type));
+
+    // Local strings → input fields
     setStartTime(range.startLocal);
     setEndTime(range.endLocal);
   };
@@ -114,54 +113,10 @@ const FpaHistory = () => {
     dispatch(resetFpaFilters());
     setStartTime("");
     setEndTime("");
-    setSerialSearch("");
   };
 
   const handleModelClick = (modelName) => {
     dispatch(openModelModal(modelName));
-  };
-
-  /**
-   * Simplified Serial Search:
-   * 1. Call GET /api/fpa/serial/:fgsrNo
-   * 2. Get back { modelName, data: [single record] }
-   * 3. Open serial modal with that data
-   * No date range needed!
-   */
-  const handleSerialSearch = async () => {
-    const trimmed = serialSearch.trim();
-    if (!trimmed) {
-      toast.error("Please enter a serial number (FGSRNo)");
-      return;
-    }
-
-    setSerialLoading(true);
-
-    try {
-      const result = await triggerSerialSearch({ fgsrNo: trimmed }).unwrap();
-
-      if (result?.success && result?.data) {
-        dispatch(
-          openSerialModal({
-            modelName: result.modelName,
-            data: result.data,
-          }),
-        );
-        toast.success(`Found model: ${result.modelName}`);
-      }
-    } catch (error) {
-      toast.error(
-        error?.data?.message || "No record found for this serial number",
-      );
-    } finally {
-      setSerialLoading(false);
-    }
-  };
-
-  const handleSerialKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleSerialSearch();
-    }
   };
 
   const fpaData = historyData?.data || [];
@@ -171,57 +126,7 @@ const FpaHistory = () => {
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
       <Title title="FPA Report Dashboard" align="center" />
 
-      {/* Serial Number Search */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
-        <div className="flex items-end gap-3">
-          <div className="flex-1 max-w-md">
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Search by Serial Number (FGSRNo)
-            </label>
-            <div className="relative">
-              <FaBarcode
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={14}
-              />
-              <input
-                type="text"
-                value={serialSearch}
-                onChange={(e) => setSerialSearch(e.target.value)}
-                onKeyDown={handleSerialKeyDown}
-                placeholder="Enter FGSRNo e.g. 42623260200240"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                disabled={serialLoading}
-              />
-            </div>
-          </div>
-          <Button
-            onClick={handleSerialSearch}
-            bgColor={
-              serialLoading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
-            }
-            textColor="text-white"
-            className={`px-4 py-[9px] text-sm flex items-center gap-1.5 ${
-              serialLoading ? "cursor-not-allowed" : ""
-            }`}
-            disabled={serialLoading}
-          >
-            <FaSearch size={12} />
-            {serialLoading ? "Searching..." : "Search"}
-          </Button>
-          {serialSearch && (
-            <Button
-              onClick={() => setSerialSearch("")}
-              bgColor="bg-gray-100 hover:bg-gray-200"
-              textColor="text-gray-600"
-              className="px-3 py-[9px] text-sm"
-            >
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Date Range Filters */}
+      {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className="md:col-span-3">
@@ -311,7 +216,7 @@ const FpaHistory = () => {
       {/* Loading */}
       {isLoading && <Loader />}
 
-      {/* Data Table */}
+      {/* Data */}
       {!isLoading && fpaData.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -479,10 +384,7 @@ const FpaHistory = () => {
         </div>
       )}
 
-      {/* Serial Search Modal — separate from model modal */}
-      {isSerialModalOpen && <FpaSerialSearchModal />}
-
-      {/* Model Modal — for dashboard "View" clicks */}
+      {/* Modals */}
       {isModelModalOpen && selectedModel && (
         <FpaModelDetailModal
           modelName={selectedModel}
@@ -491,7 +393,6 @@ const FpaHistory = () => {
         />
       )}
 
-      {/* Defect Modal */}
       {isDefectModalOpen && selectedFGSRNo && <FpaDefectDetailModal />}
     </div>
   );
