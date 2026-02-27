@@ -16,13 +16,13 @@ import {
   FaHistory,
   FaBarcode,
   FaUserCheck,
-  FaUserTie,
   FaUserShield,
-  FaPrint,
   FaImage,
   FaTimes,
   FaSearchPlus,
   FaDownload,
+  FaFilePdf,
+  FaFileExcel,
 } from "react-icons/fa";
 import { MdFormatListNumbered, MdUpdate, MdDateRange } from "react-icons/md";
 import { HiClipboardDocumentCheck } from "react-icons/hi2";
@@ -30,48 +30,13 @@ import { BiSolidFactory } from "react-icons/bi";
 import useAuditData from "../../hooks/useAuditData";
 import toast from "react-hot-toast";
 import { baseURL } from "../../assets/assets.js";
-
-// Format date for display (DD/MM/YYYY)
-const formatDateForDisplay = (dateString) => {
-  if (!dateString) return "-";
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch {
-    return "-";
-  }
-};
-
-// Format datetime for display
-const formatDateTimeForDisplay = (dateString) => {
-  if (!dateString) return "-";
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
-    return date.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return "-";
-  }
-};
-
-// ✅ NEW: Format file size
-const formatFileSize = (bytes) => {
-  if (!bytes) return "";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-};
+import {
+  formatDateForDisplay,
+  formatDateTimeForDisplay,
+} from "../../utils/dateUtils.js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const AuditView = () => {
   const navigate = useNavigate();
@@ -96,9 +61,8 @@ const AuditView = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [auditHistory, setAuditHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-
-  // ✅ NEW: Image preview state
   const [imagePreview, setImagePreview] = useState(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Load audit data
   useEffect(() => {
@@ -183,11 +147,6 @@ const AuditView = () => {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  // Print function
-  const handlePrint = () => {
-    window.print();
   };
 
   // Get field icon
@@ -382,55 +341,568 @@ const AuditView = () => {
     [audit],
   );
 
-  // ✅ NEW: Render image in view mode
-  const renderImageViewCell = useCallback(
-    (column, checkpoint) => {
-      const imageFilename = checkpoint[column.id]; // Now it's just a string filename
+  // Render image in view mode
+  const renderImageViewCell = useCallback((column, checkpoint) => {
+    const imageFilename = checkpoint[column.id];
 
-      // Check if it's a filename string (not the old base64 object)
-      if (imageFilename && typeof imageFilename === "string") {
-        return (
-          <td key={column.id} className="px-3 py-2 border-r border-gray-200">
-            <div className="flex justify-center">
-              <div className="relative group cursor-pointer">
-                <img
-                  src={`${baseURL}audit-report/images/${imageFilename}`} // ✅ Fetch from backend
-                  alt="Checkpoint image"
-                  className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md print:w-12 print:h-12"
-                  onClick={() =>
-                    setImagePreview({
-                      fileName: imageFilename,
-                      data: `${baseURL}audit-report/images/${imageFilename}`,
-                    })
-                  }
-                  onError={(e) => {
-                    e.target.src =
-                      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                    e.target.classList.add("opacity-50");
-                  }}
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 print:hidden">
-                  <FaSearchPlus className="text-white" size={16} />
-                </div>
-              </div>
-            </div>
-          </td>
-        );
-      }
-
+    if (imageFilename && typeof imageFilename === "string") {
       return (
         <td key={column.id} className="px-3 py-2 border-r border-gray-200">
           <div className="flex justify-center">
-            <span className="text-xs text-gray-400 italic flex items-center gap-1">
-              <FaImage className="text-gray-300" size={12} />
-              No image
-            </span>
+            <div className="relative group cursor-pointer">
+              <img
+                src={`${baseURL}audit-report/images/${imageFilename}`}
+                alt="Checkpoint image"
+                className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md"
+                onClick={() =>
+                  setImagePreview({
+                    fileName: imageFilename,
+                    data: `${baseURL}audit-report/images/${imageFilename}`,
+                  })
+                }
+                onError={(e) => {
+                  e.target.src =
+                    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                  e.target.classList.add("opacity-50");
+                }}
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <FaSearchPlus className="text-white" size={16} />
+              </div>
+            </div>
           </div>
         </td>
       );
-    },
-    [baseURL],
-  );
+    }
+
+    return (
+      <td key={column.id} className="px-3 py-2 border-r border-gray-200">
+        <div className="flex justify-center">
+          <span className="text-xs text-gray-400 italic flex items-center gap-1">
+            <FaImage className="text-gray-300" size={12} />
+            No image
+          </span>
+        </div>
+      </td>
+    );
+  }, []);
+
+  // ==================== EXPORT HELPERS ====================
+
+  const getExportTableData = useCallback(() => {
+    if (!audit || !template) return { headers: [], rows: [] };
+
+    const visibleCols = template.columns?.filter((col) => col.visible) || [];
+    const headers = visibleCols
+      .filter((col) => col.type !== "image")
+      .map((col) => col.name);
+
+    const rows = [];
+
+    let sections = audit.sections;
+    if (typeof sections === "string") {
+      try {
+        sections = JSON.parse(sections);
+      } catch {
+        sections = [];
+      }
+    }
+
+    if (!sections || !Array.isArray(sections)) return { headers, rows };
+
+    sections.forEach((section) => {
+      if (section.stages && Array.isArray(section.stages)) {
+        section.stages.forEach((stage) => {
+          stage.checkPoints?.forEach((checkpoint) => {
+            const row = [];
+            visibleCols
+              .filter((col) => col.type !== "image")
+              .forEach((col) => {
+                if (col.id === "section") {
+                  row.push(section.sectionName || "-");
+                } else if (col.id === "stage") {
+                  row.push(stage.stageName || "-");
+                } else if (col.id === "status") {
+                  row.push(
+                    (checkpoint.status || "pending").charAt(0).toUpperCase() +
+                      (checkpoint.status || "pending").slice(1),
+                  );
+                } else {
+                  row.push(checkpoint[col.id] || "-");
+                }
+              });
+            rows.push(row);
+          });
+        });
+      } else if (section.checkPoints && Array.isArray(section.checkPoints)) {
+        section.checkPoints.forEach((checkpoint) => {
+          const row = [];
+          visibleCols
+            .filter((col) => col.type !== "image")
+            .forEach((col) => {
+              if (col.id === "section") {
+                row.push(section.sectionName || "-");
+              } else if (col.id === "status") {
+                row.push(
+                  (checkpoint.status || "pending").charAt(0).toUpperCase() +
+                    (checkpoint.status || "pending").slice(1),
+                );
+              } else {
+                row.push(checkpoint[col.id] || "-");
+              }
+            });
+          rows.push(row);
+        });
+      }
+    });
+
+    return { headers, rows };
+  }, [audit, template]);
+
+  const getInfoDataForExport = useCallback(() => {
+    if (!audit || !template) return [];
+    const infoRows = [];
+    template.infoFields
+      ?.filter((f) => f.visible)
+      .forEach((field) => {
+        let value = getInfoFieldValue(field.id);
+        if (field.id === "date") value = formatDateForDisplay(value);
+        infoRows.push([field.name, value]);
+      });
+    return infoRows;
+  }, [audit, template, getInfoFieldValue]);
+
+  const getSummaryForExport = useCallback(() => {
+    const s = getSummary();
+    return [
+      ["Total Checks", s.total],
+      ["Passed", s.pass],
+      ["Warnings", s.warning],
+      ["Failed", s.fail],
+      ["Pending", s.pending],
+      [
+        "Pass Rate",
+        s.total > 0 ? Math.round((s.pass / s.total) * 100) + "%" : "0%",
+      ],
+    ];
+  }, [getSummary]);
+
+  // ==================== EXPORT AS PDF ====================
+
+  const handleExportPDF = useCallback(() => {
+    try {
+      const doc = new jsPDF("l", "mm", "a4");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPos = 15;
+
+      // Title
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 64, 175);
+      doc.text(audit.reportName || "Audit Report", pageWidth / 2, yPos, {
+        align: "center",
+      });
+      yPos += 8;
+
+      // Template name
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Template: ${audit.templateName || "-"}`, pageWidth / 2, yPos, {
+        align: "center",
+      });
+      yPos += 5;
+
+      // Status
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(
+        `Status: ${(audit.status || "").charAt(0).toUpperCase() + (audit.status || "").slice(1)}`,
+        pageWidth / 2,
+        yPos,
+        { align: "center" },
+      );
+      yPos += 5;
+
+      // Audit Code
+      if (audit.auditCode) {
+        doc.text(`Audit Code: ${audit.auditCode}`, pageWidth / 2, yPos, {
+          align: "center",
+        });
+        yPos += 5;
+      }
+
+      // Header info
+      const headerItems = [];
+      if (template?.headerConfig?.showFormatNo !== false && audit.formatNo) {
+        headerItems.push(`Format No: ${audit.formatNo}`);
+      }
+      if (template?.headerConfig?.showRevNo !== false && audit.revNo) {
+        headerItems.push(`Rev No: ${audit.revNo}`);
+      }
+      if (template?.headerConfig?.showRevDate !== false && audit.revDate) {
+        headerItems.push(`Rev Date: ${formatDateForDisplay(audit.revDate)}`);
+      }
+      if (headerItems.length > 0) {
+        doc.setFontSize(9);
+        doc.setTextColor(80, 80, 80);
+        doc.text(headerItems.join("  |  "), pageWidth / 2, yPos, {
+          align: "center",
+        });
+        yPos += 8;
+      } else {
+        yPos += 3;
+      }
+
+      // Info Section
+      const infoData = getInfoDataForExport();
+      if (infoData.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Audit Information", 14, yPos);
+        yPos += 2;
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [["Field", "Value"]],
+          body: infoData,
+          theme: "grid",
+          headStyles: {
+            fillColor: [59, 130, 246],
+            textColor: 255,
+            fontSize: 9,
+            fontStyle: "bold",
+          },
+          bodyStyles: { fontSize: 9 },
+          columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+          margin: { left: 14, right: 14 },
+        });
+        yPos = doc.lastAutoTable.finalY + 8;
+      }
+
+      // Notes
+      if (audit.notes) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Notes", 14, yPos);
+        yPos += 5;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        const splitNotes = doc.splitTextToSize(audit.notes, pageWidth - 28);
+        doc.text(splitNotes, 14, yPos);
+        yPos += splitNotes.length * 5 + 8;
+      }
+
+      // Checkpoints Table
+      const { headers, rows } = getExportTableData();
+      if (headers.length > 0 && rows.length > 0) {
+        if (yPos > doc.internal.pageSize.getHeight() - 40) {
+          doc.addPage();
+          yPos = 15;
+        }
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Checkpoint Details", 14, yPos);
+        yPos += 2;
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [headers],
+          body: rows,
+          theme: "grid",
+          headStyles: {
+            fillColor: [55, 65, 81],
+            textColor: 255,
+            fontSize: 8,
+            fontStyle: "bold",
+          },
+          bodyStyles: { fontSize: 8 },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          margin: { left: 14, right: 14 },
+          didParseCell: (data) => {
+            const statusColIndex = headers.indexOf("Status");
+            if (
+              data.section === "body" &&
+              data.column.index === statusColIndex
+            ) {
+              const val = (data.cell.raw || "").toLowerCase();
+              if (val === "pass") {
+                data.cell.styles.textColor = [21, 128, 61];
+                data.cell.styles.fillColor = [220, 252, 231];
+              } else if (val === "fail") {
+                data.cell.styles.textColor = [185, 28, 28];
+                data.cell.styles.fillColor = [254, 226, 226];
+              } else if (val === "warning") {
+                data.cell.styles.textColor = [161, 98, 7];
+                data.cell.styles.fillColor = [254, 249, 195];
+              }
+            }
+          },
+        });
+        yPos = doc.lastAutoTable.finalY + 8;
+      }
+
+      // Summary
+      const summaryData = getSummaryForExport();
+      if (yPos > doc.internal.pageSize.getHeight() - 50) {
+        doc.addPage();
+        yPos = 15;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text("Audit Summary", 14, yPos);
+      yPos += 2;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["Metric", "Value"]],
+        body: summaryData,
+        theme: "grid",
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontSize: 9,
+          fontStyle: "bold",
+        },
+        bodyStyles: { fontSize: 9 },
+        columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+        margin: { left: 14, right: 14 },
+        tableWidth: 150,
+      });
+      yPos = doc.lastAutoTable.finalY + 8;
+
+      // Signatures
+      if (yPos > doc.internal.pageSize.getHeight() - 40) {
+        doc.addPage();
+        yPos = 15;
+      }
+
+      const sigs = audit.signatures || {};
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Signatures", 14, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Auditor:", 14, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(sigs.auditor?.name || audit.createdBy || "-", 60, yPos);
+      yPos += 5;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Date: ${
+          sigs.auditor?.date
+            ? formatDateForDisplay(sigs.auditor.date)
+            : audit.createdAt
+              ? formatDateForDisplay(audit.createdAt)
+              : "-"
+        }`,
+        60,
+        yPos,
+      );
+      yPos += 8;
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Approved By:", 14, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(audit.approvedBy || sigs.approver?.name || "-", 60, yPos);
+      yPos += 5;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Date: ${
+          audit.approvedAt
+            ? formatDateForDisplay(audit.approvedAt)
+            : sigs.approver?.date
+              ? formatDateForDisplay(sigs.approver.date)
+              : "-"
+        }`,
+        60,
+        yPos,
+      );
+
+      // Footer on each page
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Generated on ${formatDateForDisplay(new Date().toISOString())} | Page ${i} of ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: "center" },
+        );
+        doc.text(
+          "Confidential - Internal Use Only",
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 4,
+          { align: "center" },
+        );
+      }
+
+      const fileName = `${audit.reportName || "Audit_Report"}_${audit.auditCode || id}.pdf`;
+      doc.save(fileName.replace(/\s+/g, "_"));
+      toast.success("PDF exported successfully!");
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast.error("Failed to export PDF. Please try again.");
+    }
+  }, [
+    audit,
+    template,
+    id,
+    getExportTableData,
+    getInfoDataForExport,
+    getSummaryForExport,
+  ]);
+
+  // ==================== EXPORT AS EXCEL ====================
+
+  const handleExportExcel = useCallback(() => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Audit Info
+      const infoSheetData = [
+        ["Audit Report"],
+        [""],
+        ["Report Name", audit.reportName || "-"],
+        ["Template", audit.templateName || "-"],
+        [
+          "Status",
+          (audit.status || "").charAt(0).toUpperCase() +
+            (audit.status || "").slice(1),
+        ],
+        ["Audit Code", audit.auditCode || "-"],
+      ];
+
+      if (template?.headerConfig?.showFormatNo !== false) {
+        infoSheetData.push(["Format No", audit.formatNo || "-"]);
+      }
+      if (template?.headerConfig?.showRevNo !== false) {
+        infoSheetData.push(["Rev No", audit.revNo || "-"]);
+      }
+      if (template?.headerConfig?.showRevDate !== false) {
+        infoSheetData.push(["Rev Date", formatDateForDisplay(audit.revDate)]);
+      }
+
+      infoSheetData.push([""]);
+      infoSheetData.push(["--- Audit Information ---"]);
+
+      const infoData = getInfoDataForExport();
+      infoData.forEach((row) => infoSheetData.push(row));
+
+      infoSheetData.push([""]);
+      infoSheetData.push(["Notes", audit.notes || "No notes added."]);
+
+      infoSheetData.push([""]);
+      infoSheetData.push(["--- Signatures ---"]);
+      const sigs = audit.signatures || {};
+      infoSheetData.push([
+        "Auditor",
+        sigs.auditor?.name || audit.createdBy || "-",
+      ]);
+      infoSheetData.push([
+        "Auditor Date",
+        sigs.auditor?.date
+          ? formatDateForDisplay(sigs.auditor.date)
+          : audit.createdAt
+            ? formatDateForDisplay(audit.createdAt)
+            : "-",
+      ]);
+      infoSheetData.push([
+        "Approved By",
+        audit.approvedBy || sigs.approver?.name || "-",
+      ]);
+      infoSheetData.push([
+        "Approval Date",
+        audit.approvedAt
+          ? formatDateForDisplay(audit.approvedAt)
+          : sigs.approver?.date
+            ? formatDateForDisplay(sigs.approver.date)
+            : "-",
+      ]);
+      if (audit.approvalComments) {
+        infoSheetData.push(["Approval Comments", audit.approvalComments]);
+      }
+
+      const infoSheet = XLSX.utils.aoa_to_sheet(infoSheetData);
+      infoSheet["!cols"] = [{ wch: 20 }, { wch: 50 }];
+      XLSX.utils.book_append_sheet(wb, infoSheet, "Audit Info");
+
+      // Sheet 2: Checkpoints
+      const { headers, rows } = getExportTableData();
+      if (headers.length > 0) {
+        const checkpointData = [headers, ...rows];
+        const checkpointSheet = XLSX.utils.aoa_to_sheet(checkpointData);
+        checkpointSheet["!cols"] = headers.map((h) => ({
+          wch: Math.max(h.length + 5, 15),
+        }));
+        XLSX.utils.book_append_sheet(wb, checkpointSheet, "Checkpoints");
+      }
+
+      // Sheet 3: Summary
+      const summarySheetData = [["Audit Summary"], [""], ["Metric", "Value"]];
+      const summaryData = getSummaryForExport();
+      summaryData.forEach((row) => summarySheetData.push(row));
+      const summarySheet = XLSX.utils.aoa_to_sheet(summarySheetData);
+      summarySheet["!cols"] = [{ wch: 20 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
+
+      // Sheet 4: Metadata
+      const metadataSheetData = [
+        ["Audit Metadata"],
+        [""],
+        ["Audit ID", audit.id || "-"],
+        ["Audit Code", audit.auditCode || "-"],
+        ["Template ID", audit.templateId || "-"],
+        ["Created By", audit.createdBy || "-"],
+        ["Created At", formatDateTimeForDisplay(audit.createdAt)],
+        ["Last Updated", formatDateTimeForDisplay(audit.updatedAt)],
+      ];
+      if (audit.submittedBy) {
+        metadataSheetData.push(["Submitted By", audit.submittedBy]);
+      }
+      if (audit.submittedAt) {
+        metadataSheetData.push([
+          "Submitted At",
+          formatDateTimeForDisplay(audit.submittedAt),
+        ]);
+      }
+      metadataSheetData.push([""]);
+      metadataSheetData.push(["Generated On", new Date().toLocaleString()]);
+
+      const metadataSheet = XLSX.utils.aoa_to_sheet(metadataSheetData);
+      metadataSheet["!cols"] = [{ wch: 20 }, { wch: 40 }];
+      XLSX.utils.book_append_sheet(wb, metadataSheet, "Metadata");
+
+      const fileName = `${audit.reportName || "Audit_Report"}_${audit.auditCode || id}.xlsx`;
+      XLSX.writeFile(wb, fileName.replace(/\s+/g, "_"));
+      toast.success("Excel exported successfully!");
+    } catch (err) {
+      console.error("Excel export error:", err);
+      toast.error("Failed to export Excel. Please try again.");
+    }
+  }, [
+    audit,
+    template,
+    id,
+    getExportTableData,
+    getInfoDataForExport,
+    getSummaryForExport,
+  ]);
 
   // Loading state
   if (initialLoading) {
@@ -468,12 +940,12 @@ const AuditView = () => {
   const signatures = audit.signatures || {};
 
   return (
-    <div className="min-h-screen bg-gray-100 py-6 px-4 print:bg-white print:p-0">
+    <div className="min-h-screen bg-gray-100 py-6 px-4">
       <div className="mx-auto">
-        {/* ==================== NEW: Image Preview Modal ==================== */}
+        {/* ==================== Image Preview Modal ==================== */}
         {imagePreview && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4 print:hidden"
+            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4"
             onClick={() => setImagePreview(null)}
           >
             <div
@@ -529,8 +1001,8 @@ const AuditView = () => {
           </div>
         )}
 
-        {/* Sticky Header - Hide on print */}
-        <div className="sticky top-0 z-40 bg-gray-100/90 backdrop-blur border-b border-gray-200 shadow-sm p-4 print:hidden">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-40 bg-gray-100/90 backdrop-blur border-b border-gray-200 shadow-sm p-4">
           <div className="mb-4 flex flex-wrap justify-between items-center gap-3">
             <div className="flex items-center gap-3">
               <button
@@ -543,12 +1015,60 @@ const AuditView = () => {
               {getAuditStatusBadge(audit.status)}
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all text-sm"
-              >
-                <FaPrint /> Print
-              </button>
+              {/* Export Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all text-sm"
+                >
+                  <FaDownload /> Export
+                  <svg
+                    className={`w-4 h-4 transition-transform ${showExportMenu ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {showExportMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowExportMenu(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-20 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          handleExportPDF();
+                          setShowExportMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+                      >
+                        <FaFilePdf className="text-red-600" />
+                        Export as PDF
+                      </button>
+                      <hr className="border-gray-100" />
+                      <button
+                        onClick={() => {
+                          handleExportExcel();
+                          setShowExportMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors"
+                      >
+                        <FaFileExcel className="text-green-600" />
+                        Export as Excel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={loadHistory}
                 disabled={historyLoading}
@@ -588,7 +1108,7 @@ const AuditView = () => {
         {(audit.status === "approved" || audit.status === "rejected") &&
           audit.approvedBy && (
             <div
-              className={`mb-4 p-4 rounded-lg print:mb-2 ${
+              className={`my-4 p-4 rounded-lg ${
                 audit.status === "approved"
                   ? "bg-green-50 border border-green-200"
                   : "bg-red-50 border border-red-200"
@@ -625,10 +1145,10 @@ const AuditView = () => {
           )}
 
         {/* Main Report Container */}
-        <div className="bg-white shadow-xl rounded-lg overflow-hidden border-2 border-gray-300 print:shadow-none print:border">
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden border-2 border-gray-300">
           {/* Header Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 border-b-2 border-gray-300">
-            <div className="md:col-span-2 bg-gradient-to-r from-blue-600 to-blue-800 p-6 print:bg-blue-600">
+            <div className="md:col-span-2 bg-gradient-to-r from-blue-600 to-blue-800 p-6">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <HiClipboardDocumentCheck className="text-4xl text-white" />
@@ -758,7 +1278,7 @@ const AuditView = () => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gradient-to-r from-gray-700 to-gray-800 text-white print:bg-gray-700">
+                <tr className="bg-gradient-to-r from-gray-700 to-gray-800 text-white">
                   {visibleColumns.map((column) => (
                     <th
                       key={column.id}
@@ -767,7 +1287,6 @@ const AuditView = () => {
                       }`}
                     >
                       <div className="flex items-center gap-1">
-                        {/* ✅ NEW: Image icon in header */}
                         {column.type === "image" && (
                           <FaImage size={12} className="text-pink-300" />
                         )}
@@ -817,7 +1336,6 @@ const AuditView = () => {
                               }`}
                             >
                               {visibleColumns.map((column) => {
-                                // Section column
                                 if (column.id === "section") {
                                   if (
                                     showSectionCell &&
@@ -838,7 +1356,6 @@ const AuditView = () => {
                                   return null;
                                 }
 
-                                // Stage column
                                 if (column.id === "stage") {
                                   if (showStageCell) {
                                     return (
@@ -856,7 +1373,6 @@ const AuditView = () => {
                                   return null;
                                 }
 
-                                // ✅ NEW: Image column
                                 if (column.type === "image") {
                                   return renderImageViewCell(
                                     column,
@@ -864,7 +1380,6 @@ const AuditView = () => {
                                   );
                                 }
 
-                                // Status column
                                 if (column.id === "status") {
                                   return (
                                     <td
@@ -876,7 +1391,6 @@ const AuditView = () => {
                                   );
                                 }
 
-                                // Other columns
                                 return (
                                   <td
                                     key={column.id}
@@ -894,7 +1408,6 @@ const AuditView = () => {
                       );
                     });
                   } else {
-                    // OLD flat structure
                     return section.checkPoints?.map(
                       (checkpoint, checkpointIndex) => (
                         <tr
@@ -927,7 +1440,6 @@ const AuditView = () => {
                               return null;
                             }
 
-                            // ✅ NEW: Image column for old structure
                             if (column.type === "image") {
                               return renderImageViewCell(column, checkpoint);
                             }
@@ -1102,7 +1614,7 @@ const AuditView = () => {
         </div>
 
         {/* Metadata Footer */}
-        <div className="mt-4 bg-white rounded-lg shadow-md p-4 print:shadow-none print:border">
+        <div className="mt-4 bg-white rounded-lg shadow-md p-4">
           <h4 className="font-medium text-gray-700 mb-2">Audit Metadata</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
@@ -1157,7 +1669,7 @@ const AuditView = () => {
         </div>
 
         {/* Footer */}
-        <div className="mt-4 text-center text-gray-500 text-sm print:mt-2">
+        <div className="mt-4 text-center text-gray-500 text-sm">
           <p>
             This document is confidential and intended for internal use only.
           </p>
@@ -1170,7 +1682,7 @@ const AuditView = () => {
 
       {/* Approval Modal */}
       {showApprovalModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 print:hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             <div
               className={`p-4 text-white ${
@@ -1255,7 +1767,7 @@ const AuditView = () => {
 
       {/* History Modal */}
       {showHistoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 print:hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
             <div className="p-4 bg-purple-600 text-white flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">

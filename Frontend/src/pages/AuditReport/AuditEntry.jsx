@@ -6,7 +6,6 @@ import {
   FaIdBadge,
   FaStickyNote,
   FaClipboardCheck,
-  FaSave,
   FaCheckCircle,
   FaTimesCircle,
   FaExclamationTriangle,
@@ -97,7 +96,7 @@ const AuditEntry = () => {
   const [currentShift, setCurrentShift] = useState(getCurrentShift());
   const [currentDate, setCurrentDate] = useState(getCurrentDate());
 
-  // ==================== NEW: Image states ====================
+  // ==================== Image states ====================
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRefs = useRef({});
 
@@ -144,7 +143,7 @@ const AuditEntry = () => {
     revNo: "",
     revDate: "",
     notes: "",
-    status: "draft",
+    status: "submitted",
   });
 
   const [infoData, setInfoData] = useState({});
@@ -178,7 +177,7 @@ const AuditEntry = () => {
     }
   }, [isModelError, debouncedSerial]);
 
-  // ==================== NEW: Image Handlers ====================
+  // ==================== Image Handlers ====================
 
   const processImageFile = (file) => {
     return new Promise((resolve, reject) => {
@@ -371,7 +370,7 @@ const AuditEntry = () => {
               revNo: audit.revNo || "",
               revDate: audit.revDate || "",
               notes: audit.notes || "",
-              status: audit.status || "draft",
+              status: audit.status || "submitted",
             });
             const existingInfoData = audit.infoData || {};
             setInfoData(existingInfoData);
@@ -405,7 +404,7 @@ const AuditEntry = () => {
               revNo: tmpl.headerConfig?.defaultRevNo || "",
               revDate: getCurrentDate(),
               notes: "",
-              status: "draft",
+              status: "submitted",
             });
             const shift = getCurrentShift();
             const todayDate = getCurrentDate();
@@ -488,7 +487,6 @@ const AuditEntry = () => {
     setAuditData((prev) => ({ ...prev, notes: value }));
   }, []);
 
-  // UPDATED: Allow image fields too
   const handleEntryFieldChange = useCallback(
     (sectionId, stageId, checkpointId, field, value) => {
       setSections((prev) =>
@@ -588,8 +586,8 @@ const AuditEntry = () => {
 
   const summary = getSummary();
 
-  // Save
-  const handleSave = async (asDraft = true) => {
+  // Submit
+  const handleSubmit = async () => {
     if (!serialNo.trim()) {
       toast.error("Please enter a Serial Number");
       return;
@@ -609,7 +607,6 @@ const AuditEntry = () => {
 
     setSaving(true);
     try {
-      const currentSummary = getSummary();
       const finalInfoData = {
         ...infoData,
         serialNo: serialNo.trim(),
@@ -626,7 +623,7 @@ const AuditEntry = () => {
         revNo: auditData.revNo || null,
         revDate: auditData.revDate || null,
         notes: auditData.notes || null,
-        status: asDraft ? "draft" : "submitted",
+        status: "submitted",
         infoData: finalInfoData,
         sections: sections,
         signatures: signatures,
@@ -641,16 +638,14 @@ const AuditEntry = () => {
         await createAudit(auditPayload);
       }
 
-      toast.success(
-        asDraft ? "Audit saved as draft!" : "Audit submitted successfully!",
-      );
+      toast.success("Audit submitted successfully!");
 
       setTimeout(() => {
         navigate("/auditreport/audits");
       }, 500);
     } catch (error) {
-      console.error("Save error:", error);
-      toast.error(error.message || "Error saving audit. Please try again.");
+      console.error("Submit error:", error);
+      toast.error(error.message || "Error submitting audit. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -675,7 +670,7 @@ const AuditEntry = () => {
     }
   }, []);
 
-  // Render info field input (unchanged from your original)
+  // Render info field input
   const renderInfoFieldInput = useCallback(
     (field) => {
       const value = infoData[field.id] || "";
@@ -891,14 +886,13 @@ const AuditEntry = () => {
     ],
   );
 
-  // ==================== NEW: Render Image Cell ====================
+  // ==================== Render Image Cell ====================
   const renderImageCell = (column, checkpoint, section, stage) => {
     const imageData = checkpoint[column.id];
     const refKey = `${section.id}-${stage.id}-${checkpoint.id}-${column.id}`;
 
     // Preview mode
     if (showPreview) {
-      // Handle both old format (object with data) and new format (just filename string)
       const isFilename = typeof imageData === "string" && imageData.length > 0;
       const isOldFormat =
         imageData && typeof imageData === "object" && imageData.data;
@@ -944,7 +938,7 @@ const AuditEntry = () => {
       );
     }
 
-    // Edit mode - keep as is (uploads base64, backend will convert to filename)
+    // Edit mode
     return (
       <td
         key={column.id}
@@ -1119,13 +1113,11 @@ const AuditEntry = () => {
               {auditData.status && (
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    auditData.status === "draft"
-                      ? "bg-gray-200 text-gray-700"
-                      : auditData.status === "submitted"
-                        ? "bg-blue-100 text-blue-700"
-                        : auditData.status === "approved"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
+                    auditData.status === "submitted"
+                      ? "bg-blue-100 text-blue-700"
+                      : auditData.status === "approved"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-600"
                   }`}
                 >
                   {auditData.status.charAt(0).toUpperCase() +
@@ -1152,27 +1144,20 @@ const AuditEntry = () => {
                 {showPreview ? "Edit Mode" : "Preview"}
               </button>
               <button
-                onClick={() => handleSave(true)}
+                onClick={handleSubmit}
                 disabled={saving || isLoadingModels}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all text-sm disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all text-sm disabled:opacity-50"
               >
                 {saving ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Saving...
+                    Submitting...
                   </>
                 ) : (
                   <>
-                    <FaSave /> Save Draft
+                    <FaPaperPlane /> Submit
                   </>
                 )}
-              </button>
-              <button
-                onClick={() => handleSave(false)}
-                disabled={saving || isLoadingModels}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all text-sm disabled:opacity-50"
-              >
-                <FaPaperPlane /> Submit
               </button>
             </div>
           </div>
@@ -1384,7 +1369,7 @@ const AuditEntry = () => {
                                 return null;
                               }
 
-                              // NEW: Image column
+                              // Image column
                               if (column.type === "image") {
                                 return renderImageCell(
                                   column,
