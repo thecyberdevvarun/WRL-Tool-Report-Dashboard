@@ -149,7 +149,8 @@ const TemplateList = () => {
 
         {/* Search and Filter */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Search */}
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -162,6 +163,8 @@ const TemplateList = () => {
                 />
               </div>
             </div>
+
+            {/* Category Filter */}
             <div className="flex items-center gap-2">
               <FaFilter className="text-gray-400" />
               <select
@@ -177,34 +180,29 @@ const TemplateList = () => {
                 <option value="other">Other</option>
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <div className="text-3xl font-bold text-blue-600">
-              {templates.length}
+            {/* ==================== Filter Result Count ==================== */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <span className="text-blue-700 font-bold text-lg">
+                {filteredTemplates.length}
+              </span>
+              <span className="text-blue-600 text-sm">
+                {filteredTemplates.length === 1 ? "Template" : "Templates"}
+                {searchTerm || filterCategory ? " found" : " total"}
+              </span>
+              {/* Clear filters button — only shows when filters are active */}
+              {(searchTerm || filterCategory) && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilterCategory("");
+                  }}
+                  className="ml-2 text-xs text-red-500 hover:text-red-700 underline transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
             </div>
-            <div className="text-gray-600 text-sm">Total Templates</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <div className="text-3xl font-bold text-green-600">
-              {templates.filter((t) => t.isActive).length}
-            </div>
-            <div className="text-gray-600 text-sm">Active Templates</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <div className="text-3xl font-bold text-purple-600">
-              {templates.filter((t) => t.category === "quality").length}
-            </div>
-            <div className="text-gray-600 text-sm">Quality Audits</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-4">
-            <div className="text-3xl font-bold text-orange-600">
-              {templates.filter((t) => t.category === "safety").length}
-            </div>
-            <div className="text-gray-600 text-sm">Safety Audits</div>
           </div>
         </div>
 
@@ -220,6 +218,17 @@ const TemplateList = () => {
                 ? "No templates match your search criteria."
                 : "Get started by creating your first audit template."}
             </p>
+            {(searchTerm || filterCategory) && (
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilterCategory("");
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
