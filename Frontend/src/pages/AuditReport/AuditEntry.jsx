@@ -178,7 +178,6 @@ const AuditEntry = () => {
   }, [isModelError, debouncedSerial]);
 
   // ==================== Image Handlers ====================
-
   const processImageFile = (file) => {
     return new Promise((resolve, reject) => {
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -523,6 +522,7 @@ const AuditEntry = () => {
 
   const visibleColumns = template?.columns?.filter((col) => col.visible) || [];
 
+  // ==================== getStatusBadge with N/A ====================
   const getStatusBadge = useCallback((status) => {
     switch (status) {
       case "pass":
@@ -543,6 +543,12 @@ const AuditEntry = () => {
             <FaExclamationTriangle /> Warning
           </span>
         );
+      case "na":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+            N/A
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
@@ -560,17 +566,20 @@ const AuditEntry = () => {
     );
   }, []);
 
+  // ==================== getSummary with N/A ====================
   const getSummary = useCallback(() => {
     let pass = 0,
       fail = 0,
       warning = 0,
-      pending = 0;
+      pending = 0,
+      na = 0;
     sections.forEach((section) => {
       section.stages?.forEach((stage) => {
         stage.checkPoints?.forEach((cp) => {
           if (cp.status === "pass") pass++;
           else if (cp.status === "fail") fail++;
           else if (cp.status === "warning") warning++;
+          else if (cp.status === "na") na++;
           else pending++;
         });
       });
@@ -580,7 +589,8 @@ const AuditEntry = () => {
       fail,
       warning,
       pending,
-      total: pass + fail + warning + pending,
+      na,
+      total: pass + fail + warning + pending + na,
     };
   }, [sections]);
 
@@ -1110,20 +1120,6 @@ const AuditEntry = () => {
               <h1 className="text-xl font-bold text-gray-800">
                 New Audit Entry
               </h1>
-              {auditData.status && (
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    auditData.status === "submitted"
-                      ? "bg-blue-100 text-blue-700"
-                      : auditData.status === "approved"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {auditData.status.charAt(0).toUpperCase() +
-                    auditData.status.slice(1)}
-                </span>
-              )}
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 flex items-center gap-1">
                 <FaCalendarAlt /> {formatDateForDisplay(currentDate)}
               </span>
@@ -1326,7 +1322,9 @@ const AuditEntry = () => {
                                   ? "bg-red-50"
                                   : checkpoint.status === "warning"
                                     ? "bg-yellow-50"
-                                    : ""
+                                    : checkpoint.status === "na"
+                                      ? "bg-blue-50"
+                                      : ""
                             }`}
                           >
                             {visibleColumns.map((column) => {
@@ -1379,7 +1377,7 @@ const AuditEntry = () => {
                                 );
                               }
 
-                              // Status column
+                              // ==================== Status column with N/A ====================
                               if (column.id === "status") {
                                 return (
                                   <td
@@ -1407,13 +1405,18 @@ const AuditEntry = () => {
                                               ? "bg-red-100 border-red-300 text-red-700 focus:ring-red-500"
                                               : checkpoint.status === "warning"
                                                 ? "bg-yellow-100 border-yellow-300 text-yellow-700 focus:ring-yellow-500"
-                                                : "bg-gray-100 border-gray-300 text-gray-700 focus:ring-gray-500"
+                                                : checkpoint.status === "na"
+                                                  ? "bg-blue-100 border-blue-300 text-blue-700 focus:ring-blue-500"
+                                                  : "bg-gray-100 border-gray-300 text-gray-700 focus:ring-gray-500"
                                         }`}
                                       >
                                         <option value="pending">Pending</option>
                                         <option value="pass">Pass</option>
                                         <option value="fail">Fail</option>
                                         <option value="warning">Warning</option>
+                                        <option value="na">
+                                          Not Applicable
+                                        </option>
                                       </select>
                                     )}
                                   </td>
@@ -1478,19 +1481,22 @@ const AuditEntry = () => {
             </table>
           </div>
 
-          {/* Summary Section */}
+          {/* ==================== Summary Section with N/A card ==================== */}
           <div className="p-4 bg-gray-100 border-t-2 border-gray-300">
             <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
               <FaClipboardCheck className="text-blue-600" />
               Audit Summary
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {/* Total */}
               <div className="bg-white rounded-lg p-3 text-center shadow-sm border">
                 <div className="text-2xl font-bold text-gray-700">
                   {summary.total}
                 </div>
                 <span className="text-xs text-gray-500">Total Checks</span>
               </div>
+
+              {/* Pass */}
               <div className="bg-green-50 rounded-lg p-3 text-center shadow-sm border border-green-200">
                 <div className="flex items-center justify-center gap-1 text-green-700 font-bold text-2xl">
                   <FaCheckCircle className="text-lg" />
@@ -1498,6 +1504,8 @@ const AuditEntry = () => {
                 </div>
                 <span className="text-xs text-green-600">Passed</span>
               </div>
+
+              {/* Warning */}
               <div className="bg-yellow-50 rounded-lg p-3 text-center shadow-sm border border-yellow-200">
                 <div className="flex items-center justify-center gap-1 text-yellow-700 font-bold text-2xl">
                   <FaExclamationTriangle className="text-lg" />
@@ -1505,6 +1513,8 @@ const AuditEntry = () => {
                 </div>
                 <span className="text-xs text-yellow-600">Warnings</span>
               </div>
+
+              {/* Fail */}
               <div className="bg-red-50 rounded-lg p-3 text-center shadow-sm border border-red-200">
                 <div className="flex items-center justify-center gap-1 text-red-700 font-bold text-2xl">
                   <FaTimesCircle className="text-lg" />
@@ -1512,6 +1522,16 @@ const AuditEntry = () => {
                 </div>
                 <span className="text-xs text-red-600">Failed</span>
               </div>
+
+              {/* Not Applicable */}
+              <div className="bg-blue-50 rounded-lg p-3 text-center shadow-sm border border-blue-200">
+                <div className="text-2xl font-bold text-blue-600">
+                  {summary.na}
+                </div>
+                <span className="text-xs text-blue-500">Not Applicable</span>
+              </div>
+
+              {/* Pending */}
               <div className="bg-gray-50 rounded-lg p-3 text-center shadow-sm border border-gray-200">
                 <div className="text-2xl font-bold text-gray-500">
                   {summary.pending}
@@ -1635,17 +1655,6 @@ const AuditEntry = () => {
               )}
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 text-center text-gray-500 text-sm">
-          <p>
-            This document is confidential and intended for internal use only.
-          </p>
-          <p>
-            Generated on {formatDateForDisplay(currentDate)} |{" "}
-            {new Date().toLocaleTimeString()}
-          </p>
         </div>
       </div>
     </div>

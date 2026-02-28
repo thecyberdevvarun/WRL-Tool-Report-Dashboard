@@ -13,7 +13,6 @@ import {
   FaEdit,
   FaCheck,
   FaBan,
-  FaHistory,
   FaBarcode,
   FaUserCheck,
   FaUserShield,
@@ -41,14 +40,8 @@ import * as XLSX from "xlsx";
 const AuditView = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const {
-    getAuditById,
-    approveAudit,
-    rejectAudit,
-    getAuditHistory,
-    loading,
-    error,
-  } = useAuditData();
+  const { getAuditById, approveAudit, rejectAudit, loading, error } =
+    useAuditData();
 
   const [audit, setAudit] = useState(null);
   const [template, setTemplate] = useState(null);
@@ -58,9 +51,6 @@ const AuditView = () => {
   const [approvalAction, setApprovalAction] = useState("approve");
   const [approverName, setApproverName] = useState("");
   const [approvalComments, setApprovalComments] = useState("");
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [auditHistory, setAuditHistory] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -89,20 +79,6 @@ const AuditView = () => {
     };
     loadAudit();
   }, [id, getAuditById, navigate]);
-
-  // Load audit history
-  const loadHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const history = await getAuditHistory(id);
-      setAuditHistory(history || []);
-      setShowHistoryModal(true);
-    } catch (err) {
-      toast.error(`Failed to load audit history: ${err.message}`);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
 
   // Open approval modal
   const openApprovalModal = (action) => {
@@ -1068,14 +1044,6 @@ const AuditView = () => {
                   </>
                 )}
               </div>
-
-              <button
-                onClick={loadHistory}
-                disabled={historyLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all text-sm disabled:opacity-50"
-              >
-                <FaHistory /> History
-              </button>
               {audit.status !== "approved" && (
                 <button
                   onClick={() => navigate(`/auditreport/audits/${id}`)}
@@ -1614,69 +1582,101 @@ const AuditView = () => {
         </div>
 
         {/* Metadata Footer */}
-        <div className="mt-4 bg-white rounded-lg shadow-md p-4">
-          <h4 className="font-medium text-gray-700 mb-2">Audit Metadata</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gray-500 block">Audit Code:</span>
-              <span className="text-gray-700 font-medium">
-                {audit.auditCode || "-"}
-              </span>
+        <div className="mt-6">
+          <div className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl shadow-sm p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <h4 className="text-sm font-semibold text-gray-800 tracking-wide uppercase">
+                Audit Metadata
+              </h4>
+              <div className="h-px flex-1 bg-gray-200 ml-4" />
             </div>
-            <div>
-              <span className="text-gray-500 block">Created By:</span>
-              <span className="text-gray-700 font-medium">
-                {audit.createdBy || "-"}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500 block">Created At:</span>
-              <span className="text-gray-700">
-                {formatDateTimeForDisplay(audit.createdAt)}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-500 block">Last Updated:</span>
-              <span className="text-gray-700">
-                {formatDateTimeForDisplay(audit.updatedAt)}
-              </span>
-            </div>
-            {audit.submittedBy && (
-              <div>
-                <span className="text-gray-500 block">Submitted By:</span>
-                <span className="text-gray-700 font-medium">
-                  {audit.submittedBy}
-                </span>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6 text-sm">
+              {/* Audit Code */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Audit Code
+                </p>
+                <p className="text-gray-800 font-semibold">
+                  {audit.auditCode || "-"}
+                </p>
               </div>
-            )}
-            {audit.submittedAt && (
-              <div>
-                <span className="text-gray-500 block">Submitted At:</span>
-                <span className="text-gray-700">
-                  {formatDateTimeForDisplay(audit.submittedAt)}
-                </span>
+
+              {/* Created By */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Created By
+                </p>
+                <p className="text-gray-800 font-semibold">
+                  {audit.createdBy || "-"}
+                </p>
               </div>
-            )}
-            <div>
-              <span className="text-gray-500 block">Template ID:</span>
-              <span className="text-gray-700">{audit.templateId}</span>
-            </div>
-            <div>
-              <span className="text-gray-500 block">Audit ID:</span>
-              <span className="text-gray-700">{audit.id}</span>
+
+              {/* Created At */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Created At
+                </p>
+                <p className="text-gray-700">
+                  {formatDateTimeForDisplay(audit.createdAt)}
+                </p>
+              </div>
+
+              {/* Last Updated */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Last Updated
+                </p>
+                <p className="text-gray-700">
+                  {formatDateTimeForDisplay(audit.updatedAt)}
+                </p>
+              </div>
+
+              {audit.submittedBy && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Submitted By
+                  </p>
+                  <p className="text-gray-800 font-semibold">
+                    {audit.submittedBy}
+                  </p>
+                </div>
+              )}
+
+              {audit.submittedAt && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Submitted At
+                  </p>
+                  <p className="text-gray-700">
+                    {formatDateTimeForDisplay(audit.submittedAt)}
+                  </p>
+                </div>
+              )}
+
+              {/* Template ID */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Template ID
+                </p>
+                <p className="text-gray-700 font-mono text-xs break-all">
+                  {audit.templateId}
+                </p>
+              </div>
+
+              {/* Audit ID */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Audit ID
+                </p>
+                <p className="text-gray-700 font-mono text-xs break-all">
+                  {audit.id}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 text-center text-gray-500 text-sm">
-          <p>
-            This document is confidential and intended for internal use only.
-          </p>
-          <p>
-            Generated on {formatDateForDisplay(new Date().toISOString())} |{" "}
-            {new Date().toLocaleTimeString()}
-          </p>
         </div>
       </div>
 
@@ -1759,82 +1759,6 @@ const AuditView = () => {
                 ) : (
                   "Reject"
                 )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* History Modal */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-            <div className="p-4 bg-purple-600 text-white flex justify-between items-center">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <FaHistory /> Audit History
-              </h3>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="p-1 hover:bg-purple-700 rounded text-white text-xl"
-              >
-                ×
-              </button>
-            </div>
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
-              {auditHistory.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
-                  No history records found.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {auditHistory.map((record, index) => (
-                    <div
-                      key={record.Id || index}
-                      className="border-l-4 border-purple-500 pl-4 py-2 bg-gray-50 rounded-r"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span
-                            className={`font-semibold capitalize px-2 py-0.5 rounded text-sm ${
-                              record.Action === "created"
-                                ? "bg-green-100 text-green-700"
-                                : record.Action === "updated"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : record.Action === "submitted"
-                                    ? "bg-indigo-100 text-indigo-700"
-                                    : record.Action === "approved"
-                                      ? "bg-green-100 text-green-700"
-                                      : record.Action === "rejected"
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {record.Action}
-                          </span>
-                          <span className="text-gray-500 ml-2 text-sm">
-                            by {record.ActionBy}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {formatDateTimeForDisplay(record.ActionAt)}
-                        </span>
-                      </div>
-                      {record.Comments && (
-                        <p className="text-sm text-gray-600 mt-2 bg-white p-2 rounded border">
-                          <strong>Comment:</strong> {record.Comments}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="p-4 bg-gray-50 border-t">
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium"
-              >
-                Close
               </button>
             </div>
           </div>

@@ -139,3 +139,37 @@ export const formatDateTimeLocal = (date) => {
   const localDate = new Date(d.getTime() - offset * 60 * 1000);
   return localDate.toISOString().slice(0, 16);
 };
+
+// Format date for display (DD/MM/YYYY)
+export const formatDateForDisplay = (dateString) => {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return "-";
+  }
+};
+
+// Format datetime for display
+export const formatDateTimeForDisplay = (dateString) => {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return "-";
+  }
+};
