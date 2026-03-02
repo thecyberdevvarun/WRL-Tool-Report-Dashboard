@@ -8,86 +8,73 @@ import {
   deleteAuditImages,
   cleanupRemovedImages,
 } from "../../utils/auditImageProcessor.js";
+import { deleteMultipleImages } from "../../utils/storage/imageStorage.js";
 
-// Helper function to calculate summary - handles BOTH structures
+// ==================== HELPERS ====================
+
+/**
+ * Calculates audit summary from sections.
+ * Supports both new structure (section.stages[].checkPoints[])
+ * and old flat structure (section.checkPoints[]).
+ */
 const calculateSummary = (sections) => {
   let pass = 0,
     fail = 0,
     warning = 0,
-    pending = 0;
+    pending = 0,
+    na = 0;
 
   if (!sections || !Array.isArray(sections)) {
-    console.log("⚠️ calculateSummary: sections is not an array");
-    return { pass: 0, fail: 0, warning: 0, pending: 0, total: 0 };
+    return { pass: 0, fail: 0, warning: 0, pending: 0, na: 0, total: 0 };
   }
 
-  console.log("📊 calculateSummary: Processing", sections.length, "sections");
-
-  sections.forEach((section, sIdx) => {
+  sections.forEach((section) => {
     if (!section) return;
 
-    // ✅ NEW STRUCTURE: section.stages[].checkPoints[]
     if (section.stages && Array.isArray(section.stages)) {
-      console.log(
-        `  Section ${sIdx} (${section.sectionName}): has ${section.stages.length} stages`,
-      );
-
-      section.stages.forEach((stage, stIdx) => {
-        if (stage && stage.checkPoints && Array.isArray(stage.checkPoints)) {
-          console.log(
-            `    Stage ${stIdx} (${stage.stageName}): has ${stage.checkPoints.length} checkpoints`,
-          );
-
+      // New structure: section → stages[] → checkPoints[]
+      section.stages.forEach((stage) => {
+        if (stage?.checkPoints && Array.isArray(stage.checkPoints)) {
           stage.checkPoints.forEach((cp) => {
             if (!cp) return;
             const status = (cp.status || "pending").toLowerCase().trim();
             if (status === "pass") pass++;
             else if (status === "fail") fail++;
             else if (status === "warning") warning++;
+            else if (status === "na") na++;
             else pending++;
           });
         }
       });
-    }
-    // ✅ OLD STRUCTURE: section.checkPoints[] (flat)
-    else if (section.checkPoints && Array.isArray(section.checkPoints)) {
-      console.log(
-        `  Section ${sIdx} (${section.sectionName}): has ${section.checkPoints.length} direct checkpoints`,
-      );
-
+    } else if (section.checkPoints && Array.isArray(section.checkPoints)) {
+      // Old flat structure: section → checkPoints[]
       section.checkPoints.forEach((cp) => {
         if (!cp) return;
         const status = (cp.status || "pending").toLowerCase().trim();
         if (status === "pass") pass++;
         else if (status === "fail") fail++;
         else if (status === "warning") warning++;
+        else if (status === "na") na++;
         else pending++;
       });
-    } else {
-      console.log(`  Section ${sIdx}: No stages or checkPoints found`);
     }
   });
 
-  const total = pass + fail + warning + pending;
-  const result = { pass, fail, warning, pending, total };
-
-  console.log("📊 calculateSummary result:", result);
-  return result;
+  const total = pass + fail + warning + pending + na;
+  return { pass, fail, warning, pending, na, total };
 };
 
-// Safe JSON parse helper
 const safeJsonParse = (str, defaultVal) => {
   if (!str) return defaultVal;
   if (typeof str === "object") return str;
   try {
     return JSON.parse(str);
-  } catch (e) {
-    console.warn("JSON parse error:", e.message);
+  } catch {
     return defaultVal;
   }
 };
 
-// Get all audits
+// ==================== GET ALL AUDITS ====================
 export const getAllAudits = tryCatch(async (req, res) => {
   const {
     templateId,
@@ -106,30 +93,26 @@ export const getAllAudits = tryCatch(async (req, res) => {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
     const request = pool.request();
 
-    let whereConditions = ["IsDeleted = 0"];
+    const whereConditions = ["IsDeleted = 0"];
 
     if (templateId) {
       request.input("templateId", sql.Int, templateId);
       whereConditions.push("TemplateId = @templateId");
     }
-
     if (status) {
       request.input("status", sql.VarChar, status);
       whereConditions.push("Status = @status");
     }
-
     if (search) {
       request.input("search", sql.NVarChar, `%${search}%`);
       whereConditions.push(
         "(ReportName LIKE @search OR TemplateName LIKE @search OR AuditCode LIKE @search)",
       );
     }
-
     if (startDate) {
       request.input("startDate", sql.DateTime, new Date(startDate));
       whereConditions.push("CreatedAt >= @startDate");
     }
-
     if (endDate) {
       request.input("endDate", sql.DateTime, new Date(endDate));
       whereConditions.push("CreatedAt <= @endDate");
@@ -138,54 +121,26 @@ export const getAllAudits = tryCatch(async (req, res) => {
     request.input("offset", sql.Int, offset);
     request.input("limit", sql.Int, parseInt(limit));
 
-    const whereClause =
-      whereConditions.length > 0
-        ? `WHERE ${whereConditions.join(" AND ")}`
-        : "";
+    const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
-    const query = `
+    const result = await request.query(`
       WITH AuditData AS (
         SELECT 
-          Id,
-          AuditCode,
-          TemplateId,
-          TemplateName,
-          ReportName,
-          FormatNo,
-          RevNo,
-          RevDate,
-          Notes,
-          Status,
-          InfoData,
-          Sections,
-          Summary,
-          Signatures,
-          Columns,
-          InfoFields,
-          HeaderConfig,
-          CreatedBy,
-          CreatedAt,
-          UpdatedBy,
-          UpdatedAt,
-          SubmittedBy,
-          SubmittedAt,
-          ApprovedBy,
-          ApprovedAt,
-          ApprovalComments,
+          Id, AuditCode, TemplateId, TemplateName, ReportName,
+          FormatNo, RevNo, RevDate, Notes, Status,
+          InfoData, Sections, Summary, Signatures, Columns, InfoFields, HeaderConfig,
+          CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
+          SubmittedBy, SubmittedAt, ApprovedBy, ApprovedAt, ApprovalComments,
           ROW_NUMBER() OVER (ORDER BY CreatedAt DESC) AS RowNum
         FROM Audits
         ${whereClause}
       )
       SELECT 
-        (SELECT COUNT(*) FROM AuditData) AS TotalCount,
-        *
+        (SELECT COUNT(*) FROM AuditData) AS TotalCount, *
       FROM AuditData
       WHERE RowNum > @offset AND RowNum <= (@offset + @limit);
-    `;
+    `);
 
-    const result = await request.query(query);
-
-    // Parse JSON fields
     const audits = result.recordset.map((audit) => ({
       ...audit,
       InfoData: safeJsonParse(audit.InfoData, {}),
@@ -211,55 +166,30 @@ export const getAllAudits = tryCatch(async (req, res) => {
   }
 });
 
-// Get audit by ID
+// ==================== GET AUDIT BY ID ====================
 export const getAuditById = tryCatch(async (req, res) => {
   const { id } = req.params;
-
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
+  if (!id) throw new AppError("Audit ID is required", 400);
 
   let pool;
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
     const result = await pool.request().input("id", sql.Int, id).query(`
       SELECT 
-        Id,
-        AuditCode,
-        TemplateId,
-        TemplateName,
-        ReportName,
-        FormatNo,
-        RevNo,
-        RevDate,
-        Notes,
-        Status,
-        InfoData,
-        Sections,
-        Columns,
-        InfoFields,
-        HeaderConfig,
-        Signatures,
-        Summary,
-        CreatedBy,
-        CreatedAt,
-        UpdatedBy,
-        UpdatedAt,
-        SubmittedBy,
-        SubmittedAt,
-        ApprovedBy,
-        ApprovedAt,
-        ApprovalComments
+        Id, AuditCode, TemplateId, TemplateName, ReportName,
+        FormatNo, RevNo, RevDate, Notes, Status,
+        InfoData, Sections, Columns, InfoFields, HeaderConfig,
+        Signatures, Summary,
+        CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
+        SubmittedBy, SubmittedAt, ApprovedBy, ApprovedAt, ApprovalComments
       FROM Audits
       WHERE Id = @id AND IsDeleted = 0
     `);
 
-    if (result.recordset.length === 0) {
+    if (result.recordset.length === 0)
       throw new AppError("Audit not found", 404);
-    }
 
     const audit = result.recordset[0];
-
     res.status(200).json({
       success: true,
       message: "Audit retrieved successfully",
@@ -279,7 +209,7 @@ export const getAuditById = tryCatch(async (req, res) => {
   }
 });
 
-// Create audit
+// ==================== CREATE AUDIT ====================
 export const createAudit = tryCatch(async (req, res) => {
   const {
     templateId,
@@ -295,7 +225,7 @@ export const createAudit = tryCatch(async (req, res) => {
     infoFields,
     headerConfig,
     signatures,
-    status = "draft",
+    status = "submitted",
   } = req.body;
 
   if (!templateId || !reportName) {
@@ -305,29 +235,19 @@ export const createAudit = tryCatch(async (req, res) => {
   const auditCode = await generateAuditCode("AUD");
   const createdBy = req.user?.userCode || "SYSTEM";
 
-  // PROCESS IMAGES - Extract base64, save to disk, replace with filenames
-  console.log("Processing images in audit sections...");
+  // Process images: extract base64 objects → save to disk → replace with filenames
   const { sections: processedSections, savedImages } = await processAuditImages(
     sections,
     auditCode,
   );
 
-  if (savedImages.length > 0) {
-    console.log(
-      `Saved ${savedImages.length} images:`,
-      savedImages.map((img) => img.fileName),
-    );
-  }
-
-  // Calculate summary with processed sections
   const summary = calculateSummary(processedSections);
-  console.log("createAudit - Calculated summary:", summary);
 
   let pool;
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
 
-    // Get template details if not provided
+    // Load template defaults if not provided
     let finalColumns = columns;
     let finalInfoFields = infoFields;
     let finalHeaderConfig = headerConfig;
@@ -342,12 +262,12 @@ export const createAudit = tryCatch(async (req, res) => {
         );
 
       if (templateResult.recordset.length > 0) {
-        const template = templateResult.recordset[0];
-        finalColumns = columns || safeJsonParse(template.Columns, []);
-        finalInfoFields = infoFields || safeJsonParse(template.InfoFields, []);
+        const tmpl = templateResult.recordset[0];
+        finalColumns = columns || safeJsonParse(tmpl.Columns, []);
+        finalInfoFields = infoFields || safeJsonParse(tmpl.InfoFields, []);
         finalHeaderConfig =
-          headerConfig || safeJsonParse(template.HeaderConfig, {});
-        finalTemplateName = templateName || template.Name;
+          headerConfig || safeJsonParse(tmpl.HeaderConfig, {});
+        finalTemplateName = templateName || tmpl.Name;
       }
     }
 
@@ -389,7 +309,6 @@ export const createAudit = tryCatch(async (req, res) => {
 
     const audit = result.recordset[0];
 
-    // Log to history
     await pool
       .request()
       .input("auditId", sql.Int, audit.Id)
@@ -416,9 +335,8 @@ export const createAudit = tryCatch(async (req, res) => {
       },
     });
   } catch (error) {
-    // If database insert fails, clean up saved images
+    // Rollback: delete any images saved before the DB insert failed
     if (savedImages.length > 0) {
-      console.warn("Database insert failed, cleaning up saved images...");
       await deleteMultipleImages(savedImages.map((img) => img.fileName));
     }
     throw error;
@@ -427,7 +345,7 @@ export const createAudit = tryCatch(async (req, res) => {
   }
 });
 
-// Update audit
+// ==================== UPDATE AUDIT ====================
 export const updateAudit = tryCatch(async (req, res) => {
   const { id } = req.params;
   const {
@@ -442,60 +360,44 @@ export const updateAudit = tryCatch(async (req, res) => {
     status,
   } = req.body;
 
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
+  if (!id) throw new AppError("Audit ID is required", 400);
 
   const updatedBy = req.user?.userCode || "SYSTEM";
+  let savedImages = [];
 
   let pool;
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
 
-    // Get current audit data for history and cleanup
     const currentResult = await pool
       .request()
       .input("id", sql.Int, id)
       .query("SELECT * FROM Audits WHERE Id = @id AND IsDeleted = 0");
 
-    if (currentResult.recordset.length === 0) {
+    if (currentResult.recordset.length === 0)
       throw new AppError("Audit not found", 404);
-    }
 
     const currentAudit = currentResult.recordset[0];
 
-    // Check if audit can be edited
     if (currentAudit.Status === "approved") {
       throw new AppError("Cannot edit an approved audit", 400);
     }
 
     let processedSections = sections;
-    let savedImages = [];
 
-    // PROCESS NEW IMAGES if sections are being updated
     if (sections) {
-      console.log("Processing images in updated audit sections...");
-
       const result = await processAuditImages(sections, currentAudit.AuditCode);
-
       processedSections = result.sections;
       savedImages = result.savedImages;
 
-      if (savedImages.length > 0) {
-        console.log(`Saved ${savedImages.length} new images`);
-      }
-
-      // CLEANUP REMOVED IMAGES
+      // Clean up images that were removed in this update
       const oldSections = safeJsonParse(currentAudit.Sections, []);
       await cleanupRemovedImages(oldSections, processedSections);
     }
 
-    // Recalculate summary if sections provided
     const summary = processedSections
       ? calculateSummary(processedSections)
       : safeJsonParse(currentAudit.Summary, {});
-
-    console.log("updateAudit - Calculated summary:", summary);
 
     const result = await pool
       .request()
@@ -543,25 +445,16 @@ export const updateAudit = tryCatch(async (req, res) => {
       .input("updatedBy", sql.VarChar, updatedBy).query(`
         UPDATE Audits
         SET 
-          ReportName = @reportName,
-          FormatNo = @formatNo,
-          RevNo = @revNo,
-          RevDate = @revDate,
-          Notes = @notes,
-          Status = @status,
-          InfoData = @infoData,
-          Sections = @sections,
-          Signatures = @signatures,
-          Summary = @summary,
-          UpdatedBy = @updatedBy,
-          UpdatedAt = GETDATE()
+          ReportName = @reportName, FormatNo = @formatNo, RevNo = @revNo,
+          RevDate = @revDate, Notes = @notes, Status = @status,
+          InfoData = @infoData, Sections = @sections, Signatures = @signatures,
+          Summary = @summary, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
         OUTPUT INSERTED.*
         WHERE Id = @id AND IsDeleted = 0;
       `);
 
     const audit = result.recordset[0];
 
-    // Log to history
     await pool
       .request()
       .input("auditId", sql.Int, id)
@@ -589,9 +482,7 @@ export const updateAudit = tryCatch(async (req, res) => {
       },
     });
   } catch (error) {
-    // If update fails, clean up any newly saved images
-    if (savedImages && savedImages.length > 0) {
-      console.warn("Audit update failed, cleaning up saved images...");
+    if (savedImages.length > 0) {
       await deleteMultipleImages(savedImages.map((img) => img.fileName));
     }
     throw error;
@@ -600,13 +491,10 @@ export const updateAudit = tryCatch(async (req, res) => {
   }
 });
 
-// Delete audit (soft delete)
+// ==================== DELETE AUDIT ====================
 export const deleteAudit = tryCatch(async (req, res) => {
   const { id } = req.params;
-
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
+  if (!id) throw new AppError("Audit ID is required", 400);
 
   const updatedBy = req.user?.userCode || "SYSTEM";
 
@@ -614,7 +502,6 @@ export const deleteAudit = tryCatch(async (req, res) => {
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
 
-    // Check if audit exists and get sections for image cleanup
     const checkResult = await pool
       .request()
       .input("id", sql.Int, id)
@@ -622,22 +509,19 @@ export const deleteAudit = tryCatch(async (req, res) => {
         "SELECT Id, Status, Sections FROM Audits WHERE Id = @id AND IsDeleted = 0",
       );
 
-    if (checkResult.recordset.length === 0) {
+    if (checkResult.recordset.length === 0)
       throw new AppError("Audit not found", 404);
-    }
 
     const currentAudit = checkResult.recordset[0];
 
-    // Check if audit can be deleted
     if (currentAudit.Status === "approved") {
       throw new AppError("Cannot delete an approved audit", 400);
     }
 
-    // DELETE ASSOCIATED IMAGES
+    // Delete associated images
     const sections = safeJsonParse(currentAudit.Sections, []);
     await deleteAuditImages(sections);
 
-    // Soft delete audit
     await pool
       .request()
       .input("id", sql.Int, id)
@@ -647,7 +531,6 @@ export const deleteAudit = tryCatch(async (req, res) => {
         WHERE Id = @id;
       `);
 
-    // Log to history
     await pool
       .request()
       .input("auditId", sql.Int, id)
@@ -666,101 +549,13 @@ export const deleteAudit = tryCatch(async (req, res) => {
   }
 });
 
-// Submit audit for approval
-export const submitAudit = tryCatch(async (req, res) => {
-  const { id } = req.params;
-
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
-
-  const submittedBy = req.user?.userCode || "SYSTEM";
-
-  let pool;
-  try {
-    pool = await new sql.ConnectionPool(dbConfig3).connect();
-
-    // Check if audit exists and is in draft status
-    const checkResult = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM Audits WHERE Id = @id AND IsDeleted = 0");
-
-    if (checkResult.recordset.length === 0) {
-      throw new AppError("Audit not found", 404);
-    }
-
-    const currentAudit = checkResult.recordset[0];
-
-    if (currentAudit.Status !== "draft") {
-      throw new AppError(
-        `Cannot submit audit with status: ${currentAudit.Status}`,
-        400,
-      );
-    }
-
-    // Recalculate summary before submitting
-    const sections = safeJsonParse(currentAudit.Sections, []);
-    const summary = calculateSummary(sections);
-    console.log("📊 submitAudit - Recalculated summary:", summary);
-
-    const result = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .input("submittedBy", sql.VarChar, submittedBy)
-      .input("summary", sql.NVarChar, JSON.stringify(summary)).query(`
-        UPDATE Audits
-        SET 
-          Status = 'submitted',
-          Summary = @summary,
-          SubmittedBy = @submittedBy,
-          SubmittedAt = GETDATE(),
-          UpdatedBy = @submittedBy,
-          UpdatedAt = GETDATE()
-        OUTPUT INSERTED.*
-        WHERE Id = @id AND IsDeleted = 0;
-      `);
-
-    const audit = result.recordset[0];
-
-    // Log to history
-    await pool
-      .request()
-      .input("auditId", sql.Int, id)
-      .input("action", sql.VarChar, "submitted")
-      .input("actionBy", sql.VarChar, submittedBy).query(`
-        INSERT INTO AuditHistory (AuditId, Action, ActionBy, ActionAt)
-        VALUES (@auditId, @action, @actionBy, GETDATE());
-      `);
-
-    res.status(200).json({
-      success: true,
-      message: "Audit submitted successfully",
-      data: {
-        ...audit,
-        InfoData: safeJsonParse(audit.InfoData, {}),
-        Sections: safeJsonParse(audit.Sections, []),
-        Signatures: safeJsonParse(audit.Signatures, {}),
-        Summary: safeJsonParse(audit.Summary, {}),
-      },
-    });
-  } finally {
-    if (pool) await pool.close();
-  }
-});
-
-// Approve audit
+// ==================== APPROVE AUDIT ====================
 export const approveAudit = tryCatch(async (req, res) => {
   const { id } = req.params;
   const { approverName, comments } = req.body;
 
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
-
-  if (!approverName) {
-    throw new AppError("Approver name is required", 400);
-  }
+  if (!id) throw new AppError("Audit ID is required", 400);
+  if (!approverName) throw new AppError("Approver name is required", 400);
 
   const approvedBy = req.user?.userCode || approverName;
 
@@ -768,18 +563,15 @@ export const approveAudit = tryCatch(async (req, res) => {
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
 
-    // Check if audit exists and is in submitted status
     const checkResult = await pool
       .request()
       .input("id", sql.Int, id)
       .query("SELECT * FROM Audits WHERE Id = @id AND IsDeleted = 0");
 
-    if (checkResult.recordset.length === 0) {
+    if (checkResult.recordset.length === 0)
       throw new AppError("Audit not found", 404);
-    }
 
     const currentAudit = checkResult.recordset[0];
-
     if (currentAudit.Status !== "submitted") {
       throw new AppError(
         `Cannot approve audit with status: ${currentAudit.Status}`,
@@ -795,19 +587,14 @@ export const approveAudit = tryCatch(async (req, res) => {
       .input("updatedBy", sql.VarChar, approvedBy).query(`
         UPDATE Audits
         SET 
-          Status = 'approved',
-          ApprovedBy = @approvedBy,
-          ApprovedAt = GETDATE(),
-          ApprovalComments = @comments,
-          UpdatedBy = @updatedBy,
-          UpdatedAt = GETDATE()
+          Status = 'approved', ApprovedBy = @approvedBy, ApprovedAt = GETDATE(),
+          ApprovalComments = @comments, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
         OUTPUT INSERTED.*
         WHERE Id = @id AND IsDeleted = 0;
       `);
 
     const audit = result.recordset[0];
 
-    // Log to history
     await pool
       .request()
       .input("auditId", sql.Int, id)
@@ -825,6 +612,9 @@ export const approveAudit = tryCatch(async (req, res) => {
         ...audit,
         InfoData: safeJsonParse(audit.InfoData, {}),
         Sections: safeJsonParse(audit.Sections, []),
+        Columns: safeJsonParse(audit.Columns, []),
+        InfoFields: safeJsonParse(audit.InfoFields, []),
+        HeaderConfig: safeJsonParse(audit.HeaderConfig, {}),
         Signatures: safeJsonParse(audit.Signatures, {}),
         Summary: safeJsonParse(audit.Summary, {}),
       },
@@ -834,22 +624,14 @@ export const approveAudit = tryCatch(async (req, res) => {
   }
 });
 
-// Reject audit
+// ==================== REJECT AUDIT ====================
 export const rejectAudit = tryCatch(async (req, res) => {
   const { id } = req.params;
   const { approverName, comments } = req.body;
 
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
-
-  if (!approverName) {
-    throw new AppError("Approver name is required", 400);
-  }
-
-  if (!comments) {
-    throw new AppError("Rejection reason is required", 400);
-  }
+  if (!id) throw new AppError("Audit ID is required", 400);
+  if (!approverName) throw new AppError("Approver name is required", 400);
+  if (!comments) throw new AppError("Rejection reason is required", 400);
 
   const rejectedBy = req.user?.userCode || approverName;
 
@@ -857,18 +639,15 @@ export const rejectAudit = tryCatch(async (req, res) => {
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
 
-    // Check if audit exists and is in submitted status
     const checkResult = await pool
       .request()
       .input("id", sql.Int, id)
       .query("SELECT * FROM Audits WHERE Id = @id AND IsDeleted = 0");
 
-    if (checkResult.recordset.length === 0) {
+    if (checkResult.recordset.length === 0)
       throw new AppError("Audit not found", 404);
-    }
 
     const currentAudit = checkResult.recordset[0];
-
     if (currentAudit.Status !== "submitted") {
       throw new AppError(
         `Cannot reject audit with status: ${currentAudit.Status}`,
@@ -884,19 +663,14 @@ export const rejectAudit = tryCatch(async (req, res) => {
       .input("updatedBy", sql.VarChar, rejectedBy).query(`
         UPDATE Audits
         SET 
-          Status = 'rejected',
-          ApprovedBy = @approvedBy,
-          ApprovedAt = GETDATE(),
-          ApprovalComments = @comments,
-          UpdatedBy = @updatedBy,
-          UpdatedAt = GETDATE()
+          Status = 'rejected', ApprovedBy = @approvedBy, ApprovedAt = GETDATE(),
+          ApprovalComments = @comments, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
         OUTPUT INSERTED.*
         WHERE Id = @id AND IsDeleted = 0;
       `);
 
     const audit = result.recordset[0];
 
-    // Log to history
     await pool
       .request()
       .input("auditId", sql.Int, id)
@@ -914,6 +688,9 @@ export const rejectAudit = tryCatch(async (req, res) => {
         ...audit,
         InfoData: safeJsonParse(audit.InfoData, {}),
         Sections: safeJsonParse(audit.Sections, []),
+        Columns: safeJsonParse(audit.Columns, []),
+        InfoFields: safeJsonParse(audit.InfoFields, []),
+        HeaderConfig: safeJsonParse(audit.HeaderConfig, {}),
         Signatures: safeJsonParse(audit.Signatures, {}),
         Summary: safeJsonParse(audit.Summary, {}),
       },
@@ -923,25 +700,16 @@ export const rejectAudit = tryCatch(async (req, res) => {
   }
 });
 
-// Get audit history
+// ==================== GET AUDIT HISTORY ====================
 export const getAuditHistory = tryCatch(async (req, res) => {
   const { id } = req.params;
-
-  if (!id) {
-    throw new AppError("Audit ID is required", 400);
-  }
+  if (!id) throw new AppError("Audit ID is required", 400);
 
   let pool;
   try {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
     const result = await pool.request().input("auditId", sql.Int, id).query(`
-      SELECT 
-        Id,
-        AuditId,
-        Action,
-        ActionBy,
-        ActionAt,
-        Comments
+      SELECT Id, AuditId, Action, ActionBy, ActionAt, Comments
       FROM AuditHistory
       WHERE AuditId = @auditId
       ORDER BY ActionAt DESC;
@@ -957,7 +725,7 @@ export const getAuditHistory = tryCatch(async (req, res) => {
   }
 });
 
-// Get audit statistics
+// ==================== GET AUDIT STATS ====================
 export const getAuditStats = tryCatch(async (req, res) => {
   const { startDate, endDate, templateId } = req.query;
 
@@ -966,32 +734,26 @@ export const getAuditStats = tryCatch(async (req, res) => {
     pool = await new sql.ConnectionPool(dbConfig3).connect();
     const request = pool.request();
 
-    let whereConditions = ["IsDeleted = 0"];
+    const whereConditions = ["IsDeleted = 0"];
 
     if (startDate) {
       request.input("startDate", sql.DateTime, new Date(startDate));
       whereConditions.push("CreatedAt >= @startDate");
     }
-
     if (endDate) {
       request.input("endDate", sql.DateTime, new Date(endDate));
       whereConditions.push("CreatedAt <= @endDate");
     }
-
     if (templateId) {
       request.input("templateId", sql.Int, templateId);
       whereConditions.push("TemplateId = @templateId");
     }
 
-    const whereClause =
-      whereConditions.length > 0
-        ? `WHERE ${whereConditions.join(" AND ")}`
-        : "";
+    const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
     const result = await request.query(`
       SELECT 
         COUNT(*) AS TotalAudits,
-        SUM(CASE WHEN Status = 'draft' THEN 1 ELSE 0 END) AS DraftCount,
         SUM(CASE WHEN Status = 'submitted' THEN 1 ELSE 0 END) AS SubmittedCount,
         SUM(CASE WHEN Status = 'approved' THEN 1 ELSE 0 END) AS ApprovedCount,
         SUM(CASE WHEN Status = 'rejected' THEN 1 ELSE 0 END) AS RejectedCount
@@ -999,11 +761,9 @@ export const getAuditStats = tryCatch(async (req, res) => {
       ${whereClause};
     `);
 
-    // Get template-wise stats
     const templateStats = await request.query(`
       SELECT 
-        TemplateName,
-        TemplateId,
+        TemplateName, TemplateId,
         COUNT(*) AS AuditCount,
         SUM(CASE WHEN Status = 'approved' THEN 1 ELSE 0 END) AS ApprovedCount
       FROM Audits
@@ -1019,112 +779,6 @@ export const getAuditStats = tryCatch(async (req, res) => {
         summary: result.recordset[0],
         templateStats: templateStats.recordset,
       },
-    });
-  } finally {
-    if (pool) await pool.close();
-  }
-});
-
-// Export audit data
-export const exportAuditData = tryCatch(async (req, res) => {
-  const { startDate, endDate, templateId, status } = req.query;
-
-  let pool;
-  try {
-    pool = await new sql.ConnectionPool(dbConfig3).connect();
-    const request = pool.request();
-
-    let whereConditions = ["IsDeleted = 0"];
-
-    if (startDate) {
-      request.input("startDate", sql.DateTime, new Date(startDate));
-      whereConditions.push("CreatedAt >= @startDate");
-    }
-
-    if (endDate) {
-      request.input("endDate", sql.DateTime, new Date(endDate));
-      whereConditions.push("CreatedAt <= @endDate");
-    }
-
-    if (templateId) {
-      request.input("templateId", sql.Int, templateId);
-      whereConditions.push("TemplateId = @templateId");
-    }
-
-    if (status) {
-      request.input("status", sql.VarChar, status);
-      whereConditions.push("Status = @status");
-    }
-
-    const whereClause =
-      whereConditions.length > 0
-        ? `WHERE ${whereConditions.join(" AND ")}`
-        : "";
-
-    const result = await request.query(`
-      SELECT 
-        AuditCode,
-        TemplateName,
-        ReportName,
-        FormatNo,
-        RevNo,
-        RevDate,
-        Status,
-        InfoData,
-        Summary,
-        CreatedBy,
-        CreatedAt,
-        SubmittedBy,
-        SubmittedAt,
-        ApprovedBy,
-        ApprovedAt,
-        ApprovalComments
-      FROM Audits
-      ${whereClause}
-      ORDER BY CreatedAt DESC;
-    `);
-
-    // Parse JSON and flatten data for export
-    const exportData = result.recordset.map((audit) => {
-      const infoData = safeJsonParse(audit.InfoData, {});
-      const summary = safeJsonParse(audit.Summary, {});
-
-      return {
-        AuditCode: audit.AuditCode,
-        TemplateName: audit.TemplateName,
-        ReportName: audit.ReportName,
-        FormatNo: audit.FormatNo,
-        RevNo: audit.RevNo,
-        RevDate: audit.RevDate,
-        Status: audit.Status,
-        ModelName: infoData.modelName || "",
-        Date: infoData.date || "",
-        Shift: infoData.shift || "",
-        EID: infoData.eid || "",
-        TotalChecks: summary.total || 0,
-        PassCount: summary.pass || 0,
-        FailCount: summary.fail || 0,
-        WarningCount: summary.warning || 0,
-        PendingCount: summary.pending || 0,
-        PassRate:
-          summary.total > 0
-            ? Math.round((summary.pass / summary.total) * 100)
-            : 0,
-        CreatedBy: audit.CreatedBy,
-        CreatedAt: audit.CreatedAt,
-        SubmittedBy: audit.SubmittedBy,
-        SubmittedAt: audit.SubmittedAt,
-        ApprovedBy: audit.ApprovedBy,
-        ApprovedAt: audit.ApprovedAt,
-        ApprovalComments: audit.ApprovalComments,
-      };
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Audit data exported successfully",
-      data: exportData,
-      totalCount: exportData.length,
     });
   } finally {
     if (pool) await pool.close();

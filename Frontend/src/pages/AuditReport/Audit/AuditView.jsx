@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   FaCalendarAlt,
@@ -48,8 +49,7 @@ const formatFileSize = (bytes) => {
 const AuditView = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { getAuditById, approveAudit, rejectAudit, loading, error } =
-    useAuditData();
+  const { getAuditById, approveAudit, rejectAudit } = useAuditData();
 
   const [audit, setAudit] = useState(null);
   const [template, setTemplate] = useState(null);
@@ -59,10 +59,7 @@ const AuditView = () => {
   const [approvalAction, setApprovalAction] = useState("approve");
   const [approverName, setApproverName] = useState("");
   const [approvalComments, setApprovalComments] = useState("");
-
-  // ==================== Image preview — same structure as AuditEntry ====================
   const [imagePreview, setImagePreview] = useState(null);
-
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Load audit data
@@ -91,13 +88,11 @@ const AuditView = () => {
     loadAudit();
   }, [id, getAuditById, navigate]);
 
-  // Open approval modal
   const openApprovalModal = (action) => {
     setApprovalAction(action);
     setShowApprovalModal(true);
   };
 
-  // Handle approval/rejection
   const handleApproval = async () => {
     if (!approverName.trim()) {
       toast.error("Please enter approver name");
@@ -110,17 +105,11 @@ const AuditView = () => {
 
     setActionLoading(true);
     try {
-      let updatedAudit;
-      const approvalData = {
-        approverName: approverName,
-        comments: approvalComments,
-      };
-
-      if (approvalAction === "approve") {
-        updatedAudit = await approveAudit(id, approvalData);
-      } else {
-        updatedAudit = await rejectAudit(id, approvalData);
-      }
+      const approvalData = { approverName, comments: approvalComments };
+      const updatedAudit =
+        approvalAction === "approve"
+          ? await approveAudit(id, approvalData)
+          : await rejectAudit(id, approvalData);
 
       setAudit(updatedAudit);
       setShowApprovalModal(false);
@@ -155,7 +144,7 @@ const AuditView = () => {
     }
   }, []);
 
-  // ==================== Checkpoint status badge (with N/A) ====================
+  // ==================== Checkpoint status badge ====================
   const getStatusBadge = useCallback((status) => {
     switch (status) {
       case "pass":
@@ -223,7 +212,6 @@ const AuditView = () => {
     }
   }, []);
 
-  // ==================== Section total checkpoints ====================
   const getSectionTotalCheckpoints = useCallback((section) => {
     if (section.stages && Array.isArray(section.stages)) {
       return section.stages.reduce(
@@ -234,14 +222,14 @@ const AuditView = () => {
     return section.checkPoints?.length || 0;
   }, []);
 
-  // ==================== Summary (with N/A) ====================
+  // ==================== Summary ====================
   const getSummary = useCallback(() => {
     if (audit?.summary) {
       let summary = audit.summary;
       if (typeof summary === "string") {
         try {
           summary = JSON.parse(summary);
-        } catch (e) {
+        } catch {
           summary = null;
         }
       }
@@ -262,16 +250,14 @@ const AuditView = () => {
       warning = 0,
       pending = 0,
       na = 0;
-
     let sections = audit?.sections;
     if (typeof sections === "string") {
       try {
         sections = JSON.parse(sections);
-      } catch (e) {
+      } catch {
         sections = [];
       }
     }
-
     if (!sections || !Array.isArray(sections)) {
       return { pass: 0, fail: 0, warning: 0, pending: 0, na: 0, total: 0 };
     }
@@ -280,26 +266,24 @@ const AuditView = () => {
       if (!section) return;
       if (section.stages && Array.isArray(section.stages)) {
         section.stages.forEach((stage) => {
-          if (stage?.checkPoints && Array.isArray(stage.checkPoints)) {
-            stage.checkPoints.forEach((cp) => {
-              if (!cp) return;
-              const status = (cp.status || "pending").toLowerCase();
-              if (status === "pass") pass++;
-              else if (status === "fail") fail++;
-              else if (status === "warning") warning++;
-              else if (status === "na") na++;
-              else pending++;
-            });
-          }
+          stage?.checkPoints?.forEach((cp) => {
+            if (!cp) return;
+            const s = (cp.status || "pending").toLowerCase();
+            if (s === "pass") pass++;
+            else if (s === "fail") fail++;
+            else if (s === "warning") warning++;
+            else if (s === "na") na++;
+            else pending++;
+          });
         });
       } else if (section.checkPoints && Array.isArray(section.checkPoints)) {
         section.checkPoints.forEach((cp) => {
           if (!cp) return;
-          const status = (cp.status || "pending").toLowerCase();
-          if (status === "pass") pass++;
-          else if (status === "fail") fail++;
-          else if (status === "warning") warning++;
-          else if (status === "na") na++;
+          const s = (cp.status || "pending").toLowerCase();
+          if (s === "pass") pass++;
+          else if (s === "fail") fail++;
+          else if (s === "warning") warning++;
+          else if (s === "na") na++;
           else pending++;
         });
       }
@@ -320,7 +304,6 @@ const AuditView = () => {
     (fieldId) => {
       if (!audit?.infoData) return "-";
       if (audit.infoData[fieldId]) return audit.infoData[fieldId];
-
       const alternates = {
         serialNo: ["serial", "serialNumber", "serialNo"],
         modelName: ["model", "modelName", "modelVariant"],
@@ -328,7 +311,6 @@ const AuditView = () => {
         shift: ["shift", "shiftName"],
         eid: ["eid", "employeeId", "auditorId"],
       };
-
       if (alternates[fieldId]) {
         for (const alt of alternates[fieldId]) {
           if (audit.infoData[alt]) return audit.infoData[alt];
@@ -339,67 +321,84 @@ const AuditView = () => {
     [audit],
   );
 
-  // ==================== Image cell — mirrors AuditEntry preview mode exactly ====================
-  const renderImageViewCell = useCallback((column, checkpoint) => {
-    const imageData = checkpoint[column.id];
+  // ==================== Image cell ====================
+  // Normalises both storage formats into a single preview payload shape:
+  //   { name, fileName, data|null, size|null, uploadedAt|null }
+  const renderImageViewCell = useCallback(
+    (column, checkpoint) => {
+      const imageData = checkpoint[column.id];
 
-    // New format: plain filename string saved by backend
-    const isFilename = typeof imageData === "string" && imageData.length > 0;
-    // Old format: base64 object {data, name, size, uploadedAt, ...}
-    const isOldFormat =
-      imageData && typeof imageData === "object" && imageData.data;
+      // New format: plain filename string saved by backend
+      const isFilename = typeof imageData === "string" && imageData.length > 0;
+      // Old format: base64 object { data, name, size, uploadedAt, ... }
+      const isOldFormat =
+        imageData && typeof imageData === "object" && imageData.data;
 
-    if (isFilename || isOldFormat) {
-      const imgSrc = isFilename
-        ? `${baseURL}audit-report/images/${imageData}`
-        : imageData.data;
+      if (isFilename || isOldFormat) {
+        const imgSrc = isFilename
+          ? `${baseURL}audit-report/images/${imageData}`
+          : imageData.data;
 
-      const previewPayload = isFilename
-        ? { fileName: imageData, data: imgSrc }
-        : imageData;
+        // Always keep base64 data in `data` field, never put a URL there
+        const previewPayload = isFilename
+          ? {
+              name: imageData,
+              fileName: imageData,
+              data: null, // server image — download via endpoint
+              size: null,
+              uploadedAt: null,
+            }
+          : {
+              name: imageData.name,
+              fileName: imageData.name,
+              data: imageData.data, // real base64 blob
+              size: imageData.size,
+              uploadedAt: imageData.uploadedAt,
+            };
+
+        return (
+          <td key={column.id} className="px-3 py-2 border-r border-gray-200">
+            <div className="flex justify-center">
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => setImagePreview(previewPayload)}
+              >
+                <img
+                  src={imgSrc}
+                  alt={previewPayload.name || "Checkpoint image"}
+                  className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 group-hover:border-blue-400 transition-all group-hover:shadow-md"
+                  onError={(e) => {
+                    e.target.src =
+                      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                    e.target.classList.add("opacity-50");
+                  }}
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-lg transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                  <FaSearchPlus className="text-white" size={16} />
+                </div>
+              </div>
+            </div>
+          </td>
+        );
+      }
 
       return (
         <td key={column.id} className="px-3 py-2 border-r border-gray-200">
           <div className="flex justify-center">
-            <div className="relative group cursor-pointer">
-              <img
-                src={imgSrc}
-                alt={
-                  isFilename ? imageData : imageData.name || "Checkpoint image"
-                }
-                className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md"
-                onClick={() => setImagePreview(previewPayload)}
-                onError={(e) => {
-                  e.target.src =
-                    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                  e.target.classList.add("opacity-50");
-                }}
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-lg transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <FaSearchPlus className="text-white" size={16} />
-              </div>
-            </div>
+            <span className="text-xs text-gray-400 italic flex items-center gap-1">
+              <FaImage className="text-gray-300" size={12} />
+              No image
+            </span>
           </div>
         </td>
       );
-    }
-
-    return (
-      <td key={column.id} className="px-3 py-2 border-r border-gray-200">
-        <div className="flex justify-center">
-          <span className="text-xs text-gray-400 italic flex items-center gap-1">
-            <FaImage className="text-gray-300" size={12} />
-            No image
-          </span>
-        </div>
-      </td>
-    );
-  }, []);
+    },
+    [setImagePreview],
+  );
 
   // ==================== Export helpers ====================
   const getExportTableData = useCallback(() => {
     if (!audit || !template) return { headers: [], rows: [] };
-
     const visibleCols = template.columns?.filter((col) => col.visible) || [];
     const headers = visibleCols
       .filter((col) => col.type !== "image")
@@ -424,18 +423,14 @@ const AuditView = () => {
             visibleCols
               .filter((col) => col.type !== "image")
               .forEach((col) => {
-                if (col.id === "section") {
-                  row.push(section.sectionName || "-");
-                } else if (col.id === "stage") {
-                  row.push(stage.stageName || "-");
-                } else if (col.id === "status") {
+                if (col.id === "section") row.push(section.sectionName || "-");
+                else if (col.id === "stage") row.push(stage.stageName || "-");
+                else if (col.id === "status") {
                   const s = checkpoint.status || "pending";
                   row.push(
                     s === "na" ? "N/A" : s.charAt(0).toUpperCase() + s.slice(1),
                   );
-                } else {
-                  row.push(checkpoint[col.id] || "-");
-                }
+                } else row.push(checkpoint[col.id] || "-");
               });
             rows.push(row);
           });
@@ -446,16 +441,13 @@ const AuditView = () => {
           visibleCols
             .filter((col) => col.type !== "image")
             .forEach((col) => {
-              if (col.id === "section") {
-                row.push(section.sectionName || "-");
-              } else if (col.id === "status") {
+              if (col.id === "section") row.push(section.sectionName || "-");
+              else if (col.id === "status") {
                 const s = checkpoint.status || "pending";
                 row.push(
                   s === "na" ? "N/A" : s.charAt(0).toUpperCase() + s.slice(1),
                 );
-              } else {
-                row.push(checkpoint[col.id] || "-");
-              }
+              } else row.push(checkpoint[col.id] || "-");
             });
           rows.push(row);
         });
@@ -467,15 +459,13 @@ const AuditView = () => {
 
   const getInfoDataForExport = useCallback(() => {
     if (!audit || !template) return [];
-    const infoRows = [];
-    template.infoFields
-      ?.filter((f) => f.visible)
-      .forEach((field) => {
+    return (template.infoFields?.filter((f) => f.visible) || []).map(
+      (field) => {
         let value = getInfoFieldValue(field.id);
         if (field.id === "date") value = formatDateForDisplay(value);
-        infoRows.push([field.name, value]);
-      });
-    return infoRows;
+        return [field.name, value];
+      },
+    );
   }, [audit, template, getInfoFieldValue]);
 
   const getSummaryForExport = useCallback(() => {
@@ -517,7 +507,6 @@ const AuditView = () => {
       });
       yPos += 5;
 
-      doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       doc.text(
         `Status: ${(audit.status || "").charAt(0).toUpperCase() + (audit.status || "").slice(1)}`,
@@ -767,8 +756,7 @@ const AuditView = () => {
         infoSheetData.push(["Rev Date", formatDateForDisplay(audit.revDate)]);
       infoSheetData.push([""]);
       infoSheetData.push(["--- Audit Information ---"]);
-      const infoData = getInfoDataForExport();
-      infoData.forEach((row) => infoSheetData.push(row));
+      getInfoDataForExport().forEach((row) => infoSheetData.push(row));
       infoSheetData.push([""]);
       infoSheetData.push(["Notes", audit.notes || "No notes added."]);
       infoSheetData.push([""]);
@@ -893,86 +881,119 @@ const AuditView = () => {
   const visibleColumns = template?.columns?.filter((col) => col.visible) || [];
   const signatures = audit.signatures || {};
 
+  // Build a set of field IDs already shown in the info section
+  const knownInfoFieldIds = new Set(
+    (template?.infoFields || []).map((f) => f.id),
+  );
+  // Also exclude common aliases so they don't double-appear
+  const infoAliases = new Set([
+    "serial",
+    "serialNo",
+    "serialNumber",
+    "model",
+    "modelName",
+    "modelCode",
+    "modelVariant",
+    "auditDate",
+    "reportDate",
+    "shiftName",
+    "employeeId",
+    "auditorId",
+  ]);
+
   return (
     <div className="min-h-screen bg-gray-100 py-6 px-4">
-      {/* ==================== Image Preview Modal — identical to AuditEntry ==================== */}
-      {imagePreview && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4"
-          onClick={() => setImagePreview(null)}
-        >
+      {/* ==================== Image Preview Modal (Portal) ==================== */}
+      {imagePreview &&
+        createPortal(
           <div
-            className="relative max-w-4xl max-h-[90vh] bg-white rounded-xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4"
+            style={{ zIndex: 99999 }}
+            onClick={() => setImagePreview(null)}
           >
-            {/* Modal header */}
-            <div className="flex items-center justify-between p-3 bg-gray-800 text-white">
-              <div className="flex items-center gap-2">
-                <FaImage />
-                <span className="font-medium text-sm">
-                  {imagePreview.fileName || imagePreview.name || "Image"}
-                </span>
-                {imagePreview.size && (
-                  <span className="text-xs text-gray-400">
-                    ({formatFileSize(imagePreview.size)})
+            <div
+              className="relative bg-white rounded-xl shadow-2xl"
+              style={{
+                maxWidth: "56rem",
+                maxHeight: "90vh",
+                overflow: "hidden",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-3 bg-gray-800 text-white">
+                <div className="flex items-center gap-2">
+                  <FaImage />
+                  <span className="font-medium text-sm">
+                    {imagePreview.name || imagePreview.fileName || "Image"}
                   </span>
+                  {imagePreview.size && (
+                    <span className="text-xs text-gray-400">
+                      ({formatFileSize(imagePreview.size)})
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setImagePreview(null)}
+                  className="p-1 hover:bg-gray-700 rounded transition"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+
+              {/* Image */}
+              <div className="p-4 flex items-center justify-center bg-gray-100">
+                <img
+                  src={
+                    imagePreview.data
+                      ? imagePreview.data
+                      : `${baseURL}audit-report/images/${imagePreview.fileName}`
+                  }
+                  alt={imagePreview.name || imagePreview.fileName}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "70vh",
+                    objectFit: "contain",
+                  }}
+                  className="rounded-lg"
+                  onError={(e) => {
+                    e.target.src =
+                      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+";
+                  }}
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 bg-gray-50 border-t flex justify-between items-center">
+                <span className="text-xs text-gray-500">
+                  {imagePreview.uploadedAt
+                    ? `Uploaded: ${new Date(imagePreview.uploadedAt).toLocaleString()}`
+                    : "Checkpoint Image"}
+                </span>
+                {imagePreview.data ? (
+                  <a
+                    href={imagePreview.data}
+                    download={
+                      imagePreview.name || imagePreview.fileName || "image"
+                    }
+                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+                  >
+                    <FaDownload size={12} /> Download
+                  </a>
+                ) : (
+                  <a
+                    href={`${baseURL}audit-report/images/${imagePreview.fileName}/download`}
+                    download={imagePreview.fileName}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+                  >
+                    <FaDownload size={12} /> Download
+                  </a>
                 )}
               </div>
-              <button
-                onClick={() => setImagePreview(null)}
-                className="p-1 hover:bg-gray-700 rounded transition"
-              >
-                <FaTimes />
-              </button>
             </div>
-
-            {/* Modal image */}
-            <div className="p-4 flex items-center justify-center bg-gray-100">
-              <img
-                src={
-                  imagePreview.data ||
-                  `${baseURL}audit-report/images/${imagePreview.fileName}`
-                }
-                alt={imagePreview.fileName || imagePreview.name}
-                className="max-w-full max-h-[70vh] object-contain rounded-lg"
-                onError={(e) => {
-                  e.target.src =
-                    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+";
-                }}
-              />
-            </div>
-
-            {/* Modal footer */}
-            <div className="p-3 bg-gray-50 border-t flex justify-between items-center">
-              <span className="text-xs text-gray-500">
-                {imagePreview.uploadedAt
-                  ? `Uploaded: ${new Date(imagePreview.uploadedAt).toLocaleString()}`
-                  : "Checkpoint Image"}
-              </span>
-              {/* Download: use base64 data blob when available (old format), else direct server URL */}
-              {imagePreview.data ? (
-                <a
-                  href={imagePreview.data}
-                  download={
-                    imagePreview.name || imagePreview.fileName || "image"
-                  }
-                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
-                >
-                  <FaDownload size={12} /> Download
-                </a>
-              ) : (
-                <a
-                  href={`${baseURL}audit-report/images/${imagePreview.fileName}/download`}
-                  download
-                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
-                >
-                  <FaDownload size={12} /> Download
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       <div className="mx-auto">
         {/* ==================== Sticky Header ==================== */}
@@ -1198,30 +1219,38 @@ const AuditView = () => {
               ))}
           </div>
 
-          {/* Additional Info Data */}
-          {audit.infoData && Object.keys(audit.infoData).length > 0 && (
-            <div className="p-4 border-b-2 border-gray-300 bg-blue-50">
-              <h4 className="font-semibold text-gray-700 mb-2 text-sm">
-                Additional Information:
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                {Object.entries(audit.infoData).map(([key, value]) => {
-                  const templateFieldIds =
-                    template?.infoFields?.map((f) => f.id) || [];
-                  if (templateFieldIds.includes(key)) return null;
-                  if (!value) return null;
-                  return (
-                    <div key={key} className="bg-white p-2 rounded border">
-                      <span className="text-xs text-gray-500 uppercase block">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
-                      </span>
-                      <span className="font-medium text-gray-800">{value}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Additional Info — only show truly extra fields not in template infoFields */}
+          {audit.infoData &&
+            (() => {
+              const extraEntries = Object.entries(audit.infoData).filter(
+                ([key, value]) => {
+                  if (!value) return false;
+                  if (knownInfoFieldIds.has(key)) return false;
+                  if (infoAliases.has(key)) return false;
+                  return true;
+                },
+              );
+              if (extraEntries.length === 0) return null;
+              return (
+                <div className="p-4 border-b-2 border-gray-300 bg-blue-50">
+                  <h4 className="font-semibold text-gray-700 mb-2 text-sm">
+                    Additional Information:
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    {extraEntries.map(([key, value]) => (
+                      <div key={key} className="bg-white p-2 rounded border">
+                        <span className="text-xs text-gray-500 uppercase block">
+                          {key.replace(/([A-Z])/g, " $1").trim()}
+                        </span>
+                        <span className="font-medium text-gray-800">
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
           {/* Notes Section */}
           <div className="p-4 border-b-2 border-gray-300 bg-yellow-50">
@@ -1370,7 +1399,7 @@ const AuditView = () => {
                       );
                     });
                   } else {
-                    // No stages — flat checkpoints
+                    // Flat checkpoints (no stages)
                     return section.checkPoints?.map(
                       (checkpoint, checkpointIndex) => (
                         <tr
@@ -1451,21 +1480,19 @@ const AuditView = () => {
             </table>
           </div>
 
-          {/* ==================== Summary Section (with N/A — 6 cards like AuditEntry) ==================== */}
+          {/* ==================== Summary Section ==================== */}
           <div className="p-4 bg-gray-100 border-t-2 border-gray-300">
             <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
               <FaClipboardCheck className="text-blue-600" />
               Audit Summary
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              {/* Total */}
               <div className="bg-white rounded-lg p-3 text-center shadow-sm border">
                 <div className="text-2xl font-bold text-gray-700">
                   {summary.total}
                 </div>
                 <span className="text-xs text-gray-500">Total Checks</span>
               </div>
-              {/* Pass */}
               <div className="bg-green-50 rounded-lg p-3 text-center shadow-sm border border-green-200">
                 <div className="flex items-center justify-center gap-1 text-green-700 font-bold text-2xl">
                   <FaCheckCircle className="text-lg" />
@@ -1473,7 +1500,6 @@ const AuditView = () => {
                 </div>
                 <span className="text-xs text-green-600">Passed</span>
               </div>
-              {/* Warning */}
               <div className="bg-yellow-50 rounded-lg p-3 text-center shadow-sm border border-yellow-200">
                 <div className="flex items-center justify-center gap-1 text-yellow-700 font-bold text-2xl">
                   <FaExclamationTriangle className="text-lg" />
@@ -1481,7 +1507,6 @@ const AuditView = () => {
                 </div>
                 <span className="text-xs text-yellow-600">Warnings</span>
               </div>
-              {/* Fail */}
               <div className="bg-red-50 rounded-lg p-3 text-center shadow-sm border border-red-200">
                 <div className="flex items-center justify-center gap-1 text-red-700 font-bold text-2xl">
                   <FaTimesCircle className="text-lg" />
@@ -1489,14 +1514,12 @@ const AuditView = () => {
                 </div>
                 <span className="text-xs text-red-600">Failed</span>
               </div>
-              {/* Not Applicable */}
               <div className="bg-blue-50 rounded-lg p-3 text-center shadow-sm border border-blue-200">
                 <div className="text-2xl font-bold text-blue-600">
                   {summary.na}
                 </div>
                 <span className="text-xs text-blue-500">Not Applicable</span>
               </div>
-              {/* Pending */}
               <div className="bg-gray-50 rounded-lg p-3 text-center shadow-sm border border-gray-200">
                 <div className="text-2xl font-bold text-gray-500">
                   {summary.pending}
@@ -1522,7 +1545,7 @@ const AuditView = () => {
                   style={{
                     width: `${summary.total > 0 ? (summary.pass / summary.total) * 100 : 0}%`,
                   }}
-                ></div>
+                />
               </div>
             </div>
           </div>
@@ -1577,7 +1600,7 @@ const AuditView = () => {
                   </>
                 ) : (
                   <>
-                    <div className="border-b-2 border-gray-400 w-3/4 mx-auto mb-2 pb-4 min-h-[40px]"></div>
+                    <div className="border-b-2 border-gray-400 w-3/4 mx-auto mb-2 pb-4 min-h-[40px]" />
                     <span className="text-xs text-gray-500">Name & Date</span>
                   </>
                 )}
@@ -1674,9 +1697,7 @@ const AuditView = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             <div
-              className={`p-4 text-white ${
-                approvalAction === "approve" ? "bg-green-600" : "bg-red-600"
-              }`}
+              className={`p-4 text-white ${approvalAction === "approve" ? "bg-green-600" : "bg-red-600"}`}
             >
               <h3 className="text-lg font-bold">
                 {approvalAction === "approve"
@@ -1740,7 +1761,7 @@ const AuditView = () => {
               >
                 {actionLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                     Processing...
                   </>
                 ) : approvalAction === "approve" ? (

@@ -29,17 +29,7 @@ const transformTemplate = (template) => {
 
 const transformAudit = (audit) => {
   if (!audit) return null;
-
-  // DEBUG: Log raw audit data
-  // console.log("transformAudit input:", {
-  //   id: audit.Id ?? audit.id,
-  //   hasSummary: !!(audit.Summary ?? audit.summary),
-  //   summaryValue: audit.Summary ?? audit.summary,
-  //   hasSections: !!(audit.Sections ?? audit.sections),
-  //   sectionsLength: (audit.Sections ?? audit.sections)?.length,
-  // });
-
-  const transformed = {
+  return {
     id: audit.Id ?? audit.id,
     auditCode: audit.AuditCode ?? audit.auditCode,
     templateId: audit.TemplateId ?? audit.templateId,
@@ -67,15 +57,6 @@ const transformAudit = (audit) => {
     approvedAt: audit.ApprovedAt ?? audit.approvedAt,
     approvalComments: audit.ApprovalComments ?? audit.approvalComments,
   };
-
-  // DEBUG: Log transformed
-  // console.log("transformAudit output:", {
-  //   id: transformed.id,
-  //   summary: transformed.summary,
-  //   sectionsLength: transformed.sections?.length,
-  // });
-
-  return transformed;
 };
 
 export const useAuditData = () => {
@@ -93,8 +74,6 @@ export const useAuditData = () => {
     setError(null);
     try {
       const response = await axios.get(`${API_BASE}/templates`, { params });
-      // console.log("loadTemplates raw response:", response.data);
-
       const transformedTemplates = (response.data.data || []).map(
         transformTemplate,
       );
@@ -220,16 +199,7 @@ export const useAuditData = () => {
     setError(null);
     try {
       const response = await axios.get(`${API_BASE}/audits`, { params });
-
-      // DEBUG: Log raw API response
-      // console.log("loadAudits raw response:", response.data);
-      // console.log("First audit raw:", response.data.data?.[0]);
-
       const transformedAudits = (response.data.data || []).map(transformAudit);
-
-      // DEBUG: Log transformed
-      // console.log("First audit transformed:", transformedAudits[0]);
-
       setAudits(transformedAudits);
       return {
         data: transformedAudits,
@@ -252,20 +222,7 @@ export const useAuditData = () => {
     setError(null);
     try {
       const response = await axios.get(`${API_BASE}/audits/${id}`);
-
-      // DEBUG
-      // console.log("getAuditById raw response:", response.data);
-      // console.log("Raw audit data:", response.data.data);
-      // console.log("Raw summary:", response.data.data?.Summary);
-      // console.log("Raw sections:", response.data.data?.Sections);
-
-      const transformed = transformAudit(response.data.data);
-
-      // console.log("Transformed audit:", transformed);
-      // console.log("Transformed summary:", transformed?.summary);
-      // console.log("Transformed sections:", transformed?.sections);
-
-      return transformed;
+      return transformAudit(response.data.data);
     } catch (err) {
       const message = err.response?.data?.message || "Failed to load audit";
       setError(message);
@@ -329,24 +286,6 @@ export const useAuditData = () => {
     }
   }, []);
 
-  const submitAudit = useCallback(async (id) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axios.post(`${API_BASE}/audits/${id}/submit`);
-      const updatedAudit = transformAudit(response.data.data);
-      setAudits((prev) => prev.map((a) => (a.id == id ? updatedAudit : a)));
-      return updatedAudit;
-    } catch (err) {
-      const message = err.response?.data?.message || "Failed to submit audit";
-      setError(message);
-      console.error("Submit audit error:", err);
-      throw new Error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const approveAudit = useCallback(async (id, approvalData) => {
     setLoading(true);
     setError(null);
@@ -389,52 +328,27 @@ export const useAuditData = () => {
     }
   }, []);
 
-  const getAuditHistory = useCallback(async (id) => {
-    try {
-      const response = await axios.get(`${API_BASE}/audits/${id}/history`);
-      return response.data.data;
-    } catch (err) {
-      console.error("Get audit history error:", err);
-      throw new Error(
-        err.response?.data?.message || "Failed to load audit history",
-      );
-    }
-  }, []);
-
-  const getAuditStats = useCallback(async (params = {}) => {
-    try {
-      const response = await axios.get(`${API_BASE}/audits/stats`, { params });
-      return response.data.data;
-    } catch (err) {
-      console.error("Get audit stats error:", err);
-      throw new Error(
-        err.response?.data?.message || "Failed to load audit stats",
-      );
-    }
-  }, []);
-
   return {
     templates,
     audits,
     loading,
     error,
     clearError,
+    // Template methods
     loadTemplates,
     getTemplateById,
     createTemplate,
     updateTemplate,
     deleteTemplate,
     duplicateTemplate,
+    // Audit methods
     loadAudits,
     getAuditById,
     createAudit,
     updateAudit,
     deleteAudit,
-    submitAudit,
     approveAudit,
     rejectAudit,
-    getAuditHistory,
-    getAuditStats,
   };
 };
 
