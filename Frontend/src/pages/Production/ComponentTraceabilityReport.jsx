@@ -58,7 +58,7 @@ const ComponentTraceabilityReport = () => {
 
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore]
+    [loading, hasMore],
   );
 
   /* ===================== API CALLS ===================== */
@@ -116,7 +116,7 @@ const ComponentTraceabilityReport = () => {
         `${baseURL}prod/export-component-traceability`,
         {
           params,
-        }
+        },
       );
       if (res?.data?.success) {
         return res?.data?.data;
@@ -125,7 +125,7 @@ const ComponentTraceabilityReport = () => {
     } catch (error) {
       console.error(
         "Failed to fetch export component traceability data:",
-        error
+        error,
       );
       toast.error("Failed to fetch export component traceability data.");
       return [];
@@ -159,7 +159,7 @@ const ComponentTraceabilityReport = () => {
               value={selectedModelVariant?.value || ""}
               onChange={(e) =>
                 setSelectedModelVariant(
-                  variants.find((opt) => opt.value === e.target.value) || null
+                  variants.find((opt) => opt.value === e.target.value) || null,
                 )
               }
               className="max-w-64"
@@ -170,7 +170,7 @@ const ComponentTraceabilityReport = () => {
               value={selectedCompType?.value || ""}
               onChange={(e) =>
                 setSelectedCompType(
-                  compType.find((opt) => opt.value === e.target.value) || null
+                  compType.find((opt) => opt.value === e.target.value) || null,
                 )
               }
               className="max-w-64"
@@ -228,15 +228,16 @@ const ComponentTraceabilityReport = () => {
             <table className="min-w-full border bg-white text-xs rounded-lg table-auto">
               <thead className="bg-gray-200 sticky top-0 z-10 text-center">
                 <tr>
-                  <th className="p-2 border">Model_Name</th>
+                  <th className="p-2 border">Model Name</th>
                   <th className="p-2 border">Component Serial No.</th>
                   <th className="p-2 border">Component Name</th>
                   <th className="p-2 border">Component Type</th>
-                  <th className="p-2 border">Supplier_Name</th>
+                  <th className="p-2 border">SAP Code</th>
+                  <th className="p-2 border">Supplier Name</th>
                   <th className="p-2 border">Comp Scanned On</th>
                   <th className="p-2 border">FG On</th>
                   <th className="p-2 border">Fg Sr. No.</th>
-                  <th className="p-2 border">Asset tag</th>
+                  <th className="p-2 border">Asset Tag</th>
                 </tr>
               </thead>
               <tbody>
@@ -249,10 +250,10 @@ const ComponentTraceabilityReport = () => {
                       className="hover:bg-gray-100 text-center"
                     >
                       <td className="border">{item.Model_Name}</td>
-
                       <td className="border">{item.Component_Serial_Number}</td>
                       <td className="border">{item.Component_Name}</td>
                       <td className="border">{item.Component_Type}</td>
+                      <td className="border">{item.SAP_Code ?? "NA"}</td>{" "}
                       <td className="border">{item.Supplier_Name}</td>
                       <td className="border">
                         {item.Comp_ScanedOn &&
@@ -270,7 +271,8 @@ const ComponentTraceabilityReport = () => {
 
                 {!loading && traceabilityData.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="text-center py-4">
+                    <td colSpan={10} className="text-center py-4">
+                      {" "}
                       No data found.
                     </td>
                   </tr>

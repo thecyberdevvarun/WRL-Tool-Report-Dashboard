@@ -19,15 +19,14 @@ export const generateReport = tryCatch(async (req, res) => {
     throw new AppError("startTime and endTime are required", 400);
   }
 
-  // Convert to IST (+5:30)
   const istStart = convertToIST(startTime);
   const istEnd = convertToIST(endTime);
   const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
   const pool = await new sql.ConnectionPool({
     ...dbConfig1,
-    requestTimeout: 120000, // optional: increase timeout to 120s
-    connectionTimeout: 30000, // optional: 30s connection timeout
+    requestTimeout: 120000,
+    connectionTimeout: 30000,
   }).connect();
 
   try {
@@ -83,15 +82,16 @@ export const generateReport = tryCatch(async (req, res) => {
       )
 
       SELECT 
-          MATBM.Name        AS Model_Name,
-          b.Serial          AS Component_Serial_Number,
-          mat.Name          AS Component_Name,
-          MatCat.Name       AS Component_Type,
-          L.Name            AS Supplier_Name,
-          b.ScannedOn       AS Comp_ScanedOn,
-          pa.ActivityOn     AS FG_Date,
-          MATB.Serial       AS Fg_Sr_No,
-          MATB.VSerial      AS Asset_tag
+          MATBM.Name                    AS Model_Name,
+          b.Serial                      AS Component_Serial_Number,
+          mat.Name                      AS Component_Name,
+          ISNULL(mat.AltName, 'NA')     AS SAP_Code,
+          MatCat.Name                   AS Component_Type,
+          L.Name                        AS Supplier_Name,
+          b.ScannedOn                   AS Comp_ScanedOn,
+          pa.ActivityOn                 AS FG_Date,
+          MATB.Serial                   AS Fg_Sr_No,
+          MATB.VSerial                  AS Asset_tag
       FROM ProcessOrder a
 
       INNER JOIN ProcessInputBOMScan b
@@ -123,12 +123,8 @@ export const generateReport = tryCatch(async (req, res) => {
           MATB.Status <> 99
           AND MATB.VSerial IS NOT NULL
           ${model && model !== "0" ? "AND MATBM.MatCode = @model" : ""}
-          ${
-            compType && compType !== "0"
-              ? "AND MatCat.CategoryCode = @compType"
-              : ""
-          }
-          ORDER BY 
+          ${compType && compType !== "0" ? "AND MatCat.CategoryCode = @compType" : ""}
+      ORDER BY 
           a.PSNo
       OFFSET 
           @offset ROWS FETCH NEXT @limit ROWS ONLY;
@@ -164,7 +160,7 @@ export const componentTraceabilityExportData = tryCatch(async (req, res) => {
 
   const pool = await new sql.ConnectionPool({
     ...dbConfig1,
-    requestTimeout: 120000, // ✅ Prevent 15s timeout
+    requestTimeout: 120000,
     connectionTimeout: 30000,
   }).connect();
 
@@ -219,15 +215,16 @@ export const componentTraceabilityExportData = tryCatch(async (req, res) => {
       )
 
       SELECT 
-          MATBM.Name        AS Model_Name,
-          b.Serial          AS Component_Serial_Number,
-          mat.Name          AS Component_Name,
-          MatCat.Name       AS Component_Type,
-          L.Name            AS Supplier_Name,
-          b.ScannedOn       AS Comp_ScanedOn,
-          pa.ActivityOn     AS FG_Date,
-          MATB.Serial       AS Fg_Sr_No,
-          MATB.VSerial      AS Asset_tag
+          MATBM.Name                    AS Model_Name,
+          b.Serial                      AS Component_Serial_Number,
+          mat.Name                      AS Component_Name,
+          ISNULL(mat.AltName, 'NA')     AS SAP_Code,
+          MatCat.Name                   AS Component_Type,
+          L.Name                        AS Supplier_Name,
+          b.ScannedOn                   AS Comp_ScanedOn,
+          pa.ActivityOn                 AS FG_Date,
+          MATB.Serial                   AS Fg_Sr_No,
+          MATB.VSerial                  AS Asset_tag
       FROM ProcessOrder a
 
       INNER JOIN ProcessInputBOMScan b
@@ -259,11 +256,7 @@ export const componentTraceabilityExportData = tryCatch(async (req, res) => {
           MATB.Status <> 99
           AND MATB.VSerial IS NOT NULL
           ${model && model !== "0" ? "AND MATBM.MatCode = @model" : ""}
-          ${
-            compType && compType !== "0"
-              ? "AND MatCat.CategoryCode = @compType"
-              : ""
-          }
+          ${compType && compType !== "0" ? "AND MatCat.CategoryCode = @compType" : ""}
       ORDER BY 
           a.PSNo;
     `;
