@@ -92,7 +92,7 @@ export const sendVisitorPassMail = async ({
                           <td width="50%" style="vertical-align: top;">
                             <p><strong>Visitor ID:</strong> ${visitorId}</p>
                             <p><strong>Allow On:</strong> ${new Date(
-                              allowOn
+                              allowOn,
                             ).toLocaleString()}</p>
                             <p><strong>Department to Visit:</strong> ${departmentToVisit}</p>
                           </td>
@@ -112,8 +112,13 @@ export const sendVisitorPassMail = async ({
 
                   <!-- Footer -->
                   <tr>
-                    <td style="background-color: #f9f9f9; text-align: center; padding: 10px; font-size: 12px; color: #666;">
-                      © ${currentYear} WRL Tool Report — This is an automated message.
+                    <td style="padding:12px;">
+                      <div style="font-size:12px; color:#777; border-top:1px solid #eee; padding-top:15px; text-align:center;">
+                        <div style="font-size:11px; color:#9a9a9a;">
+                          © ${currentYear} MES Team | Western Refrigeration Pvt. Ltd.<br/>
+                          This is a system-generated notification. Please do not reply to this email.
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 </table>
@@ -129,7 +134,7 @@ export const sendVisitorPassMail = async ({
     console.log(
       `Visitor pass email sent to ${to} (cc: ${cc || "none"}) — Message ID: ${
         info.messageId
-      }`
+      }`,
     );
     return true;
   } catch (error) {

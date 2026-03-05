@@ -5,19 +5,6 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Add at top of file, before the export
-const formatTime = (val) => {
-  if (!val || val === "-") return "-";
-  if (/^\d{2}:\d{2}/.test(String(val))) return String(val).slice(0, 5);
-  try {
-    const date = new Date(val);
-    if (isNaN(date.getTime())) return val;
-    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  } catch {
-    return val;
-  }
-};
-
 export const sendManpowerApprovalMail = async ({
   to,
   requestCode,
@@ -48,7 +35,7 @@ export const sendManpowerApprovalMail = async ({
     const approveUrl = `${baseUrl}/api/v1/manpower/email-action/${requestCode}/${role}/approve`;
     const rejectUrl = `${baseUrl}/api/v1/manpower/email-action/${requestCode}/${role}/reject`;
 
-    // ✅ Security only receives the final list — no action buttons
+    // Security only receives the final list — no action buttons
     const isSecurityRole = role === "Security";
 
     const employeeRows = employees.length
@@ -75,7 +62,7 @@ export const sendManpowerApprovalMail = async ({
       },
       to,
       subject: isSecurityRole
-        ? `✅ Approved Manpower List — ${departmentName} (${requestCode})`
+        ? `Approved Manpower List — ${departmentName} (${requestCode})`
         : `Manpower Approval Request — ${departmentName} (${requestCode})`,
 
       attachments: [
@@ -211,7 +198,7 @@ export const sendManpowerApprovalMail = async ({
             </tr>
           </table>
 
-          <!-- ✅ ACTION BUTTONS — hidden for Security -->
+          <!-- ACTION BUTTONS — hidden for Security -->
           ${
             !isSecurityRole
               ? `
@@ -231,17 +218,22 @@ export const sendManpowerApprovalMail = async ({
           <div style="text-align:center;margin-top:40px;padding:15px;
                       background:#e8f5e9;border-radius:6px;border:1px solid #a5d6a7;">
             <p style="margin:0;color:#2e7d32;font-size:14px;font-weight:bold;">
-              ✅ This manpower request has been fully approved. Please allow entry accordingly.
+              This manpower request has been fully approved. Please allow entry accordingly.
             </p>
           </div>`
           }
 
-          <!-- FOOTER -->
-          <div style="margin-top:40px;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:10px;">
-            <strong>DISCLAIMER:</strong> The information contained in this electronic message and any attachments
-            are intended for the exclusive use of the addressee(s). Any dissemination, distribution or copying
-            of this communication is strictly prohibited. — Western Refrigeration Pvt. Ltd.
-          </div>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:12px;">
+              <div style="font-size:12px; color:#777; border-top:1px solid #eee; padding-top:15px; text-align:center;">
+                <div style="font-size:11px; color:#9a9a9a;">
+                  © ${currentYear} MES Team | Western Refrigeration Pvt. Ltd.<br/>
+                  This is a system-generated notification. Please do not reply to this email.
+                </div>
+              </div>
+            </td>
+          </tr>
 
         </div>
       </body>

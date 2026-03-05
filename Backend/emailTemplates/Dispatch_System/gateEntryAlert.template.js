@@ -167,7 +167,23 @@ export const sendGateEntryAlertMail = async (gateEntries) => {
 
     const mailOptions = {
       from: { name: "WRL Inward Alert", address: process.env.SMTP_USER },
-      to: ["vatsal.patel@westernequipments.com"],
+      to: [
+        "sujith.s@westernequipments.com",
+        "rahul.bagul@westernequipments.com",
+        "shubhanshu.dixit@westernequipments.com",
+        "shubham.singh@westernequipments.com",
+        "ashutosh.jena@westernequipments.com",
+        "jenish.gandhi@westernequipments.com",
+        "mayank.garg@westernequipments.com",
+        "devesh.gaur@westernequipments.com",
+        "vinay.yadav@westernequipments.com",
+        "rushikesh.naik@westernequipments.com",
+        "harshal.prajapati@westernequipments.com",
+        "vaikunth.surve@westernequipments.com",
+        "store.tadgam@westernequipments.com",
+        "vikash.kumar@westernequipments.com",
+        "vatsal.patel@westernequipments.com",
+      ],
       subject: "Gate Entry Report",
       html,
     };

@@ -64,7 +64,23 @@ export const sendVisitorReportMail = async (visitors) => {
       },
       to: "vikash.kumar@westernequipments.com",
       subject: "Visitor Report - Excel Summary",
-      text: "Please find attached the latest visitor report (Excel format) for your reference.\n\nRegards,\nWRL Security Department",
+      html: `
+        <div style="font-family:Arial,sans-serif;padding:15px">
+          <h2 style="color:#2575fc">Visitor Report - Excel Summary</h2>
+          <p>Please find attached the latest <b>Visitor Report</b> in Excel format for your reference.</p>
+
+          <p>The report contains visitor check-in and check-out details recorded in the WRL Security System.</p>
+
+          <!-- Footer -->
+          <div style="margin-top:25px;font-size:12px;color:#777;border-top:1px solid #eee;padding-top:15px;text-align:center;">
+            <div style="font-size:11px;color:#9a9a9a;">
+              © ${new Date().getFullYear()} MES Team | Western Refrigeration Pvt. Ltd.<br/>
+              This is a system-generated notification. Please do not reply to this email.
+            </div>
+          </div>
+
+        </div>
+      `,
       attachments: [
         {
           filename: `visitor-report-${

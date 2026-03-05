@@ -119,12 +119,13 @@ export const sendTaskReminderMail = async ({
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#f1f1f1; text-align:center; padding:18px; font-size:12px; color:#777; line-height:1.4;">
-              © ${currentYear} WRL Tool Report — Automated Task Reminder
-              <br>
-              <span style="font-size:11px; color:#999; display:block; margin-top:5px;">
-                Made with ❤️ by MES Team
-              </span>
+            <td style="padding:12px;">
+              <div style="font-size:12px; color:#777; border-top:1px solid #eee; padding-top:15px; text-align:center;">
+                <div style="font-size:11px; color:#9a9a9a;">
+                  © ${currentYear} MES Team | Western Refrigeration Pvt. Ltd.<br/>
+                  This is a system-generated notification. Please do not reply to this email.
+                </div>
+              </div>
             </td>
           </tr>
 

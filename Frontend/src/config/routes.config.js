@@ -84,10 +84,6 @@ const Reports = lazy(() => import("../pages/Visitor/Reports"));
 const History = lazy(() => import("../pages/Visitor/History"));
 const ManageEmployee = lazy(() => import("../pages/Visitor/ManageEmployee"));
 
-const LogisticsDisplay = lazy(
-  () => import("../pages/PerformanceDisplays/LogisticsDisplay"),
-);
-
 const Calibiration = lazy(() => import("../pages/Compliance/Calibration"));
 
 const ManageTasks = lazy(() => import("../pages/TaskReminders/ManageTasks"));
@@ -454,20 +450,6 @@ export const ROUTE_CONFIG = [
       {
         path: "/visitor-pass-display/:passId",
         component: VisitorPassDisplay,
-      },
-    ],
-  },
-  {
-    key: "displays",
-    icon: MdOutlineDisplaySettings,
-    label: "Displays",
-    basePath: "/displays",
-    roles: [ROLES.ADMIN],
-    items: [
-      {
-        path: "/displays/logistics",
-        label: "Logistics",
-        component: LogisticsDisplay,
       },
     ],
   },
