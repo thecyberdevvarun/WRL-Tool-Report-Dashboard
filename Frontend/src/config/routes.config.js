@@ -175,7 +175,7 @@ export const ROUTE_CONFIG = [
         component: TotalProduction,
       },
       {
-        path: "/production//stop-loss-report",
+        path: "/production/stop-loss-report",
         label: "Stop Loss Report",
         component: StopLossReport,
       },
