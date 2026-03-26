@@ -65,6 +65,9 @@ const DispatchReport = lazy(() => import("../pages/Dispatch/DispatchReport"));
 const DispatchUnloading = lazy(
   () => import("../pages/Dispatch/DispatchUnloading"),
 );
+const RemoveDispatchSerials = lazy(
+  () => import("../pages/Dispatch/RemoveDispatchSerials"),
+);
 const FGCasting = lazy(() => import("../pages/Dispatch/FGCasting"));
 const GateEntry = lazy(() => import("../pages/Dispatch/GateEntry"));
 const ErrorLog = lazy(() => import("../pages/Dispatch/ErrorLog"));
@@ -384,6 +387,11 @@ export const ROUTE_CONFIG = [
         path: "/dispatch/error-log",
         label: "Error Log",
         component: ErrorLog,
+      },
+      {
+        path: "/dispatch/remove-error-serials",
+        label: "Remove Error Serials",
+        component: RemoveDispatchSerials,
       },
     ],
   },

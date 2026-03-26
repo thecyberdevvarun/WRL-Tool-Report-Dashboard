@@ -16,6 +16,7 @@ import {
 import { getDispatchMasterBySession } from "../controllers/dispatch/fgCasting.controller.js";
 import { sendMaterialGateEntryAlertEmail } from "../controllers/dispatch/gateEntry.controller.js";
 import { getDispatchErrorLog } from "../controllers/dispatch/errorLog.controller.js";
+import { fetchDispatchErrorSerials, removeDispatchErrorSerials } from "../controllers/dispatch/removeDispatchError.controller.js";
 
 const router = express.Router();
 
@@ -41,5 +42,9 @@ router.post("/material-gate-entry", sendMaterialGateEntryAlertEmail);
 
 // -----------------> Error Log Routes
 router.get("/error-log", getDispatchErrorLog);
+
+// -----------------> Remove Dispatch Error Serials
+router.post("/fetch-error-serials", fetchDispatchErrorSerials);
+router.post("/remove-error-serials", removeDispatchErrorSerials);
 
 export default router;
