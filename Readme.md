@@ -656,16 +656,16 @@ The team focuses on delivering scalable, secure, and production-ready MES soluti
 <table>
   <tr>
     <td align="center">
-      <img src="https://github.com/Varunyadavgithub.png" width="120px;" style="border-radius:50%; border:3px solid #e1e4e8;" alt="Varun Yadav"/><br />
+      <img src="https://github.com/thecyberdevvarun.png" width="120px;" style="border-radius:50%; border:3px solid #e1e4e8;" alt="Varun Yadav"/><br />
       <b>Varun Yadav</b><br />
-      <sub>MES Developer Trainee</sub><br />
+      <sub>MES Engineer</sub><br />
       <sub>Western Refrigeration Pvt. Ltd.</sub><br />
       <a href="https://www.linkedin.com/in/thecyberdevvarun">LinkedIn</a>
     </td>
     <td align="center">
       <img src="https://github.com/buildwithvikash.png" width="120px;" style="border-radius:50%; border:3px solid #e1e4e8;" alt="Vikash Kumar"/><br />
       <b>Vikash Kumar</b><br />
-      <sub>MES Developer</sub><br />
+      <sub>MES Engineer</sub><br />
       <sub>Western Refrigeration Pvt. Ltd.</sub><br />
       <a href="https://www.linkedin.com/in/vikash-kumar-54b464336/">LinkedIn</a>
     </td>
