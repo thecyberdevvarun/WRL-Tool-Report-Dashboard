@@ -185,10 +185,19 @@ const ProductionDisplay1 = ({
   const d = apiData;
   const label = config?.stationName1 || "FG PACKING";
 
-  const balance =
-    d.ShiftOutputTarget != null && d.ActualQty != null
-      ? d.ShiftOutputTarget - d.ActualQty
-      : null;
+  
+const dailyTarget = Number(
+  config?.dailyProductionTarget1 ??
+  config?.DailyProductionTarget1 ??
+  d.dailyProductionTarget1 ??
+  d.DailyProductionTarget1 ??
+  0
+);
+
+const actualQty = Number(d.ActualQty ?? 0);
+
+const balance = dailyTarget - actualQty;
+
 
   const perf = num(d.PerformancePct);
 
