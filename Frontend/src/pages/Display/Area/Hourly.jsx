@@ -156,41 +156,6 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
     () => ({
       labels: hourStats.map((h) => `H${h.HourNo}`),
       datasets: [
-        // ── Loss line — drawn ON TOP ──
-        {
-          type: "line",
-          label: "Loss",
-          data: hourStats.map((h) => h.HourLoss),
-          borderColor: "#ef4444",
-          backgroundColor: "rgba(239,68,68,0.1)",
-          borderWidth: Math.max(2, Math.round(5 * k)),
-          pointRadius: Math.max(4, Math.round(10 * k)),
-          pointHoverRadius: Math.max(5, Math.round(13 * k)),
-          pointBackgroundColor: "#ef4444",
-          pointBorderColor: "#fff",
-          pointBorderWidth: Math.max(2, Math.round(4 * k)),
-          tension: 0.4,
-          fill: false,
-          yAxisID: "y2",
-          order: 0,
-        },
-        // ── Target dashed line ──
-        {
-          type: "line",
-          label: "Target",
-          data: hourStats.map((h) => h._target),
-          borderColor: "#1e40af",
-          backgroundColor: "transparent",
-          borderWidth: Math.max(2, Math.round(4 * k)),
-          borderDash: [Math.round(12 * k), Math.round(8 * k)],
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointBackgroundColor: "#1e40af",
-          tension: 0,
-          fill: false,
-          yAxisID: "y",
-          order: 1,
-        },
         // ── Actual bars ──
         {
           type: "bar",
@@ -277,7 +242,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
                 }
               : 2,
           font: (ctx) => ({
-            size: ctx.dataset.label === "Actual" ? f(30) : f(26),
+            size: ctx.dataset.label === "Actual" ? f(50) : f(26),
             weight: 800,
           }),
           formatter: (value) => (value != null && value !== 0 ? value : ""),
@@ -314,23 +279,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
             font: { size: f(24), weight: "bold" },
           },
         },
-        y2: {
-          position: "right",
-          beginAtZero: true,
-          border: { display: false },
-          ticks: {
-            color: "#ef4444",
-            font: { size: f(24), weight: 600 },
-            padding: Math.round(10 * k),
-          },
-          grid: { display: false },
-          title: {
-            display: true,
-            text: "Loss",
-            color: "#ef4444",
-            font: { size: f(24), weight: "bold" },
-          },
-        },
+
       },
     };
   }, [k]);
@@ -419,56 +368,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
             padding: `${s(16)} ${s(28)} ${s(12)}`,
           }}
         >
-          {/* Legend */}
-          <div
-            className="shrink-0 flex items-center justify-center font-bold text-slate-700"
-            style={{ fontSize: s(30), gap: s(48) }}
-          >
-            <span className="flex items-center" style={{ gap: s(14) }}>
-              <span
-                style={{
-                  width: s(40),
-                  height: s(26),
-                  borderRadius: s(6),
-                  background: "rgba(245,158,11,0.85)",
-                }}
-              />
-              Actual Production
-            </span>
-            <span className="flex items-center" style={{ gap: s(14) }}>
-              <span
-                style={{
-                  width: s(56),
-                  height: s(5),
-                  background:
-                    "repeating-linear-gradient(90deg, #1e40af 0 10px, transparent 10px 18px)",
-                }}
-              />
-              Target
-            </span>
-            <span className="flex items-center" style={{ gap: s(14) }}>
-              <span className="flex items-center" style={{ gap: s(2) }}>
-                <span
-                  className="bg-red-500"
-                  style={{ width: s(18), height: s(5) }}
-                />
-                <span
-                  className="rounded-full bg-red-500 border-white shadow-sm"
-                  style={{
-                    width: s(22),
-                    height: s(22),
-                    borderWidth: s(3),
-                    borderStyle: "solid",
-                  }}
-                />
-                <span
-                  className="bg-red-500"
-                  style={{ width: s(18), height: s(5) }}
-                />
-              </span>
-              Loss
-            </span>
-          </div>
+   
 
           <div className="flex-1 relative min-h-0" style={{ marginTop: s(6) }}>
             <Chart
