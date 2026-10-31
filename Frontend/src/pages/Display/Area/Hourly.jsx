@@ -4,14 +4,8 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  LineElement,
-  PointElement,
   BarController,
-  LineController,
-  Title as ChartTitle,
   Tooltip,
-  Legend,
-  Filler,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { Chart } from "react-chartjs-2";
@@ -21,15 +15,9 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
-  LineElement,
-  PointElement,
   BarController,
-  LineController,
   ChartDataLabels,
-  ChartTitle,
   Tooltip,
-  Legend,
-  Filler,
 );
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -136,49 +124,34 @@ const Tile = ({ label, value, sub, color }) => (
 /* ═════════════════════════════════════════════════════════════════════════ */
 
 const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
+  // API: hours = [{ HourNo, Actual }],  summary = { ShiftPlan, TotalAchieved, Remaining, ConsumedTimePct }
   const { hours = [], summary = {} } = apiData;
 
   const rootRef = useRef(null);
   const k = useScale(rootRef);
 
-  const hourStats = useMemo(
-    () =>
-      hours.map((h) => {
-        const target = Number(h.Target) || 0;
-        const actual = Number(h.Actual) || 0;
-        const pct = target > 0 ? (actual / target) * 100 : 0;
-        return { ...h, _target: target, _actual: actual, _pct: pct };
-      }),
-    [hours],
-  );
-
   const chartData = useMemo(
     () => ({
-      labels: hourStats.map((h) => `H${h.HourNo}`),
+      labels: hours.map((h) => `H${h.HourNo}`),
       datasets: [
-        // ── Actual bars ──
         {
           type: "bar",
           label: "Actual",
-          data: hourStats.map((h) => h._actual),
+          data: hours.map((h) => Number(h.Actual) || 0),
           backgroundColor: "rgba(245,158,11,0.85)",
           borderColor: "#d97706",
           borderWidth: Math.max(1, Math.round(2 * k)),
           borderRadius: Math.round(12 * k),
           barPercentage: 0.7,
           categoryPercentage: 0.85,
-          yAxisID: "y",
-          order: 2,
         },
       ],
     }),
-    [hourStats, k],
+    [hours, k],
   );
 
   const chartOptions = useMemo(() => {
     const f = (px) => Math.max(10, Math.round(px * k));
-    const isBadge = (ctx) =>
-      ctx.dataset.label === "Loss" || ctx.dataset.label === "Actual";
 
     return {
       responsive: true,
@@ -210,41 +183,23 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
         datalabels: {
           display: (ctx) => {
             const v = ctx.dataset.data[ctx.dataIndex];
-            if (ctx.dataset.label === "Target") return false;
             return v != null && v !== 0;
           },
-          anchor: (ctx) => (ctx.dataset.label === "Loss" ? "center" : "end"),
-          align: (ctx) => (ctx.dataset.label === "Loss" ? "bottom" : "top"),
-          offset: (ctx) => {
-            if (ctx.dataset.label === "Loss") return Math.round(16 * k);
-            if (ctx.dataset.label === "Actual") return Math.round(26 * k);
-            return 4;
-          },
-          color: (ctx) =>
-            ctx.dataset.label === "Actual" ? "#92400e" : "#dc2626",
-          backgroundColor: (ctx) =>
-            isBadge(ctx) ? "rgba(255,255,255,0.95)" : null,
-          borderColor: (ctx) => {
-            if (ctx.dataset.label === "Loss") return "#fecaca";
-            if (ctx.dataset.label === "Actual") return "#fde68a";
-            return null;
-          },
-          borderWidth: (ctx) =>
-            isBadge(ctx) ? Math.max(1, Math.round(2 * k)) : 0,
+          anchor: "end",
+          align: "top",
+          offset: Math.round(26 * k),
+          color: "#92400e",
+          backgroundColor: "rgba(255,255,255,0.95)",
+          borderColor: "#fde68a",
+          borderWidth: Math.max(1, Math.round(2 * k)),
           borderRadius: Math.round(10 * k),
-          padding: (ctx) =>
-            isBadge(ctx)
-              ? {
-                  top: Math.round(5 * k),
-                  bottom: Math.round(5 * k),
-                  left: Math.round(10 * k),
-                  right: Math.round(10 * k),
-                }
-              : 2,
-          font: (ctx) => ({
-            size: ctx.dataset.label === "Actual" ? f(50) : f(26),
-            weight: 800,
-          }),
+          padding: {
+            top: Math.round(5 * k),
+            bottom: Math.round(5 * k),
+            left: Math.round(10 * k),
+            right: Math.round(10 * k),
+          },
+          font: { size: f(50), weight: 800 },
           formatter: (value) => (value != null && value !== 0 ? value : ""),
           clip: false,
           clamp: true,
@@ -279,7 +234,6 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
             font: { size: f(24), weight: "bold" },
           },
         },
-
       },
     };
   }, [k]);
@@ -368,11 +322,9 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
             padding: `${s(16)} ${s(28)} ${s(12)}`,
           }}
         >
-   
-
-          <div className="flex-1 relative min-h-0" style={{ marginTop: s(6) }}>
+          <div className="flex-1 relative min-h-0">
             <Chart
-              key={`hrly-${hourStats.length}`}
+              key={`hrly-${hours.length}`}
               type="bar"
               data={chartData}
               options={chartOptions}

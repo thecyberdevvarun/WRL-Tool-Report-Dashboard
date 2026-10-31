@@ -190,7 +190,11 @@ const FORM_SECTIONS = [
         placeholder: "e.g. 27000",
       },
       { key: "lineTarget1", label: "Target UPH", placeholder: "e.g. 85" },
-      { key: "dailyProductionTarget1", label: "Daily Production Target", placeholder: "e.g. 800" },
+      {
+        key: "dailyProductionTarget1",
+        label: "Daily Production Target",
+        placeholder: "e.g. 800",
+      },
     ],
   },
   {
@@ -212,7 +216,11 @@ const FORM_SECTIONS = [
         label: "Monthly Production",
         placeholder: "e.g. 27000",
       },
-      { key: "dailyProductionTarget2", label: "Daily Production Target", placeholder: "e.g. 800" },
+      {
+        key: "dailyProductionTarget2",
+        label: "Daily Production Target",
+        placeholder: "e.g. 800",
+      },
     ],
   },
   {
@@ -900,7 +908,9 @@ const Management = () => {
     [navigate],
   );
 
-  /* ── Export Excel ───────────────────────────────────────────────────────── */
+  /* ── Download Excel (with no configs yet this is a blank template) ───── */
+  const hasConfigs = configs.length > 0;
+
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
@@ -917,22 +927,23 @@ const Management = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Excel file downloaded.");
+      toast.success(
+        hasConfigs ? "Excel file downloaded." : "Excel template downloaded.",
+      );
     } catch {
       toast.error("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }
-  }, []);
+  }, [hasConfigs]);
 
-  /* ── Import Excel ───────────────────────────────────────────────────────── */
+  /* ── Upload Excel ───────────────────────────────────────────────────────── */
   const handleImportFile = useCallback(async (e) => {
     const file = e.target.files?.[0];
-    if (!fileInputRef.current) return;
-    fileInputRef.current.value = ""; // reset so same file can be re-selected
+    e.target.value = ""; // reset so the same file can be re-selected
     if (!file) return;
 
-    if (!file.name.endsWith(".xlsx")) {
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
       toast.error("Please select a .xlsx file.");
       return;
     }
@@ -1055,12 +1066,13 @@ const Management = () => {
         )}
 
         {/* Import hint bar — shown when list is empty and no search */}
-        {!loading && configs.length === 0 && !search && !error && (
+        {!loading && !hasConfigs && !search && !error && (
           <div className="flex items-center gap-3 px-4 py-3 bg-violet-50 border border-violet-200 rounded-xl text-violet-700 text-[13px] shrink-0">
             <FileSpreadsheet className="w-4 h-4 shrink-0" />
             <span className="font-medium">No configs yet.</span>
             <span className="text-violet-500">
-              Use <strong>Import</strong> to bulk-upload from Excel, or click{" "}
+              Use <strong>Download Template</strong>, fill it in and{" "}
+              <strong>Upload Excel</strong> to bulk-add, or click{" "}
               <strong>New Config</strong> to add one manually.
             </span>
           </div>
@@ -1078,15 +1090,15 @@ const Management = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleExport}
-                disabled={exporting || configs.length === 0}
-                className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${exporting || configs.length === 0 ? "text-slate-300 cursor-not-allowed" : "text-emerald-600 hover:text-emerald-700"}`}
+                disabled={exporting}
+                className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${exporting ? "text-slate-300 cursor-not-allowed" : "text-emerald-600 hover:text-emerald-700"}`}
               >
                 {exporting ? (
                   <Spinner cls="w-3 h-3" />
                 ) : (
                   <Download className="w-3 h-3" />
                 )}
-                Download Excel
+                {hasConfigs ? "Download Excel" : "Download Template"}
               </button>
               <span className="text-slate-200">|</span>
               <button
@@ -1173,7 +1185,7 @@ const Management = () => {
                         <p className="text-xs text-slate-400">
                           {search
                             ? `No configs match "${search}"`
-                            : "Click 'New Config' or 'Import' to get started"}
+                            : "Click 'New Config' or 'Upload Excel' to get started"}
                         </p>
                       </div>
                     </td>

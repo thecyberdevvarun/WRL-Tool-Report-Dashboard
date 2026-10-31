@@ -7,53 +7,59 @@ import { AppError } from "../../utils/app-error.js";
 // zero-padded to NoOfDigit digits, e.g. Series=2, Year=26, SLNo=552,
 // NoOfDigit=5 -> PlanNo=22600552. NoOfDigit is also used to detect overflow
 // and roll the Series forward once SLNo exceeds its digit width.
+
 export const generatePlanNo = async (transaction, yearYY) => {
   const idMasterRes = await new sql.Request(transaction).query(`
-    SELECT Series, NoOfDigit FROM IDMaster WITH (UPDLOCK, HOLDLOCK)
+    SELECT Series, NoOfDigit
+    FROM IDMaster WITH (UPDLOCK, HOLDLOCK)
     WHERE IDTable = 'PlanOrderPrint'
   `);
 
   if (!idMasterRes.recordset.length) {
-    throw new Error("IDMaster configuration missing for IDTable 'PlanOrderPrint'.");
+    throw new Error(
+      "IDMaster configuration missing for IDTable 'PlanOrderPrint'."
+    );
   }
 
-  let { Series, NoOfDigit } = idMasterRes.recordset[0];
+  const { Series, NoOfDigit } = idMasterRes.recordset[0];
 
   const idValueRes = await new sql.Request(transaction)
     .input("year", sql.VarChar, yearYY)
     .query(`
-      SELECT SLNo FROM IDValue WITH (UPDLOCK, HOLDLOCK)
-      WHERE IDTable = 'PlanOrderPrint' AND Year = @year
+      SELECT SLNo
+      FROM IDValue WITH (UPDLOCK, HOLDLOCK)
+      WHERE IDTable = 'PlanOrderPrint'
+      AND Year = @year
     `);
 
-  let slNo = idValueRes.recordset.length ? idValueRes.recordset[0].SLNo : 1;
+  // Get next serial number
+  const slNo = idValueRes.recordset.length
+    ? idValueRes.recordset[0].SLNo
+    : 1;
 
-  const maxLimit = Math.pow(10, NoOfDigit) - 1;
-  if (slNo > maxLimit) {
-    Series += 1;
-    slNo = 1;
-    await new sql.Request(transaction)
-      .input("series", sql.Int, Series)
-      .query(`UPDATE IDMaster SET Series = @series WHERE IDTable = 'PlanOrderPrint'`);
-  }
-
+  // Increment SLNo only. Series will never be updated.
   if (idValueRes.recordset.length) {
     await new sql.Request(transaction)
       .input("year", sql.VarChar, yearYY)
       .input("slno", sql.Int, slNo + 1)
-      .query(
-        `UPDATE IDValue SET SLNo = @slno WHERE IDTable = 'PlanOrderPrint' AND Year = @year`
-      );
+      .query(`
+        UPDATE IDValue
+        SET SLNo = @slno
+        WHERE IDTable = 'PlanOrderPrint'
+        AND Year = @year
+      `);
   } else {
     await new sql.Request(transaction)
       .input("year", sql.VarChar, yearYY)
       .input("slno", sql.Int, slNo + 1)
-      .query(
-        `INSERT INTO IDValue (IDTable, Year, SLNo) VALUES ('PlanOrderPrint', @year, @slno)`
-      );
+      .query(`
+        INSERT INTO IDValue (IDTable, Year, SLNo)
+        VALUES ('PlanOrderPrint', @year, @slno)
+      `);
   }
 
   const paddedSlNo = String(slNo).padStart(NoOfDigit, "0");
+
   return Number(`${Series}${yearYY}${paddedSlNo}`);
 };
 

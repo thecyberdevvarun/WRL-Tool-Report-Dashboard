@@ -14,7 +14,6 @@ import { TimerBar } from "../../../components/display-module/TimerBar";
 const s = (px) => `calc(var(--u) * ${(px / 19.2).toFixed(4)})`;
 
 const ACCENT = "#15803d";
-const GREEN = "#15803d";
 const RED = "#dc2626";
 const AMBER = "#f59e0b";
 
@@ -227,6 +226,8 @@ const SvgDoughnut = ({ ok = 0, defect = 0, rework = 0, total = 0 }) => {
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
 const Quality = ({ apiData = {}, progress, shift, shiftDate }) => {
+  // API: summary = { Plan, TotalAchieved, OkUnit, DefectUnit, ReworkDone, OkPct, DefectPct }
+  //      defects = [{ DefectName, DefectCount }]
   const { summary: qs = {}, defects = [] } = apiData;
 
   const ok = Number(qs.OkUnit) || 0;
@@ -456,7 +457,6 @@ const Quality = ({ apiData = {}, progress, shift, shiftDate }) => {
               <div className="flex-1 min-h-0 flex flex-col">
                 {shownDefects.map((df, i) => {
                   const isTop = i < 3;
-                  const srNo = df.SrNo ?? i + 1;
                   return (
                     <div
                       key={i}
@@ -483,7 +483,7 @@ const Quality = ({ apiData = {}, progress, shift, shiftDate }) => {
                           fontSize: s(28),
                         }}
                       >
-                        {srNo}
+                        {i + 1}
                       </span>
                       <span
                         className="flex-1 min-w-0 flex items-center font-bold text-slate-700"

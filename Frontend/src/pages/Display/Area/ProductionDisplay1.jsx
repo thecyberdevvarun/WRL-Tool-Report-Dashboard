@@ -182,22 +182,14 @@ const ProductionDisplay1 = ({
   shiftDate,
   config,
 }) => {
+  // API fields used here: ActualQty, PerformancePct, GaugeValue, LossUnits,
+  // MonthlyPlanQty, MonthlyAchieved, MonthlyRemaining, AskingRate, RemainingDays
   const d = apiData;
   const label = config?.stationName1 || "FG PACKING";
 
-  
-const dailyTarget = Number(
-  config?.dailyProductionTarget1 ??
-  config?.DailyProductionTarget1 ??
-  d.dailyProductionTarget1 ??
-  d.DailyProductionTarget1 ??
-  0
-);
-
-const actualQty = Number(d.ActualQty ?? 0);
-
-const balance = dailyTarget - actualQty;
-
+  // Daily target comes from the saved config; balance is calculated here
+  const dailyTarget = num(config?.dailyProductionTarget1);
+  const balance = (dailyTarget ?? 0) - (num(d.ActualQty) ?? 0);
 
   const perf = num(d.PerformancePct);
 
@@ -256,9 +248,8 @@ const balance = dailyTarget - actualQty;
       >
         {/* Top KPI row */}
         <div className="shrink-0 grid grid-cols-5" style={{ gap: s(16) }}>
-          <Tile label="Daily Target" value={fmt(config?.dailyProductionTarget1 ?? config?.DailyProductionTarget1)} color="#7c3aed" />
+          <Tile label="Daily Target" value={fmt(dailyTarget)} color="#7c3aed" />
           <Tile label="Shift Output" value={fmt(d.ActualQty)} color={ACCENT} />
-
           <Tile
             label="Performance"
             value={fmt(perf, 1)}

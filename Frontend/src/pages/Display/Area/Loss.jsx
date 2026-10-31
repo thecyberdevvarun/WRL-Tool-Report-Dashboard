@@ -233,18 +233,12 @@ const SvgTimeDoughnut = ({ consumedPct = 0 }) => {
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
 const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
+  // API: stations = [{ StationName, TotalStopCount }]  (already sorted by stops, highest first)
+  //      summary  = { Plan, Achieved, Remaining, ConsumedTimePct }
   const { stations = [], summary: ls = {} } = apiData;
 
   const consumedPct = Number(ls.ConsumedTimePct || 0);
   const consumedClamped = Math.min(Math.max(consumedPct, 0), 100);
-
-  const sorted = useMemo(
-    () =>
-      [...stations].sort(
-        (a, b) => (b.TotalStopCount ?? 0) - (a.TotalStopCount ?? 0),
-      ),
-    [stations],
-  );
 
   const totalStopCount = useMemo(
     () => stations.reduce((sum, st) => sum + (st.TotalStopCount ?? 0), 0),
@@ -256,8 +250,8 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
   const statusLabel =
     consumedPct >= 90 ? "CRITICAL" : consumedPct >= 70 ? "WARNING" : "ON TRACK";
 
-  const shownStations = sorted.slice(0, MAX_STATION_ROWS);
-  const hiddenCount = Math.max(sorted.length - shownStations.length, 0);
+  const shownStations = stations.slice(0, MAX_STATION_ROWS);
+  const hiddenCount = Math.max(stations.length - shownStations.length, 0);
 
   return (
     <div
