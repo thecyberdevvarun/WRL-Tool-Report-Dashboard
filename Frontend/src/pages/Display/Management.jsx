@@ -707,8 +707,8 @@ const DeleteModal = ({ name, saving, onClose, onConfirm }) => (
 
 /* ─── ImportResultModal ───────────────────────────────────────────────────── */
 const ImportResultModal = ({ result, onClose, onRefresh }) => {
-  const { created = 0, updated = 0, skipped = 0, rowErrors = [] } = result;
-  const total = created + updated;
+  const { updated = 0, unchanged = 0, skipped = 0, rowErrors = [] } = result;
+  const total = updated + unchanged;
   return (
     <div className="fixed inset-0 z-1000 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl w-130 overflow-hidden shadow-2xl">
@@ -727,7 +727,7 @@ const ImportResultModal = ({ result, onClose, onRefresh }) => {
               Import Complete
             </h2>
             <p className="text-white/80 text-xs mt-0.5">
-              {total} record{total !== 1 ? "s" : ""} processed
+              {updated} configuration{updated !== 1 ? "s" : ""} updated
             </p>
           </div>
         </div>
@@ -736,13 +736,13 @@ const ImportResultModal = ({ result, onClose, onRefresh }) => {
           <div className="grid grid-cols-3 gap-3 mb-5">
             {[
               {
-                label: "Created",
-                value: created,
+                label: "Updated",
+                value: updated,
                 color: "text-emerald-600 bg-emerald-50 border-emerald-200",
               },
               {
-                label: "Updated",
-                value: updated,
+                label: "Unchanged",
+                value: unchanged,
                 color: "text-indigo-600 bg-indigo-50 border-indigo-200",
               },
               {
@@ -908,7 +908,7 @@ const Management = () => {
     [navigate],
   );
 
-  /* ── Download Excel (with no configs yet this is a blank template) ───── */
+  /* ── Download Excel (updates Monthly / Daily plan of EXISTING configs only) ── */
   const hasConfigs = configs.length > 0;
 
   const handleExport = useCallback(async () => {
@@ -927,15 +927,13 @@ const Management = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success(
-        hasConfigs ? "Excel file downloaded." : "Excel template downloaded.",
-      );
+      toast.success("Excel file downloaded.");
     } catch {
       toast.error("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }
-  }, [hasConfigs]);
+  }, []);
 
   /* ── Upload Excel ───────────────────────────────────────────────────────── */
   const handleImportFile = useCallback(async (e) => {
@@ -1071,9 +1069,8 @@ const Management = () => {
             <FileSpreadsheet className="w-4 h-4 shrink-0" />
             <span className="font-medium">No configs yet.</span>
             <span className="text-violet-500">
-              Use <strong>Download Template</strong>, fill it in and{" "}
-              <strong>Upload Excel</strong> to bulk-add, or click{" "}
-              <strong>New Config</strong> to add one manually.
+              Click <strong>New Config</strong> to add one. Excel can only
+              update the Monthly and Daily plan of existing configs.
             </span>
           </div>
         )}
@@ -1090,20 +1087,22 @@ const Management = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleExport}
-                disabled={exporting}
-                className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${exporting ? "text-slate-300 cursor-not-allowed" : "text-emerald-600 hover:text-emerald-700"}`}
+                disabled={exporting || !hasConfigs}
+                title="Download the Excel file to update Monthly Prod and Daily Target"
+                className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${exporting || !hasConfigs ? "text-slate-300 cursor-not-allowed" : "text-emerald-600 hover:text-emerald-700"}`}
               >
                 {exporting ? (
                   <Spinner cls="w-3 h-3" />
                 ) : (
                   <Download className="w-3 h-3" />
                 )}
-                {hasConfigs ? "Download Excel" : "Download Template"}
+                Download Excel
               </button>
               <span className="text-slate-200">|</span>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importing}
+                title="Upload the edited Excel file (only Monthly Prod and Daily Target are read)"
                 className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${importing ? "text-slate-300 cursor-not-allowed" : "text-violet-600 hover:text-violet-700"}`}
               >
                 {importing ? (
@@ -1185,7 +1184,7 @@ const Management = () => {
                         <p className="text-xs text-slate-400">
                           {search
                             ? `No configs match "${search}"`
-                            : "Click 'New Config' or 'Upload Excel' to get started"}
+                            : "Click 'New Config' to get started"}
                         </p>
                       </div>
                     </td>

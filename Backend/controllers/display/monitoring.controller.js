@@ -185,8 +185,19 @@ const COL_LABELS = {
   ShowLoss: "Show Loss",
 };
 
+// Only these columns can be changed through the Excel file (everything else is edited in Display Manager)
+const EXCEL_EDITABLE = new Set([
+  "LineMonthlyProduction1",
+  "DailyProductionTarget1",
+  "LineMonthlyProduction2",
+  "DailyProductionTarget2",
+]);
+
 // ═════════════════════════════════════════════════════════════════════════════
-//  EXCEL TEMPLATE  (workbook design used by Export; Import reads the same layout)
+//  EXCEL TEMPLATE
+//  Export builds a PROTECTED workbook: every column is locked except the four
+//  plan columns (EXCEL_EDITABLE). Everything else is managed in Display Manager.
+//  Import reads the same layout and only ever updates those four columns.
 // ═════════════════════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -196,12 +207,11 @@ const COL_LABELS = {
 //    Row 2  subtitle / quick hint
 //    Row 3  group headers (merged)
 //    Row 4  column headers          <- filter row, data starts right below
-//    Row 5+ data rows, then blank rows ready for new configs
+//    Row 5+ one row per configuration
 // ═════════════════════════════════════════════════════════════════════════════
 const GROUP_ROW = 3;
 const HEADER_ROW = 4;
 const FIRST_DATA_ROW = 5;
-const SPARE_ROWS = 25; // pre-formatted blank rows for adding new configs
 
 // ── palette ──────────────────────────────────────────────────────────────────
 const FONT = "Arial";
@@ -213,11 +223,17 @@ const GRID = "E2E8F0";
 const KEY_FILL = "F1F5F9";
 const BAND = "F4F6FA";
 
-const REQUIRED = new Set(["DashboardName", "StationCode1"]);
+// editable ("input") cells
+const INPUT_FILL = "FEF9C3";
+const INPUT_INK = "1D4ED8";
+const INPUT_EDGE = "FACC15";
+const INPUT_HEAD_FILL = "FDE68A";
+const INPUT_HEAD_INK = "92400E";
+const INPUT_HEAD_EDGE = "D97706";
 
 // ── content shown in the Instructions sheet / input prompts ─────────────────
 const DOCS = {
-  Id: "System key. Leave blank to create a new configuration. Keep the value to update an existing one — never type a new number.",
+  Id: "System key. Rows are matched to configurations by this number — never change it.",
   DashboardName: "Unique name of the dashboard. Also becomes the page URL.",
   LineName: "Production line name, e.g. FREEZER.",
   LineCode:
@@ -226,23 +242,27 @@ const DOCS = {
   StationCode1: "Station code for Production Display 1 (FG Packing).",
   StationName1: "Friendly name shown on Display 1.",
   LineTaktTime1: "Cycle time in seconds for Station 1.",
-  LineMonthlyProduction1: "Monthly production plan quantity.",
+  LineMonthlyProduction1:
+    "Monthly production plan for Display 1. Type the number of units.",
   LineTarget1: "Target units per hour (UPH).",
-  DailyProductionTarget1: "Daily production target for Display 1.",
-  StationCode2: "Station code for Production Display 2 (FG Loading). Optional.",
+  DailyProductionTarget1:
+    "Daily target for Display 1 = monthly plan ÷ working days in the month. Type a number or a formula, e.g. =I5/26. Decimals are rounded.",
+  StationCode2: "Station code for Production Display 2 (FG Loading).",
   StationName2: "Friendly name shown on Display 2.",
   LineTaktTime2: "Cycle time in seconds for Station 2.",
-  LineMonthlyProduction2: "Monthly production plan for Station 2.",
-  DailyProductionTarget2: "Daily production target for Display 2.",
+  LineMonthlyProduction2:
+    "Monthly production plan for Display 2. Type the number of units.",
+  DailyProductionTarget2:
+    "Daily target for Display 2 = monthly plan ÷ working days in the month. Type a number or a formula, e.g. =O5/26. Decimals are rounded.",
   QualityProcessCode:
-    "Quality inspection process codes. Comma-separated, e.g. 12210,12206.",
+    "Quality inspection process codes, comma-separated, e.g. 12210,12206.",
   QualityLineName: "Line name used by the Quality page.",
   SectionName: "EMGMaster.Location value used by the Loss Analysis page.",
-  ShowDisplay1: "TRUE = show the Production Display 1 page.",
-  ShowDisplay2: "TRUE = show the Production Display 2 page.",
-  ShowHourly: "TRUE = show the Hourly Production page.",
-  ShowQuality: "TRUE = show the Quality page.",
-  ShowLoss: "TRUE = show the Loss Analysis page.",
+  ShowDisplay1: "TRUE = the Production Display 1 page is shown.",
+  ShowDisplay2: "TRUE = the Production Display 2 page is shown.",
+  ShowHourly: "TRUE = the Hourly Production page is shown.",
+  ShowQuality: "TRUE = the Quality page is shown.",
+  ShowLoss: "TRUE = the Loss Analysis page is shown.",
 };
 
 const EXAMPLES = {
@@ -254,14 +274,14 @@ const EXAMPLES = {
   StationCode1: "1220010",
   StationName1: "FG PACKING",
   LineTaktTime1: "40",
-  LineMonthlyProduction1: "27000",
+  LineMonthlyProduction1: "14728",
   LineTarget1: "85",
-  DailyProductionTarget1: "800",
+  DailyProductionTarget1: "=I5/26  →  566",
   StationCode2: "1220005",
   StationName2: "FG LOADING",
   LineTaktTime2: "40",
-  LineMonthlyProduction2: "27000",
-  DailyProductionTarget2: "800",
+  LineMonthlyProduction2: "22600",
+  DailyProductionTarget2: "=O5/26  →  869",
   QualityProcessCode: "12210,12206",
   QualityLineName: "Freezer",
   SectionName: "FINAL ASSEMBLY",
@@ -310,6 +330,7 @@ const COLS = ALL_COLS.map((key, i) => {
     n: i + 1,
     hex: group ? group.hex : SLATE,
     groupStart: !group || group.fields[0] === key,
+    editable: EXCEL_EDITABLE.has(key),
   };
 });
 
@@ -319,13 +340,6 @@ const typeOf = (key) =>
     : NUM_FIELDS.has(key) || key === "Id"
       ? "Number"
       : "Text";
-
-const defaultOf = (key) =>
-  BOOL_FIELDS.has(key)
-    ? "TRUE"
-    : NUM_DEFAULTS[key] !== undefined
-      ? String(NUM_DEFAULTS[key])
-      : "Empty";
 
 // ── style helpers ────────────────────────────────────────────────────────────
 const argb = (hex) => `FF${hex}`;
@@ -362,79 +376,46 @@ const dxfFill = (hex) => ({
   bgColor: { argb: argb(hex) },
 });
 
+// Sheet protection WITHOUT a password: stops accidental edits, still lets users
+// select/copy, resize columns and filter. (Import re-enforces the same rule.)
+// protect() applies synchronously, so there is nothing to await.
+const lockSheet = (ws) =>
+  ws.protect(undefined, {
+    selectLockedCells: true,
+    selectUnlockedCells: true,
+    formatColumns: true,
+    autoFilter: true,
+  });
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  SHEET 1 — DashboardConfigs
 // ═════════════════════════════════════════════════════════════════════════════
-const validationFor = (key) => {
-  const label = COL_LABELS[key];
-  const base = {
-    allowBlank: true,
-    showInputMessage: true,
-    showErrorMessage: true,
-    errorStyle: "stop",
-    promptTitle: label.slice(0, 32),
-    prompt: `${REQUIRED.has(key) ? "Required. " : ""}${DOCS[key]}`.slice(
-      0,
-      255,
-    ),
-  };
-
-  if (key === "Id")
-    return {
-      ...base,
-      type: "whole",
-      operator: "greaterThanOrEqual",
-      formulae: [1],
-      errorTitle: "Invalid ID",
-      error:
-        "ID must be a whole number. Leave it blank to create a new configuration.",
-    };
-  if (BOOL_FIELDS.has(key))
-    return {
-      ...base,
-      type: "list",
-      formulae: ['"TRUE,FALSE"'],
-      errorTitle: "TRUE or FALSE",
-      error: "Please choose TRUE or FALSE from the list.",
-    };
-  if (key === "WorkingTimeMin")
-    return {
-      ...base,
-      type: "whole",
-      operator: "between",
-      formulae: [1, 1440],
-      errorTitle: "Invalid number",
-      error: "Enter whole minutes between 1 and 1440.",
-    };
-  if (NUM_FIELDS.has(key))
-    return {
-      ...base,
-      type: "whole",
-      operator: "greaterThanOrEqual",
-      formulae: [0],
-      errorTitle: "Invalid number",
-      error: "Enter a whole number (0 or more) — no units or text.",
-    };
-  return {
-    ...base,
-    type: "textLength",
-    operator: "lessThanOrEqual",
-    formulae: [STR_LENGTHS[key]],
-    errorTitle: "Text too long",
-    error: `Maximum ${STR_LENGTHS[key]} characters.`,
-  };
-};
+// Only the editable plan columns get an input rule (any number ≥ 0, formulas allowed)
+const validationFor = (key) => ({
+  allowBlank: true,
+  showInputMessage: true,
+  showErrorMessage: true,
+  errorStyle: "stop",
+  promptTitle: COL_LABELS[key].slice(0, 32),
+  prompt: DOCS[key].slice(0, 255),
+  type: "decimal", // decimals / formula results are allowed — import rounds them
+  operator: "greaterThanOrEqual",
+  formulae: [0],
+  errorTitle: "Invalid number",
+  error: "Enter a number (0 or more) or a formula — no units or text.",
+});
 
 const styleDataCell = (cell, col) => {
   const isId = col.key === "Id";
   const isBool = BOOL_FIELDS.has(col.key);
   const isNum = NUM_FIELDS.has(col.key);
 
+  cell.protection = { locked: !col.editable };
   cell.font = isId ? font({ hex: MUTED, bold: true }) : font({ bold: isBool });
   cell.alignment = {
     vertical: "middle",
     horizontal: isId || isBool ? "center" : isNum ? "right" : "left",
-    indent: isId || isBool ? 0 : 1, // also pads right-aligned numbers
+    indent: isId || isBool ? 0 : 1,
   };
   cell.border = {
     top: side("thin", GRID),
@@ -448,12 +429,22 @@ const styleDataCell = (cell, col) => {
   if (isId) cell.fill = solid(KEY_FILL);
   if (isNum) cell.numFmt = "#,##0";
   if (isId) cell.numFmt = "0";
+
+  if (col.editable) {
+    cell.fill = solid(INPUT_FILL);
+    cell.font = font({ hex: INPUT_INK, bold: true });
+    cell.border = {
+      top: side("thin", INPUT_EDGE),
+      bottom: side("thin", INPUT_EDGE),
+      left: side("thin", INPUT_EDGE),
+      right: side("thin", INPUT_EDGE),
+    };
+  }
 };
 
 const buildConfigSheet = (wb, rows, exportedAt) => {
   const N = COLS.length;
   const lastDataRow = FIRST_DATA_ROW + rows.length - 1;
-  const lastRow = FIRST_DATA_ROW + rows.length + SPARE_ROWS - 1;
 
   const ws = wb.addWorksheet("DashboardConfigs", {
     properties: { tabColor: { argb: argb(NAVY) } },
@@ -489,8 +480,9 @@ const buildConfigSheet = (wb, rows, exportedAt) => {
     year: "numeric",
   });
   subtitle.value =
-    `Exported ${dateText}  ·  ${rows.length} active configuration${rows.length === 1 ? "" : "s"}` +
-    `  ·  Keep the ID to update a row, leave it blank to add a new one  ·  * = required  ·  See the "Instructions" sheet`;
+    `Exported ${dateText}  ·  ${rows.length} configuration${rows.length === 1 ? "" : "s"}` +
+    `  ·  Only the yellow columns (Monthly Prod, Daily Target) can be edited here` +
+    `  ·  Everything else is managed in Display Manager  ·  See the "Instructions" sheet`;
   subtitle.font = font({ hex: MUTED, size: 9 });
   subtitle.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
 
@@ -517,86 +509,104 @@ const buildConfigSheet = (wb, rows, exportedAt) => {
     cell.alignment = { horizontal: "center", vertical: "middle" };
   }
 
-  // Row 4 — column headers
+  // Row 4 — column headers (editable columns stand out in amber)
   ws.getRow(HEADER_ROW).height = 36;
   COLS.forEach((col) => {
     const c = ws.getCell(HEADER_ROW, col.n);
-    c.value = COL_LABELS[col.key] + (REQUIRED.has(col.key) ? " *" : "");
-    c.font = font({ hex: shade(col.hex, 0.35), bold: true, size: 9 });
-    c.fill = solid(tint(col.hex, 0.88));
+    c.value = COL_LABELS[col.key];
+    c.protection = { locked: true };
+    c.font = font({
+      hex: col.editable ? INPUT_HEAD_INK : shade(col.hex, 0.35),
+      bold: true,
+      size: 9,
+    });
+    c.fill = solid(col.editable ? INPUT_HEAD_FILL : tint(col.hex, 0.88));
     c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
     c.border = {
-      top: side("thin", tint(col.hex, 0.6)),
-      bottom: side("medium", col.hex),
+      top: side("thin", col.editable ? INPUT_HEAD_EDGE : tint(col.hex, 0.6)),
+      bottom: side("medium", col.editable ? INPUT_HEAD_EDGE : col.hex),
       left: col.groupStart
         ? side("medium", tint(col.hex, 0.45))
         : side("thin", tint(col.hex, 0.6)),
-      right: side("thin", tint(col.hex, 0.6)),
+      right: side("thin", col.editable ? INPUT_HEAD_EDGE : tint(col.hex, 0.6)),
     };
   });
 
-  // Data rows + blank rows for new configs
-  for (let r = FIRST_DATA_ROW; r <= lastRow; r++) {
+  // Data rows
+  rows.forEach((row, i) => {
+    const r = FIRST_DATA_ROW + i;
     ws.getRow(r).height = 20;
-    const row = rows[r - FIRST_DATA_ROW];
     for (const col of COLS) {
       const cell = ws.getCell(r, col.n);
-      if (row) {
-        cell.value = BOOL_FIELDS.has(col.key)
-          ? row[col.key]
-            ? "TRUE"
-            : "FALSE"
-          : (row[col.key] ?? null);
-      } else if (BOOL_FIELDS.has(col.key)) {
-        cell.value = "TRUE"; // blank rows start with every page shown (import ignores rows without a name + station)
-      }
+      cell.value = BOOL_FIELDS.has(col.key)
+        ? row[col.key]
+          ? "TRUE"
+          : "FALSE"
+        : (row[col.key] ?? null);
       styleDataCell(cell, col);
-      cell.dataValidation = validationFor(col.key);
+      if (col.editable) cell.dataValidation = validationFor(col.key);
     }
+  });
+
+  if (rows.length > 0) {
+    // TRUE/FALSE pills
+    const bools = COLS.filter((c) => BOOL_FIELDS.has(c.key));
+    const bTopLeft = `${L(bools[0].n)}${FIRST_DATA_ROW}`;
+    ws.addConditionalFormatting({
+      ref: `${bTopLeft}:${L(bools[bools.length - 1].n)}${lastDataRow}`,
+      rules: [
+        {
+          type: "expression",
+          priority: 1,
+          formulae: [`OR(${bTopLeft}=TRUE,${bTopLeft}="TRUE")`],
+          style: {
+            font: { bold: true, color: { argb: argb("047857") } },
+            fill: dxfFill("D1FAE5"),
+          },
+        },
+        {
+          type: "expression",
+          priority: 2,
+          formulae: [
+            `AND(NOT(ISBLANK(${bTopLeft})),OR(${bTopLeft}=FALSE,${bTopLeft}="FALSE"))`,
+          ],
+          style: {
+            font: { bold: true, color: { argb: argb("64748B") } },
+            fill: dxfFill("E2E8F0"),
+          },
+        },
+      ],
+    });
+
+    // Zebra stripes on the locked columns only (ID and the yellow input cells keep their own fill)
+    const stripeRuns = [];
+    let run = null;
+    for (const c of COLS) {
+      if (c.key === "Id" || c.editable) {
+        run = null;
+      } else if (run) {
+        run.to = c.n;
+      } else {
+        run = { from: c.n, to: c.n };
+        stripeRuns.push(run);
+      }
+    }
+    ws.addConditionalFormatting({
+      ref: stripeRuns
+        .map((x) => `${L(x.from)}${FIRST_DATA_ROW}:${L(x.to)}${lastDataRow}`)
+        .join(" "),
+      rules: [
+        {
+          type: "expression",
+          priority: 3,
+          formulae: ["MOD(ROW(),2)=0"],
+          style: { fill: dxfFill(BAND) },
+        },
+      ],
+    });
   }
 
-  // Conditional formatting: TRUE/FALSE pills + zebra stripes (keeps working on rows the user adds)
-  const bools = COLS.filter((c) => BOOL_FIELDS.has(c.key));
-  const bFirst = bools[0].n;
-  const bTopLeft = `${L(bFirst)}${FIRST_DATA_ROW}`;
-  ws.addConditionalFormatting({
-    ref: `${bTopLeft}:${L(bools[bools.length - 1].n)}${lastRow}`,
-    rules: [
-      {
-        type: "expression",
-        priority: 1,
-        formulae: [`OR(${bTopLeft}=TRUE,${bTopLeft}="TRUE")`], // text from the dropdown or a real boolean
-        style: {
-          font: { bold: true, color: { argb: argb("047857") } },
-          fill: dxfFill("D1FAE5"),
-        },
-      },
-      {
-        type: "expression",
-        priority: 2,
-        formulae: [
-          `AND(NOT(ISBLANK(${bTopLeft})),OR(${bTopLeft}=FALSE,${bTopLeft}="FALSE"))`,
-        ],
-        style: {
-          font: { bold: true, color: { argb: argb("64748B") } },
-          fill: dxfFill("E2E8F0"),
-        },
-      },
-    ],
-  });
-  ws.addConditionalFormatting({
-    ref: `B${FIRST_DATA_ROW}:${L(N)}${lastRow}`,
-    rules: [
-      {
-        type: "expression",
-        priority: 3,
-        formulae: ["MOD(ROW(),2)=0"],
-        style: { fill: dxfFill(BAND) },
-      },
-    ],
-  });
-
-  ws.autoFilter = `A${HEADER_ROW}:${L(N)}${lastRow}`;
+  ws.autoFilter = `A${HEADER_ROW}:${L(N)}${Math.max(lastDataRow, HEADER_ROW)}`;
 
   // Print setup
   ws.pageSetup = {
@@ -620,6 +630,7 @@ const buildConfigSheet = (wb, rows, exportedAt) => {
   ws.headerFooter.oddFooter =
     "&L&8Dashboard Configuration&C&8Page &P of &N&R&8&D";
 
+  lockSheet(ws);
   return ws;
 };
 
@@ -631,11 +642,11 @@ const buildInstructionsSheet = (wb) => {
     properties: { tabColor: { argb: argb(GROUPS[0].hex) } },
     views: [{ showGridLines: false }],
   });
-  [2, 18, 30, 11, 14, 11, 24, 74].forEach(
+  [2, 18, 30, 17, 14, 26, 76].forEach(
     (w, i) => (ins.getColumn(i + 1).width = w),
   );
   const FIRST = 2; // column B
-  const LAST = 8; // column H
+  const LAST = 7; // column G
 
   const paint = (r, from, to, fill, border) => {
     for (let n = from; n <= to; n++) {
@@ -653,7 +664,7 @@ const buildInstructionsSheet = (wb) => {
   ins.mergeCells(r, FIRST, r, LAST);
   paint(r, FIRST, LAST, NAVY, {});
   let c = ins.getCell(r, FIRST);
-  c.value = "DASHBOARD CONFIGURATION — IMPORT TEMPLATE";
+  c.value = "DASHBOARD CONFIGURATION — MONTHLY & DAILY PLAN UPLOAD";
   c.font = font({ hex: "FFFFFF", bold: true, size: 15 });
   c.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   r++;
@@ -663,7 +674,7 @@ const buildInstructionsSheet = (wb) => {
   paint(r, FIRST, LAST, KEY_FILL, {});
   c = ins.getCell(r, FIRST);
   c.value =
-    "Edit the DashboardConfigs sheet, save it as .xlsx and upload it from Display Manager → Upload Excel.";
+    "Update the Monthly Prod and Daily Target columns, save as .xlsx and upload from Display Manager → Upload Excel.";
   c.font = font({ hex: MUTED, size: 10 });
   c.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   r++;
@@ -680,7 +691,7 @@ const buildInstructionsSheet = (wb) => {
     r++;
   };
 
-  // badge row: coloured chip in B, text across C:H
+  // badge row: coloured chip in B, text across C:G
   const note = (
     badge,
     text,
@@ -712,23 +723,51 @@ const buildInstructionsSheet = (wb) => {
   // Quick start
   section("QUICK START");
   [
-    "Click Download Excel in Display Manager — this file always contains your current configurations.",
-    "To change a configuration, edit its row. Keep the ID exactly as it is.",
-    "To add a configuration, fill one of the blank rows at the bottom and leave the ID empty.",
-    "Save the file as .xlsx and click Upload Excel. A summary shows how many rows were created, updated or skipped.",
-  ].forEach((text, i) => note(String(i + 1), text, GROUPS[0].hex, "FFFFFF"));
+    [
+      "Click Download Excel in Display Manager — the file always contains your current configurations.",
+      24,
+    ],
+    [
+      "Edit only the yellow columns: Monthly Prod 1/2 and Daily Production Target 1/2. Every other cell is locked.",
+      24,
+    ],
+    [
+      "Daily target = monthly plan ÷ working days in the month. Type the number, or a formula such as =I5/26 (monthly plan in I5, 26 working days).",
+      36,
+    ],
+    [
+      "Save as .xlsx and click Upload Excel. A summary shows how many rows were updated, unchanged or skipped.",
+      24,
+    ],
+  ].forEach(([text, h], i) =>
+    note(String(i + 1), text, GROUPS[0].hex, "FFFFFF", "FFFFFF", h),
+  );
   ins.getRow(r++).height = 10;
 
   // Rules
   section("IMPORTANT RULES", "B45309");
   [
-    "Do not rename or delete the DashboardConfigs sheet, and do not remove the header rows (rows 1–4).",
-    "Dashboard Name and Station Code 1 are required — rows missing either one are skipped.",
-    "Visibility columns accept TRUE or FALSE only (use the dropdown).",
-    "Number columns accept whole numbers only — no units, no text.",
-    "Line Code and Quality Process Code accept several values separated by commas, e.g. 12210,12206.",
-    "A row whose ID does not exist is skipped. A blank number cell falls back to its default (see the table below).",
-  ].forEach((text) => note("!", text, "D97706", "FFFFFF", "FFFBEB"));
+    [
+      "New configurations, deleting a configuration and every other setting (names, stations, cycle time, visibility …) are changed in Display Manager — not in Excel.",
+      36,
+    ],
+    [
+      "Do not rename the sheet, move the header rows or change the ID column. Rows are matched to configurations by ID.",
+      24,
+    ],
+    [
+      "Upload only reads the four yellow columns. Changes to any other cell are ignored, even if the sheet protection is removed.",
+      24,
+    ],
+    [
+      "Use numbers or formulas only (no units or text). Decimals are rounded to a whole number. Save the file in Excel so formula results are stored.",
+      36,
+    ],
+    [
+      "An empty yellow cell keeps its current value. A row whose ID no longer exists is skipped.",
+      24,
+    ],
+  ].forEach(([text, h]) => note("!", text, "D97706", "FFFFFF", "FFFBEB", h));
   ins.getRow(r++).height = 10;
 
   // Colour guide
@@ -749,45 +788,44 @@ const buildInstructionsSheet = (wb) => {
     r++;
   };
   legend(
+    "566",
+    INPUT_FILL,
+    INPUT_INK,
+    "Yellow with blue text — editable. Type a number or a formula.",
+  );
+  legend(
+    "FG",
+    KEY_FILL,
+    MUTED,
+    "Grey / white — locked. Managed in Display Manager.",
+  );
+  legend(
     "TRUE",
     "D1FAE5",
     "047857",
-    "The page is shown when the dashboard is launched.",
+    "Visibility: the page is shown when the dashboard is launched.",
   );
-  legend("FALSE", "E2E8F0", "64748B", "The page is hidden.");
-  legend(
-    "12",
-    KEY_FILL,
-    MUTED,
-    "ID column — system key. Blank = new configuration. Never change an existing ID.",
-  );
-  legend("*", "FEE2E2", "B91C1C", "Marks a required column header.");
+  legend("FALSE", "E2E8F0", "64748B", "Visibility: the page is hidden.");
   ins.getRow(r++).height = 10;
 
-  // Field reference (starts on a fresh printed page)
+  // Field reference
   ins.getRow(r - 1).addPageBreak();
   section("FIELD REFERENCE");
   ins.getRow(r).height = 22;
-  [
-    "Group",
-    "Column",
-    "Required",
-    "Type",
-    "Default",
-    "Example",
-    "Description",
-  ].forEach((h, i) => {
-    const cell = ins.getCell(r, FIRST + i);
-    cell.value = h;
-    cell.fill = solid("475569");
-    cell.font = font({ hex: "FFFFFF", bold: true, size: 9 });
-    cell.alignment = {
-      horizontal: i >= 6 ? "left" : "center",
-      vertical: "middle",
-      indent: i >= 6 ? 1 : 0,
-    };
-    cell.border = { bottom: side("thin", "475569") };
-  });
+  ["Group", "Column", "Edit in", "Type", "Example", "Description"].forEach(
+    (h, i) => {
+      const cell = ins.getCell(r, FIRST + i);
+      cell.value = h;
+      cell.fill = solid("475569");
+      cell.font = font({ hex: "FFFFFF", bold: true, size: 9 });
+      cell.alignment = {
+        horizontal: i >= 5 ? "left" : "center",
+        vertical: "middle",
+        indent: i >= 5 ? 1 : 0,
+      };
+      cell.border = { bottom: side("thin", "475569") };
+    },
+  );
   r++;
 
   const refGroups = [
@@ -798,29 +836,22 @@ const buildInstructionsSheet = (wb) => {
   for (const g of refGroups) {
     const start = r;
     for (const key of g.fields) {
-      const fill = stripe++ % 2 === 0 ? "FFFFFF" : "F8FAFC";
+      const editable = EXCEL_EDITABLE.has(key);
+      const fill = editable ? "FEFCE8" : stripe % 2 === 0 ? "FFFFFF" : "F8FAFC";
+      stripe++;
       ins.getRow(r).height = DOCS[key].length > 80 ? 32 : 22;
       paint(r, FIRST, LAST, fill);
       const cells = [
         [3, COL_LABELS[key], font({ bold: true }), "left"],
         [
           4,
-          REQUIRED.has(key) ? "Yes" : "—",
-          font({
-            hex: REQUIRED.has(key) ? "B91C1C" : MUTED,
-            bold: REQUIRED.has(key),
-          }),
+          key === "Id" ? "Fixed" : editable ? "Excel ✎" : "Display Manager",
+          font({ hex: editable ? "B45309" : MUTED, bold: editable }),
           "center",
         ],
         [5, typeOf(key), font({ hex: MUTED }), "center"],
-        [
-          6,
-          key === "Id" ? "—" : defaultOf(key),
-          font({ hex: MUTED }),
-          "center",
-        ],
-        [7, EXAMPLES[key], font({ name: "Courier New", size: 9 }), "left"],
-        [8, DOCS[key], font(), "left"],
+        [6, EXAMPLES[key], font({ name: "Courier New", size: 9 }), "left"],
+        [7, DOCS[key], font(), "left"],
       ];
       for (const [n, value, f, h] of cells) {
         const cell = ins.getCell(r, n);
@@ -829,7 +860,7 @@ const buildInstructionsSheet = (wb) => {
         cell.alignment = {
           vertical: "middle",
           horizontal: h,
-          wrapText: n === 8,
+          wrapText: n === 7,
           indent: h === "left" ? 1 : 0,
         };
       }
@@ -871,12 +902,12 @@ const buildInstructionsSheet = (wb) => {
     fitToHeight: 0,
     horizontalCentered: true,
   };
+  lockSheet(ins);
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PUBLIC
 // ═════════════════════════════════════════════════════════════════════════════
-/** Build the export / import workbook. Pass rows = [] for a blank template. */
 const buildConfigWorkbook = (rows = [], exportedAt = new Date()) => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Dashboard Manager";
@@ -884,7 +915,7 @@ const buildConfigWorkbook = (rows = [], exportedAt = new Date()) => {
   wb.created = exportedAt;
   wb.modified = exportedAt;
   wb.title = "Dashboard Configuration";
-  wb.subject = "Dashboard configuration export / import template";
+  wb.subject = "Monthly and daily plan upload";
 
   buildConfigSheet(wb, rows, exportedAt);
   buildInstructionsSheet(wb);
@@ -998,6 +1029,9 @@ export const exportDashboardConfigs = tryCatch(async (req, res) => {
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  IMPORT
+//  Excel is only a quick way to update the plan numbers: rows are matched to
+//  EXISTING configurations by ID and ONLY the EXCEL_EDITABLE columns are read.
+//  Names, stations, visibility, new / deleted configs → Display Manager.
 // ═════════════════════════════════════════════════════════════════════════════
 export const importDashboardConfigs = tryCatch(async (req, res) => {
   if (!req.file)
@@ -1013,7 +1047,7 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
       400,
     );
 
-  // Locate the header row (rows 1-5), matching by label OR raw field name
+  // Locate the header row (rows 1-5): it must contain ID and an editable column
   let headerRowNum = null;
   let colMap = {}; // DbColumn -> 1-based column index
 
@@ -1023,14 +1057,14 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
       const v = String(cell.value ?? "")
         .replace(/\s*\*$/, "")
         .trim()
-        .toLowerCase(); // "Dashboard Name *" -> "dashboard name"
+        .toLowerCase();
       for (const col of ALL_COLS) {
         if (v === COL_LABELS[col].toLowerCase() || v === col.toLowerCase()) {
           found[col] = colNum;
         }
       }
     });
-    if (found.DashboardName) {
+    if (found.Id && [...EXCEL_EDITABLE].some((c) => found[c])) {
       headerRowNum = r;
       colMap = found;
       break;
@@ -1039,10 +1073,20 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
 
   if (!headerRowNum) {
     throw new AppError(
-      "Could not locate the column header row. Ensure you are using the exported template and that row 3 contains column headers.",
+      "Could not locate the column header row. Please use the Excel file downloaded from Display Manager (the header row must contain ID, Monthly Prod and Daily Production Target).",
       400,
     );
   }
+
+  const readCell = (row, col) => {
+    const ci = colMap[col];
+    if (!ci) return undefined;
+    const v = row.getCell(ci).value;
+    // formula / rich-text / hyperlink cells come back as objects
+    if (v && typeof v === "object" && "result" in v) return v.result;
+    if (v && typeof v === "object" && "text" in v) return v.text;
+    return v;
+  };
 
   // Parse data rows
   const records = [];
@@ -1051,47 +1095,46 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
   ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
     if (rowNum <= headerRowNum) return;
 
-    const cellValue = (col) => {
-      const ci = colMap[col];
-      if (!ci) return undefined;
-      const v = row.getCell(ci).value;
-      // rich-text / formula / hyperlink cells come back as objects
-      if (v && typeof v === "object" && "result" in v) return v.result;
-      if (v && typeof v === "object" && "text" in v) return v.text;
-      return v;
-    };
-
-    // The hint row ("Leave blank to create new") is not data
-    if (rowNum === headerRowNum + 1) {
-      const idVal = row.getCell(colMap.Id ?? 1).value;
-      if (typeof idVal === "string" && isNaN(Number(idVal))) return;
-    }
-
-    const src = {};
-    for (const col of ALL_COLS) src[toKey(col)] = cellValue(col);
-    const cfg = parseConfig(src);
-
-    if (!cfg.DashboardName && !cfg.StationCode1) return; // empty row
-    if (!cfg.DashboardName) {
-      errors.push({ row: rowNum, issue: "DashboardName is required." });
+    const idRaw = readCell(row, "Id");
+    // hint row of the old template ("Leave blank to create new")
+    if (typeof idRaw === "string" && idRaw.trim() && isNaN(Number(idRaw)))
       return;
-    }
-    if (!cfg.StationCode1) {
-      errors.push({ row: rowNum, issue: "StationCode1 is required." });
+
+    const id = Number(idRaw);
+    if (!Number.isInteger(id) || id <= 0) {
+      const name = String(readCell(row, "DashboardName") ?? "").trim();
+      if (name)
+        errors.push({
+          row: rowNum,
+          issue: `"${name}" has no ID — new configurations must be created in Display Manager.`,
+        });
       return;
     }
 
-    const id = Number(src.id);
-    records.push({
-      rowNum,
-      id: Number.isInteger(id) && id > 0 ? id : null,
-      cfg,
-    });
+    const changes = {};
+    let problem = null;
+    for (const col of EXCEL_EDITABLE) {
+      if (!colMap[col]) continue;
+      const raw = readCell(row, col);
+      if (raw === undefined || raw === null || String(raw).trim() === "")
+        continue; // blank = keep current value
+      const n = Number(raw);
+      if (typeof raw === "object" || !Number.isFinite(n) || n < 0) {
+        const shown =
+          raw && typeof raw === "object" ? (raw.error ?? "formula error") : raw;
+        problem = `${COL_LABELS[col]} must be a number of 0 or more (got "${shown}").`;
+        break;
+      }
+      changes[col] = Math.round(n);
+    }
+
+    if (problem) errors.push({ row: rowNum, id, issue: problem });
+    else records.push({ rowNum, id, changes });
   });
 
   if (records.length === 0) {
     throw new AppError(
-      `No valid data rows found. ${
+      `No rows to update. ${
         errors.length
           ? `Row errors: ${errors.map((e) => `row ${e.row}: ${e.issue}`).join("; ")}.`
           : "The sheet appears to be empty."
@@ -1100,37 +1143,52 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
     );
   }
 
-  // Upsert inside one transaction: a DB error rolls the whole import back
+  // Apply inside one transaction; only columns whose value really changed are written
   const results = {
-    created: 0,
     updated: 0,
+    unchanged: 0,
     skipped: errors.length,
     rowErrors: errors,
   };
+  const editableCols = [...EXCEL_EDITABLE];
 
   await withPool(async (pool) => {
     const tx = new sql.Transaction(pool);
     await tx.begin();
     try {
-      for (const { rowNum, id, cfg } of records) {
-        const request = bindConfigInputs(new sql.Request(tx), cfg);
+      const current = await new sql.Request(tx).query(
+        `SELECT Id, ${editableCols.join(", ")} FROM dbo.DashboardConfig WHERE IsActive = 1`,
+      );
+      const byId = new Map(current.recordset.map((r) => [r.Id, r]));
 
-        if (id) {
-          const r = await request.input("Id", sql.Int, id).query(UPDATE_SQL);
-          if (r.recordset.length === 0) {
-            results.rowErrors.push({
-              row: rowNum,
-              id,
-              issue: `Id ${id} not found — skipped.`,
-            });
-            results.skipped++;
-          } else {
-            results.updated++;
-          }
-        } else {
-          await request.query(INSERT_SQL);
-          results.created++;
+      for (const { rowNum, id, changes } of records) {
+        const existing = byId.get(id);
+        if (!existing) {
+          results.rowErrors.push({
+            row: rowNum,
+            id,
+            issue: `Id ${id} not found — skipped.`,
+          });
+          results.skipped++;
+          continue;
         }
+
+        const diff = Object.entries(changes).filter(
+          ([col, v]) => (existing[col] ?? null) !== v,
+        );
+        if (diff.length === 0) {
+          results.unchanged++;
+          continue;
+        }
+
+        const request = new sql.Request(tx).input("Id", sql.Int, id);
+        for (const [col, v] of diff) request.input(col, sql.Int, v);
+        await request.query(
+          `UPDATE dbo.DashboardConfig
+           SET ${diff.map(([col]) => `${col} = @${col}`).join(", ")}, UpdatedAt = GETDATE()
+           WHERE Id = @Id AND IsActive = 1`,
+        );
+        results.updated++;
       }
       await tx.commit();
     } catch (err) {
@@ -1141,7 +1199,7 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: `Import complete. ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`,
+    message: `Import complete. ${results.updated} updated, ${results.unchanged} unchanged, ${results.skipped} skipped.`,
     results,
   });
 });
