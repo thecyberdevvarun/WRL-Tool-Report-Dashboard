@@ -213,7 +213,7 @@ const ProductionDisplay1 = ({
             className="font-black uppercase tracking-wide leading-none truncate"
             style={{ fontSize: s(48) }}
           >
-            Final Area FG Packing Production Performance
+            Production Performance
           </h1>
         </div>
         <div className="flex items-center shrink-0" style={{ gap: s(30) }}>
