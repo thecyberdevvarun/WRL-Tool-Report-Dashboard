@@ -685,8 +685,6 @@ const ModelTrend = () => {
                       <th className={`${th} text-right`}>Total FG Qty</th>
                       <th className={`${th} w-1/4`}>Share of peak</th>
                       <th className={`${th} text-right`}>Models Produced</th>
-                      <th className={`${th} text-right`}>Stations Used</th>
-                      <th className={`${th} text-right`}>Record Count</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -725,16 +723,6 @@ const ModelTrend = () => {
                         >
                           {num(r.ModelsProduced)}
                         </td>
-                        <td
-                          className={`${td} text-right font-mono text-slate-600`}
-                        >
-                          {num(r.StationsUsed)}
-                        </td>
-                        <td
-                          className={`${td} text-right font-mono text-slate-600`}
-                        >
-                          {num(r.RecordCount)}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -749,12 +737,6 @@ const ModelTrend = () => {
                       <td />
                       <td className="px-3 py-2.5 text-right font-mono">
                         {num(summary.ModelsProduced)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono">
-                        {num(summary.StationsUsed)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono">
-                        {num(summary.RecordCount)}
                       </td>
                     </tr>
                   </tfoot>
@@ -801,11 +783,8 @@ const ModelTrend = () => {
                       <tr className="bg-slate-100">
                         <th className={th}>{periodHeader}</th>
                         <th className={th}>Model Name</th>
-                        <th className={th}>Model No.</th>
-                        <th className={th}>Station</th>
                         <th className={`${th} text-right`}>FG Qty</th>
                         <th className={`${th} w-1/5`}>Share of peak</th>
-                        <th className={`${th} text-right`}>Record Count</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -819,12 +798,6 @@ const ModelTrend = () => {
                           </td>
                           <td className={`${td} font-medium text-slate-800`}>
                             {r.Model_Name}
-                          </td>
-                          <td className={`${td} font-mono text-slate-600`}>
-                            {r.ModelNo}
-                          </td>
-                          <td className={`${td} font-mono text-slate-600`}>
-                            {r.StationCode}
                           </td>
                           <td
                             className={`${td} text-right font-mono font-bold text-slate-800`}
@@ -841,26 +814,18 @@ const ModelTrend = () => {
                               />
                             </div>
                           </td>
-                          <td
-                            className={`${td} text-right font-mono text-slate-600`}
-                          >
-                            {num(r.RecordCount)}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="sticky bottom-0">
                       <tr className="bg-slate-100 font-semibold text-slate-700">
-                        <td className="px-3 py-2.5" colSpan={4}>
+                        <td className="px-3 py-2.5" colSpan={2}>
                           Total of rows shown
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono">
                           {num(visibleQty)}
                         </td>
                         <td />
-                        <td className="px-3 py-2.5 text-right font-mono">
-                          {num(visibleRecords)}
-                        </td>
                       </tr>
                     </tfoot>
                   </table>
@@ -884,23 +849,21 @@ const ModelTrend = () => {
                   <span className="text-sm">Loading…</span>
                 </div>
               ) : (
-                <table className="min-w-300 w-full text-xs text-left border-separate border-spacing-0">
+                <table className="w-full table-auto text-xs text-left border-separate border-spacing-0">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-100">
                       {[
                         "Sr. No.",
                         "Model Name",
-                        "Model No.",
-                        "Station",
+                        "FG Serial",
                         "Assembly Sr.",
                         "Asset Tag",
                         "Customer QR",
                         "User",
-                        "FG Serial",
                         "Created On",
                         "Production Date",
                         "Production Month",
-                        "Remark",
+                        "Line",
                       ].map((h) => (
                         <th key={h} className={th}>
                           {h}
@@ -927,11 +890,8 @@ const ModelTrend = () => {
                             <td className={`${td} font-medium text-slate-800`}>
                               {item.Model_Name}
                             </td>
-                            <td className={`${td} text-slate-600`}>
-                              {item.ModelName}
-                            </td>
-                            <td className={`${td} text-slate-600`}>
-                              {item.StationCode}
+                            <td className={`${td} font-mono text-slate-700`}>
+                              {item.FG_SR}
                             </td>
                             <td className={`${td} font-mono text-slate-700`}>
                               {item.Assembly_Sr_No}
@@ -944,9 +904,6 @@ const ModelTrend = () => {
                             </td>
                             <td className={`${td} text-slate-600`}>
                               {item.UserName}
-                            </td>
-                            <td className={`${td} font-mono text-slate-700`}>
-                              {item.FG_SR}
                             </td>
                             <td
                               className={`${td} text-slate-500 font-mono text-[10px]`}
@@ -967,7 +924,7 @@ const ModelTrend = () => {
                       })
                     ) : (
                       <tr>
-                        <td colSpan={13}>
+                        <td colSpan={11}>
                           <EmptyState text={emptyText} />
                         </td>
                       </tr>
