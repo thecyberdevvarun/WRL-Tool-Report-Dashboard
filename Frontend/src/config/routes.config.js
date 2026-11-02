@@ -68,6 +68,7 @@ const Barcodes = lazy(
 const ScrapDetails = lazy(
   () => import("../pages/Production/Traceability/ScrapDetails"),
 );
+const ModelTrend = lazy(() => import("../pages/Production/Trend/ModelTrend"));
 
 // ---------> IOT Module
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -360,6 +361,7 @@ export const ROUTE_CONFIG = [
       { key: "operations", label: "Operations" },
       { key: "reports", label: "Reports" },
       { key: "traceability", label: "Traceability" },
+      { key: "trend", label: "Trend" },
     ],
     items: [
       {
@@ -433,6 +435,12 @@ export const ROUTE_CONFIG = [
         label: "Scrap Details",
         component: ScrapDetails,
         group: "traceability",
+      },
+      {
+        path: "/production/model-trend",
+        label: "Model Trend",
+        component: ModelTrend,
+        group: "trend",
       },
     ],
   },

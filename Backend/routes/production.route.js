@@ -4,16 +4,16 @@ import {
   productionReportExportData,
   fetchFGData,
   fetchQuickFiltersData,
-} from "../controllers/production/report.controller.js";
+} from "../controllers/production/operations/overview.controller.js";
 import {
   captureWIP,
   getLatestWIPCaptures,
-} from "../controllers/production/wip-capture.controller.js";
+} from "../controllers/production/operations/wip-capture.controller.js";
 import {
   getHourlyCategoryCount,
   getHourlyModelCount,
   getHourlySummary,
-} from "../controllers/production/hourly-report.controller.js";
+} from "../controllers/production/reports/hourly-report.controller.js";
 import {
   getFinalLoadingHPFrz,
   getFinalLoadingHPChoc,
@@ -35,7 +35,7 @@ import {
   getFinalLoadingHPVISI,
   getFinalHPVISI,
   getPostHPVISI,
-} from "../controllers/production/line-hourly-report.controller.js";
+} from "../controllers/production/reports/line-hourly-report.controller.js";
 
 import {
   getFinalLoadingModelBreakdown,
@@ -55,7 +55,7 @@ import {
   getPostHPSUSModelBreakdown,
   getFoamingHpFomAModelBreakdown,
   getFoamingHpFomBModelBreakdown,
-} from "../controllers/production/model-breakdown.controller.js";
+} from "../controllers/production/reports/line-wise-report.controller.js";
 
 import {
   getCurrentStageStatus,
@@ -68,17 +68,17 @@ import {
   getSerialNumbers,
   getHoldDetails,
   getUnitSummary,
-} from "../controllers/production/consolidated-report.controller.js";
+} from "../controllers/production/reports/consolidated-report.controller.js";
 import {
   nfcReportExportData,
   getNfcReoprts,
   getQuickFiltersNfcReports,
-} from "../controllers/production/nfc-report.controller.js";
+} from "../controllers/production/reports/nfc-report.controller.js";
 import {
   totalProductionExportData,
   getBarcodeDetails,
   getQuickFiltersBarcodeDetails,
-} from "../controllers/production/total-production.controller.js";
+} from "../controllers/production/reports/total-production.controller.js";
 import {
   getStopLossDetail,
   getStopLossLocations,
@@ -88,11 +88,11 @@ import {
   getStopLossToday,
   getStopLossYesterday,
   getStopLossMTD,
-} from "../controllers/production/stop-loss.controller.js";
+} from "../controllers/production/reports/stop-loss.controller.js";
 import {
   componentTraceabilityExportData,
   generateReport,
-} from "../controllers/production/component-traceability-report.controller.js";
+} from "../controllers/production/traceability/component-traceability-report.controller.js";
 import {
   getFoamingBarcodeSummary,
   FoamingBarcodeSummaryExportData,
@@ -103,6 +103,7 @@ import {
   getScrapDetailsExportData,
   getScrapDetailsSummary,
 } from "../controllers/production/traceability/scrap-details.controller.js";
+import {fetchModelTrendReport} from "../controllers/production/trend/model-trend.controller.js";
 
 const router = express.Router();
 
@@ -274,4 +275,8 @@ router.get("/foaming-barcode-summary-summary", getFoamingBarcodeSummarySummary);
 router.get("/scrap-details", getScrapDetails);
 router.get("/export-scrap-details", getScrapDetailsExportData);
 router.get("/scrap-details-summary", getScrapDetailsSummary);
+
+// -----------------> Model Trend
+router.get("/model-trend", fetchModelTrendReport);
+
 export default router;
