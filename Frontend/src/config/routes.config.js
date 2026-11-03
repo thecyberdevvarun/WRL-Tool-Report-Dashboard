@@ -135,6 +135,9 @@ const HoldCabinateDetails = lazy(
   () => import("../pages/Quality/HoldCabinateDetails"),
 );
 const TagUpdate = lazy(() => import("../pages/Quality/TagUpdate"));
+const FGScrap = lazy(() => import("../pages/Quality/FGScrap"));
+const ModelTransfer = lazy(() => import("../pages/Quality/ModelTransfer"));
+const BarcodeReprint = lazy(() => import("../pages/Quality/BarcodeReprint"));
 const LPT = lazy(() => import("../pages/Quality/LPT"));
 const LPTReport = lazy(() => import("../pages/Quality/LPTReport"));
 const LPTRecipe = lazy(() => import("../pages/Quality/LPTRecipe"));
@@ -627,6 +630,24 @@ export const ROUTE_CONFIG = [
         path: "/quality/tag-update",
         label: "Tag Update",
         component: TagUpdate,
+        group: "general",
+      },
+      {
+        path: "/quality/fg-scrap",
+        label: "FG Scrap",
+        component: FGScrap,
+        group: "general",
+      },
+      {
+        path: "/quality/model-transfer",
+        label: "Model To Model Transfer",
+        component: ModelTransfer,
+        group: "general",
+      },
+      {
+        path: "/quality/barcode-reprint",
+        label: "Material Barcode Reprint",
+        component: BarcodeReprint,
         group: "general",
       },
       { path: "/quality/lpt", label: "LPT", component: LPT, group: "lpt" },

@@ -79,6 +79,16 @@ import {
 } from "../controllers/quality/fpa/fpa-history.controller.js";
 import { getBrazingReport } from "../controllers/quality/brazing-report.controller.js";
 import { getVacuumReport, getVacuumTestTrend } from "../controllers/quality/vacuum-loop-report.controller.js";
+import {
+  getScrapCategories, getScrapUnit, scrapUnit, getScrapHistory,
+} from "../controllers/quality/fg-scrap.controller.js";
+import {
+  getTransferOptions, checkTransfer, transferUnits, getTransferHistory,
+} from "../controllers/quality/model-transfer.controller.js";
+import {
+  getReprintPrinters, findReprintLabel, checkReprintLabels, reprintLabel, reprintLabels, getReprintHistory,
+} from "../controllers/quality/barcode-reprint.controller.js";
+import { requirePageAccess } from "../middlewares/role-guard.js";
 
 const router = express.Router();
 
@@ -215,5 +225,27 @@ router.post("/bee/save-rating", authenticate, saveBeeRating);
 
 // Hold Cabinet Details
 router.get("/hold-cabinet-details", authenticate, getDispatchHoldDetails);
+
+// FG Scrap, Model To Model Transfer, Material Barcode reprint (copied from Garuda; they write to the Garuda database,
+// so each checks the page's permission on the server too)
+const fgScrapPage = [authenticate, requirePageAccess("quality", "/quality/fg-scrap")];
+router.get("/fg-scrap/categories", ...fgScrapPage, getScrapCategories);
+router.get("/fg-scrap/history", ...fgScrapPage, getScrapHistory);
+router.get("/fg-scrap/units/:serial", ...fgScrapPage, getScrapUnit);
+router.post("/fg-scrap", ...fgScrapPage, scrapUnit);
+
+const modelTransferPage = [authenticate, requirePageAccess("quality", "/quality/model-transfer")];
+router.get("/model-transfer/options", ...modelTransferPage, getTransferOptions);
+router.get("/model-transfer/history", ...modelTransferPage, getTransferHistory);
+router.post("/model-transfer/check", ...modelTransferPage, checkTransfer);
+router.post("/model-transfer", ...modelTransferPage, transferUnits);
+
+const reprintPage = [authenticate, requirePageAccess("quality", "/quality/barcode-reprint")];
+router.get("/barcode-reprint/printers", ...reprintPage, getReprintPrinters);
+router.get("/barcode-reprint/history", ...reprintPage, getReprintHistory);
+router.post("/barcode-reprint/check", ...reprintPage, checkReprintLabels);
+router.post("/barcode-reprint/many", ...reprintPage, reprintLabels);
+router.get("/barcode-reprint/:serial", ...reprintPage, findReprintLabel);
+router.post("/barcode-reprint", ...reprintPage, reprintLabel);
 
 export default router;
