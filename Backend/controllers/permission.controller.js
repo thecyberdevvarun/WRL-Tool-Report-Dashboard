@@ -62,7 +62,7 @@ const applyPermissions = async (pool, role, rows, updatedBy = "system") => {
 ========================================================= */
 const HIDDEN_KEY = "hiddenPages";
 
-const readHiddenPages = async (pool) => {
+export const readHiddenPages = async (pool) => {
   const r = await pool
     .request()
     .input("k", sql.NVarChar(100), HIDDEN_KEY)
