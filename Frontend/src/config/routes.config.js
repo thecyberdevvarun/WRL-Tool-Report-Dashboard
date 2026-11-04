@@ -27,8 +27,8 @@ import {
 
 // Lazy loaded components
 // ---------> Display Module
-const Management = lazy(() => import("../pages/Display/Management"));
-const Monitoring = lazy(() => import("../pages/Display/Monitoring"));
+const Management = lazy(() => import("../pages/Display/ProductionDashboard/Management"));
+const Monitoring = lazy(() => import("../pages/Display/ProductionDashboard/Monitoring"));
 
 // ---------> Production Planning Module
 const UploadPlan = lazy(() => import("../pages/ProductionPlaning/UploadPlan"));

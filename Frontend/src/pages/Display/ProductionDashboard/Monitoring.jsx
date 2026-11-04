@@ -11,19 +11,17 @@ import {
   AlertTriangle,
   CheckCircle,
   Package,
-  Truck,
   BarChart2,
   ArrowLeft,
   ArrowRight,
   RefreshCw,
 } from "lucide-react";
-import { baseURL } from "../../assets/assets";
+import { baseURL } from "../../../assets/assets";
 
-import ProductionDisplay1 from "./Area/ProductionDisplay1";
-import ProductionDisplay2 from "./Area/ProductionDisplay2";
-import Hourly from "./Area/Hourly";
-import Quality from "./Area/Quality";
-import Loss from "./Area/Loss";
+import Production from "../ProductionDashboard/Area/Production";
+import Hourly from "../ProductionDashboard/Area/Hourly";
+import Quality from "../ProductionDashboard/Area/Quality";
+import Loss from "../ProductionDashboard/Area/Loss";
 
 const PAGE_DURATION_MS = 30_000;
 
@@ -42,54 +40,50 @@ const DESIGN_W = 1920;
 
 // Stable reference outside component
 const ALL_ENDPOINTS = {
-  productionDisplay1: `${baseURL}dashboard/production-display-1`,
-  productionDisplay2: `${baseURL}dashboard/production-display-2`,
-  hourly: `${baseURL}dashboard/hourly`,
-  quality: `${baseURL}dashboard/quality`,
-  loss: `${baseURL}dashboard/loss`,
+  production: `${baseURL}dashboard/current-stage-production-performance`,
+  hourly: `${baseURL}dashboard/hourly-production-performance`,
+  quality: `${baseURL}dashboard/quality-performance`,
+  loss: `${baseURL}dashboard/loss-performance`,
 };
+
+// A page is shown when it is switched on for the line AND the line has what the page needs.
+// The Current Stage screen always shows.
+const isOn = (v) => v !== false && v !== 0;
+const hasText = (v) => String(v ?? "").trim() !== "";
 
 const PAGES_META = [
   {
-    key: "productionDisplay1",
-    flag: "showDisplay1",
-    label: "Production Display 1",
+    key: "production",
+    label: "Current Stage",
     Icon: Package,
     accentHex: "#1e40af",
-  },
-  {
-    key: "productionDisplay2",
-    flag: "showDisplay2",
-    label: "Production Display 2",
-    Icon: Truck,
-    accentHex: "#0f766e",
+    show: () => true,
   },
   {
     key: "hourly",
-    flag: "showHourly",
     label: "Hourly",
     Icon: BarChart2,
     accentHex: "#7c3aed",
+    show: (c) => isOn(c.showHourly),
   },
   {
     key: "quality",
-    flag: "showQuality",
     label: "Quality",
     Icon: CheckCircle,
     accentHex: "#15803d",
+    show: (c) => isOn(c.showQuality) && hasText(c.qualityProcessCode),
   },
   {
     key: "loss",
-    flag: "showLoss",
     label: "Loss Analysis",
     Icon: AlertTriangle,
     accentHex: "#b45309",
+    show: (c) => isOn(c.showLoss) && hasText(c.sectionName),
   },
 ];
 
 const EMPTY_DATA = {
-  productionDisplay1: {},
-  productionDisplay2: {},
+  production: {},
   hourly: {},
   quality: {},
   loss: {},
@@ -120,29 +114,13 @@ const buildParams = (cfg, shiftDate, shift) => ({
   shift,
 });
 
-// Backend row (PascalCase) → config object used by the dashboard pages
+// Backend row (PascalCase) → the config values the pages need
 const dbToForm = (row) => ({
   id: row.Id,
   dashboardName: row.DashboardName ?? "",
-  lineName: row.LineName ?? "",
-  lineCode: row.LineCode ?? "",
-  workingTimeMin: String(row.WorkingTimeMin ?? ""),
-  stationCode1: row.StationCode1 ?? "",
   stationName1: row.StationName1 ?? "",
-  lineTaktTime1: String(row.LineTaktTime1 ?? ""),
-  lineMonthlyProduction1: String(row.LineMonthlyProduction1 ?? ""),
-  lineTarget1: String(row.LineTarget1 ?? ""),
-  dailyProductionTarget1: Number(row.DailyProductionTarget1 ?? 0),
-  stationCode2: row.StationCode2 ?? "",
-  stationName2: row.StationName2 ?? "",
-  lineTaktTime2: String(row.LineTaktTime2 ?? ""),
-  lineMonthlyProduction2: String(row.LineMonthlyProduction2 ?? ""),
-  dailyProductionTarget2: Number(row.DailyProductionTarget2 ?? 0),
   qualityProcessCode: row.QualityProcessCode ?? "",
-  qualityLineName: row.QualityLineName ?? "",
   sectionName: row.SectionName ?? "",
-  showDisplay1: row.ShowDisplay1 ?? true,
-  showDisplay2: row.ShowDisplay2 ?? true,
   showHourly: row.ShowHourly ?? true,
   showQuality: row.ShowQuality ?? true,
   showLoss: row.ShowLoss ?? true,
@@ -283,12 +261,11 @@ const Monitoring = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, isLaunched]);
 
-  /* ── Active pages filtered by visibility flags ─────────────── */
+  /* ── Pages this line has ───────────────────────────────────── */
   const activeMeta = launchedConfig
-    ? PAGES_META.filter(
-        (p) => launchedConfig[p.flag] !== false && launchedConfig[p.flag] !== 0,
-      )
+    ? PAGES_META.filter((p) => p.show(launchedConfig))
     : PAGES_META;
+  const multiPage = activeMeta.length > 1;
 
   /* ── Core state ────────────────────────────────────────────── */
   const [shiftDate, setShiftDate] = useState(initial.shiftDate);
@@ -334,7 +311,7 @@ const Monitoring = () => {
   /* ── Page-rotation timer ───────────────────────────────────── */
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    if (!isRunning) return;
+    if (!isRunning || activeMetaRef.current.length < 2) return;
     let elapsed = 0;
     setProgress(0);
     intervalRef.current = setInterval(() => {
@@ -555,19 +532,8 @@ const Monitoring = () => {
   const commonProps = { progress, shift, shiftDate, config: launchedConfig };
 
   const PAGE_ELEMENTS = {
-    productionDisplay1: (
-      <ProductionDisplay1
-        key="pd1"
-        {...commonProps}
-        apiData={allData.productionDisplay1}
-      />
-    ),
-    productionDisplay2: (
-      <ProductionDisplay2
-        key="pd2"
-        {...commonProps}
-        apiData={allData.productionDisplay2}
-      />
+    production: (
+      <Production key="pd1" {...commonProps} apiData={allData.production} />
     ),
     hourly: <Hourly key="hourly" {...commonProps} apiData={allData.hourly} />,
     quality: (
@@ -640,8 +606,8 @@ const Monitoring = () => {
               </span>
             )}
 
-            {/* Pause / Resume page rotation */}
-            {isRunning ? (
+            {/* Pause / Resume page rotation (only when the line has more than one page) */}
+            {!multiPage ? null : isRunning ? (
               <button
                 onClick={() => setIsRunning(false)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border-[1.5px] border-amber-300 transition-all hover:bg-amber-100"
@@ -694,13 +660,15 @@ const Monitoring = () => {
                 </div>
               ))}
             </div>
-            <NavDots
-              currentPage={currentPage}
-              activeMeta={activeMeta}
-              onGoTo={goTo}
-              onPrev={goPrev}
-              onNext={goNext}
-            />
+            {multiPage && (
+              <NavDots
+                currentPage={currentPage}
+                activeMeta={activeMeta}
+                onGoTo={goTo}
+                onPrev={goPrev}
+                onNext={goNext}
+              />
+            )}
           </div>
         )}
 

@@ -9,7 +9,7 @@ const Layout     = lazy(() => import("./components/Layout"));
 const Login      = lazy(() => import("./pages/Auth/Login"));
 const Home       = lazy(() => import("./pages/Home"));
 const NotFound   = lazy(() => import("./pages/NotFound"));
-const Monitoring = lazy(() => import("./pages/Display/Monitoring"));
+const Monitoring = lazy(() => import("./pages/Display/ProductionDashboard/Monitoring.jsx"));
 const Settings   = lazy(() => import("./pages/Settings/Settings"));
 const MailServerConfig = lazy(() => import("./pages/Settings/MailServerConfig"));
 const UserManagement = lazy(() => import("./pages/Settings/UserManagement"));

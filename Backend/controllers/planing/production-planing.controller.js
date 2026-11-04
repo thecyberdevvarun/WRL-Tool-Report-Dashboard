@@ -17,32 +17,50 @@ export const generatePlanNo = async (transaction, yearYY) => {
 
   if (!idMasterRes.recordset.length) {
     throw new Error(
-      "IDMaster configuration missing for IDTable 'PlanOrderPrint'."
+      "IDMaster configuration missing for IDTable 'PlanOrderPrint'.",
     );
   }
 
-  const { Series, NoOfDigit } = idMasterRes.recordset[0];
+  const { Series } = idMasterRes.recordset[0];
+  // Columns may come back as strings (varchar/char), so always coerce.
+  const noOfDigit = Number(idMasterRes.recordset[0].NoOfDigit);
 
-  const idValueRes = await new sql.Request(transaction)
-    .input("year", sql.VarChar, yearYY)
-    .query(`
+  const idValueRes = await new sql.Request(transaction).input(
+    "year",
+    sql.VarChar,
+    yearYY,
+  ).query(`
       SELECT SLNo
       FROM IDValue WITH (UPDLOCK, HOLDLOCK)
       WHERE IDTable = 'PlanOrderPrint'
       AND Year = @year
     `);
 
-  // Get next serial number
-  const slNo = idValueRes.recordset.length
-    ? idValueRes.recordset[0].SLNo
-    : 1;
+  const rowExists = idValueRes.recordset.length > 0;
+
+  // Get next serial number.
+  // IMPORTANT: SLNo may be returned as a string (varchar column). Convert it
+  // to a Number, otherwise "2000" + 1 becomes "20001" instead of 2001.
+  const slNo = rowExists ? Number(idValueRes.recordset[0].SLNo) : 1;
+
+  if (!Number.isInteger(slNo) || slNo < 1) {
+    throw new Error(
+      `Invalid SLNo "${idValueRes.recordset[0]?.SLNo}" in IDValue for PlanOrderPrint.`,
+    );
+  }
+
+  // Overflow guard: SLNo must fit within NoOfDigit digits.
+  if (String(slNo).length > noOfDigit) {
+    throw new Error(
+      `SLNo ${slNo} exceeds NoOfDigit (${noOfDigit}) for PlanOrderPrint.`,
+    );
+  }
 
   // Increment SLNo only. Series will never be updated.
-  if (idValueRes.recordset.length) {
+  if (rowExists) {
     await new sql.Request(transaction)
       .input("year", sql.VarChar, yearYY)
-      .input("slno", sql.Int, slNo + 1)
-      .query(`
+      .input("slno", sql.Int, slNo + 1).query(`
         UPDATE IDValue
         SET SLNo = @slno
         WHERE IDTable = 'PlanOrderPrint'
@@ -51,14 +69,13 @@ export const generatePlanNo = async (transaction, yearYY) => {
   } else {
     await new sql.Request(transaction)
       .input("year", sql.VarChar, yearYY)
-      .input("slno", sql.Int, slNo + 1)
-      .query(`
+      .input("slno", sql.Int, slNo + 1).query(`
         INSERT INTO IDValue (IDTable, Year, SLNo)
         VALUES ('PlanOrderPrint', @year, @slno)
       `);
   }
 
-  const paddedSlNo = String(slNo).padStart(NoOfDigit, "0");
+  const paddedSlNo = String(slNo).padStart(noOfDigit, "0");
 
   return Number(`${Series}${yearYY}${paddedSlNo}`);
 };
@@ -132,7 +149,7 @@ export const productionPlaningData = tryCatch(async (req, res) => {
   if (!planType || !planMonthYear) {
     throw new AppError(
       "Missing required query parameters: planType and planMonthYear.",
-      400
+      400,
     );
   }
 
@@ -170,7 +187,7 @@ export const productionPlaningData = tryCatch(async (req, res) => {
   } catch (error) {
     throw new AppError(
       `Failed to fetch Production planing data:${error.message}`,
-      500
+      500,
     );
   } finally {
     await pool.close();
@@ -191,7 +208,7 @@ export const updateProductionPlaningData = tryCatch(async (req, res) => {
   ) {
     throw new AppError(
       "Missing required query parameters: planQty, userCode, remark, matcode, planMonthYear and planType.",
-      400
+      400,
     );
   }
 
@@ -222,7 +239,7 @@ export const updateProductionPlaningData = tryCatch(async (req, res) => {
   } catch (error) {
     throw new AppError(
       `Failed to update the production planing data:${error.message}`,
-      500
+      500,
     );
   } finally {
     await pool.close();
@@ -236,7 +253,7 @@ export const addProductionPlaningData = tryCatch(async (req, res) => {
   if (!planQty || !userCode || !matcode || !planMonthYear || !planType) {
     throw new AppError(
       "Missing required query parameters: planQty, userCode, matcode, planMonthYear and planType.",
-      400
+      400,
     );
   }
 
@@ -254,8 +271,7 @@ export const addProductionPlaningData = tryCatch(async (req, res) => {
     const existingRes = await new sql.Request(transaction)
       .input("planMonthYear", sql.Int, planMonthYear)
       .input("planMaterial", sql.Int, matcode)
-      .input("planType", sql.NVarChar, planType)
-      .query(`
+      .input("planType", sql.NVarChar, planType).query(`
         SELECT PlanNo FROM PlanOrderPrint WITH (UPDLOCK, HOLDLOCK)
         WHERE PlanMonthYear = @planMonthYear AND PlanMaterial = @planMaterial AND PlanType = @planType
       `);
@@ -270,8 +286,7 @@ export const addProductionPlaningData = tryCatch(async (req, res) => {
         .input("remark", sql.NVarChar, remark || "")
         .input("planMonthYear", sql.Int, planMonthYear)
         .input("planMaterial", sql.Int, matcode)
-        .input("planType", sql.NVarChar, planType)
-        .query(`
+        .input("planType", sql.NVarChar, planType).query(`
           UPDATE PlanOrderPrint
           SET PlanQty = @planQty, CreatedBy = @userCode, Remark = @remark
           WHERE PlanMonthYear = @planMonthYear AND PlanMaterial = @planMaterial AND PlanType = @planType
@@ -289,8 +304,7 @@ export const addProductionPlaningData = tryCatch(async (req, res) => {
         .input("planType", sql.NVarChar, planType)
         .input("remark", sql.NVarChar, remark || "")
         .input("createdBy", sql.Int, userCode)
-        .input("createdOn", sql.DateTime, currentDateTime)
-        .query(`
+        .input("createdOn", sql.DateTime, currentDateTime).query(`
           INSERT INTO PlanOrderPrint
             (PlanNo, PlanMonthYear, PlanMaterial, PlanQty, InitialPlanQty, PrintLbl, PlanType, Remark, CreatedBy, CreatedOn, Status)
           VALUES
@@ -310,7 +324,7 @@ export const addProductionPlaningData = tryCatch(async (req, res) => {
     await transaction.rollback();
     throw new AppError(
       `Failed to add the production planing data:${error.message}`,
-      500
+      500,
     );
   } finally {
     await pool.close();
@@ -323,7 +337,7 @@ export const planStatusData = tryCatch(async (req, res) => {
   if (!planType || !["ASSEMBLY", "FG"].includes(planType) || !planMonthYear) {
     throw new AppError(
       "Missing required query parameters: planType and planMonthYear.",
-      400
+      400,
     );
   }
 
@@ -338,8 +352,7 @@ export const planStatusData = tryCatch(async (req, res) => {
     const result = await pool
       .request()
       .input("planType", sql.NVarChar, planType)
-      .input("planMonthYear", sql.Int, planMonthYear)
-      .query(`
+      .input("planMonthYear", sql.Int, planMonthYear).query(`
         SELECT
           m.MatCode,
           m.Alias,
@@ -366,7 +379,7 @@ export const planStatusData = tryCatch(async (req, res) => {
   } catch (error) {
     throw new AppError(
       `Failed to fetch plan status data:${error.message}`,
-      500
+      500,
     );
   } finally {
     await pool.close();
@@ -396,8 +409,7 @@ export const bulkAddProductionPlaningData = tryCatch(async (req, res) => {
       if (!planMonthYear || !material || !planQty || !planType) {
         uploadResults.push({
           status: "failed",
-          reason:
-            "Missing planMonthYear, material, planQty or planType",
+          reason: "Missing planMonthYear, material, planQty or planType",
           row,
         });
         continue;
@@ -438,8 +450,7 @@ export const bulkAddProductionPlaningData = tryCatch(async (req, res) => {
         const existingRes = await new sql.Request(transaction)
           .input("planMonthYear", sql.Int, planMonthYear)
           .input("planMaterial", sql.Int, matcode)
-          .input("planType", sql.NVarChar, normalizedPlanType)
-          .query(`
+          .input("planType", sql.NVarChar, normalizedPlanType).query(`
             SELECT PlanNo FROM PlanOrderPrint WITH (UPDLOCK, HOLDLOCK)
             WHERE PlanMonthYear = @planMonthYear AND PlanMaterial = @planMaterial AND PlanType = @planType
           `);
@@ -451,8 +462,7 @@ export const bulkAddProductionPlaningData = tryCatch(async (req, res) => {
             .input("remark", sql.NVarChar, remark || "")
             .input("planMonthYear", sql.Int, planMonthYear)
             .input("planMaterial", sql.Int, matcode)
-            .input("planType", sql.NVarChar, normalizedPlanType)
-            .query(`
+            .input("planType", sql.NVarChar, normalizedPlanType).query(`
               UPDATE PlanOrderPrint
               SET PlanQty = @planQty, CreatedBy = @userCode, Remark = @remark
               WHERE PlanMonthYear = @planMonthYear AND PlanMaterial = @planMaterial AND PlanType = @planType
@@ -477,8 +487,7 @@ export const bulkAddProductionPlaningData = tryCatch(async (req, res) => {
             .input("planType", sql.NVarChar, normalizedPlanType)
             .input("remark", sql.NVarChar, remark || "")
             .input("createdBy", sql.Int, userCode)
-            .input("createdOn", sql.DateTime, currentDateTime)
-            .query(`
+            .input("createdOn", sql.DateTime, currentDateTime).query(`
               INSERT INTO PlanOrderPrint
                 (PlanNo, PlanMonthYear, PlanMaterial, PlanQty, InitialPlanQty, PrintLbl, PlanType, Remark, CreatedBy, CreatedOn, Status)
               VALUES
@@ -505,12 +514,15 @@ export const bulkAddProductionPlaningData = tryCatch(async (req, res) => {
     }
 
     const successfulUploads = uploadResults.filter(
-      (r) => r.status === "success"
+      (r) => r.status === "success",
     );
     const failedUploads = uploadResults.filter((r) => r.status === "failed");
 
     if (successfulUploads.length === 0) {
-      throw new AppError("Failed to add any plans from the uploaded file.", 400);
+      throw new AppError(
+        "Failed to add any plans from the uploaded file.",
+        400,
+      );
     }
 
     res.status(201).json({
@@ -525,7 +537,7 @@ export const bulkAddProductionPlaningData = tryCatch(async (req, res) => {
     if (error instanceof AppError) throw error;
     throw new AppError(
       `Failed to bulk add production planing data:${error.message}`,
-      500
+      500,
     );
   } finally {
     await pool.close();

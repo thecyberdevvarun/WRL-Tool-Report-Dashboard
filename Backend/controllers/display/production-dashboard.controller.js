@@ -62,7 +62,7 @@ const GROUPS = [
     fields: ["DashboardName", "LineName", "LineCode", "WorkingTimeMin"],
   },
   {
-    label: "Display 1",
+    label: "Current Stage",
     hex: "0284C7",
     fields: [
       "StationCode1",
@@ -70,18 +70,6 @@ const GROUPS = [
       "LineTaktTime1",
       "LineMonthlyProduction1",
       "LineTarget1",
-      "DailyProductionTarget1",
-    ],
-  },
-  {
-    label: "Display 2",
-    hex: "D97706",
-    fields: [
-      "StationCode2",
-      "StationName2",
-      "LineTaktTime2",
-      "LineMonthlyProduction2",
-      "DailyProductionTarget2",
     ],
   },
   {
@@ -93,49 +81,29 @@ const GROUPS = [
   {
     label: "Visibility",
     hex: "059669",
-    fields: [
-      "ShowDisplay1",
-      "ShowDisplay2",
-      "ShowHourly",
-      "ShowQuality",
-      "ShowLoss",
-    ],
+    fields: ["ShowHourly", "ShowQuality", "ShowLoss"],
   },
 ];
 
-const BOOL_FIELDS = new Set([
-  "ShowDisplay1",
-  "ShowDisplay2",
-  "ShowHourly",
-  "ShowQuality",
-  "ShowLoss",
-]);
+const BOOL_FIELDS = new Set(["ShowHourly", "ShowQuality", "ShowLoss"]);
 
 const NUM_FIELDS = new Set([
   "WorkingTimeMin",
   "LineTaktTime1",
   "LineMonthlyProduction1",
   "LineTarget1",
-  "DailyProductionTarget1",
-  "LineTaktTime2",
-  "LineMonthlyProduction2",
-  "DailyProductionTarget2",
 ]);
 
 // Numeric fields that fall back to a default when blank (the rest become NULL)
 const NUM_DEFAULTS = {
-  WorkingTimeMin: 720,
+  WorkingTimeMin: 660,
   LineTaktTime1: 40,
   LineMonthlyProduction1: 0,
   LineTarget1: 0,
-  DailyProductionTarget1: 0,
-  DailyProductionTarget2: 0,
 };
 
 // Text fields stored as NULL (instead of "") when blank
 const NULLABLE_STR = new Set([
-  "StationCode2",
-  "StationName2",
   "QualityProcessCode",
   "QualityLineName",
   "SectionName",
@@ -147,8 +115,6 @@ const STR_LENGTHS = {
   LineCode: 50,
   StationCode1: 50,
   StationName1: 100,
-  StationCode2: 50,
-  StationName2: 100,
   QualityProcessCode: 500,
   QualityLineName: 100,
   SectionName: 200,
@@ -164,40 +130,27 @@ const COL_LABELS = {
   LineName: "Line Name",
   LineCode: "Line Code",
   WorkingTimeMin: "Working Time (min)",
-  StationCode1: "Station Code 1",
-  StationName1: "Station Name 1",
-  LineTaktTime1: "Cycle Time 1 (s)",
+  StationCode1: "Station Code",
+  StationName1: "Station Name",
+  LineTaktTime1: "Cycle Time (s)",
   LineMonthlyProduction1: "Monthly Prod 1",
   LineTarget1: "Target UPH",
-  DailyProductionTarget1: "Daily Production Target 1",
-  StationCode2: "Station Code 2",
-  StationName2: "Station Name 2",
-  LineTaktTime2: "Cycle Time 2 (s)",
-  LineMonthlyProduction2: "Monthly Prod 2",
-  DailyProductionTarget2: "Daily Production Target 2",
   QualityProcessCode: "Quality Process Code",
   QualityLineName: "Quality Line Name",
   SectionName: "Section Name",
-  ShowDisplay1: "Show Display 1",
-  ShowDisplay2: "Show Display 2",
   ShowHourly: "Show Hourly",
   ShowQuality: "Show Quality",
   ShowLoss: "Show Loss",
 };
 
 // Only these columns can be changed through the Excel file (everything else is edited in Display Manager)
-const EXCEL_EDITABLE = new Set([
-  "LineMonthlyProduction1",
-  "DailyProductionTarget1",
-  "LineMonthlyProduction2",
-  "DailyProductionTarget2",
-]);
+const EXCEL_EDITABLE = new Set(["LineMonthlyProduction1"]);
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  EXCEL TEMPLATE
-//  Export builds a PROTECTED workbook: every column is locked except the four
+//  Export builds a PROTECTED workbook: every column is locked except the two
 //  plan columns (EXCEL_EDITABLE). Everything else is managed in Display Manager.
-//  Import reads the same layout and only ever updates those four columns.
+//  Import reads the same layout and only ever updates those two columns.
 // ═════════════════════════════════════════════════════════════════════════════
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -239,30 +192,21 @@ const DOCS = {
   LineCode:
     "Line code used to filter ProcessActivity.Remark. Comma-separated for several lines.",
   WorkingTimeMin: "Shift working time in minutes (720 = 12 h shift).",
-  StationCode1: "Station code for Production Display 1 (FG Packing).",
-  StationName1: "Friendly name shown on Display 1.",
-  LineTaktTime1: "Cycle time in seconds for Station 1.",
-  LineMonthlyProduction1:
-    "Monthly production plan for Display 1. Type the number of units.",
-  LineTarget1: "Target units per hour (UPH).",
-  DailyProductionTarget1:
-    "Daily target for Display 1 = monthly plan ÷ working days in the month. Type a number or a formula, e.g. =I5/26. Decimals are rounded.",
-  StationCode2: "Station code for Production Display 2 (FG Loading).",
-  StationName2: "Friendly name shown on Display 2.",
-  LineTaktTime2: "Cycle time in seconds for Station 2.",
-  LineMonthlyProduction2:
-    "Monthly production plan for Display 2. Type the number of units.",
-  DailyProductionTarget2:
-    "Daily target for Display 2 = monthly plan ÷ working days in the month. Type a number or a formula, e.g. =O5/26. Decimals are rounded.",
+  StationCode1: "Station code of the current stage.",
+  StationName1: "Name shown on the Current Stage screen.",
+  LineTaktTime1: "Cycle time in seconds. Used to calculate the Shift Target.",
+  LineMonthlyProduction1: "Monthly production plan. Type the number of units.",
+  LineTarget1:
+    "Target units per hour (UPH). Loss Units = UPH minus the output of the current hour.",
   QualityProcessCode:
     "Quality inspection process codes, comma-separated, e.g. 12210,12206.",
   QualityLineName: "Line name used by the Quality page.",
   SectionName: "EMGMaster.Location value used by the Loss Analysis page.",
-  ShowDisplay1: "TRUE = the Production Display 1 page is shown.",
-  ShowDisplay2: "TRUE = the Production Display 2 page is shown.",
-  ShowHourly: "TRUE = the Hourly Production page is shown.",
-  ShowQuality: "TRUE = the Quality page is shown.",
-  ShowLoss: "TRUE = the Loss Analysis page is shown.",
+  ShowHourly: "TRUE = the Hourly Performance page is shown for this line.",
+  ShowQuality:
+    "TRUE = the Quality page is shown (the line needs a Quality Process Code).",
+  ShowLoss:
+    "TRUE = the Loss Analysis page is shown (the line needs a Section Name).",
 };
 
 const EXAMPLES = {
@@ -276,17 +220,9 @@ const EXAMPLES = {
   LineTaktTime1: "40",
   LineMonthlyProduction1: "14728",
   LineTarget1: "85",
-  DailyProductionTarget1: "=I5/26  →  566",
-  StationCode2: "1220005",
-  StationName2: "FG LOADING",
-  LineTaktTime2: "40",
-  LineMonthlyProduction2: "22600",
-  DailyProductionTarget2: "=O5/26  →  869",
   QualityProcessCode: "12210,12206",
   QualityLineName: "Freezer",
   SectionName: "FINAL ASSEMBLY",
-  ShowDisplay1: "TRUE",
-  ShowDisplay2: "TRUE",
   ShowHourly: "TRUE",
   ShowQuality: "TRUE",
   ShowLoss: "FALSE",
@@ -303,17 +239,9 @@ const COL_WIDTHS = {
   LineTaktTime1: 13,
   LineMonthlyProduction1: 15,
   LineTarget1: 12,
-  DailyProductionTarget1: 17,
-  StationCode2: 15,
-  StationName2: 20,
-  LineTaktTime2: 13,
-  LineMonthlyProduction2: 15,
-  DailyProductionTarget2: 17,
   QualityProcessCode: 26,
   QualityLineName: 20,
   SectionName: 28,
-  ShowDisplay1: 13,
-  ShowDisplay2: 13,
   ShowHourly: 13,
   ShowQuality: 13,
   ShowLoss: 13,
@@ -481,7 +409,7 @@ const buildConfigSheet = (wb, rows, exportedAt) => {
   });
   subtitle.value =
     `Exported ${dateText}  ·  ${rows.length} configuration${rows.length === 1 ? "" : "s"}` +
-    `  ·  Only the yellow columns (Monthly Prod, Daily Target) can be edited here` +
+    `  ·  Only the yellow column (Monthly Production) can be edited here` +
     `  ·  Everything else is managed in Display Manager  ·  See the "Instructions" sheet`;
   subtitle.font = font({ hex: MUTED, size: 9 });
   subtitle.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
@@ -728,7 +656,7 @@ const buildInstructionsSheet = (wb) => {
       24,
     ],
     [
-      "Edit only the yellow columns: Monthly Prod 1/2 and Daily Production Target 1/2. Every other cell is locked.",
+      "Edit only the two yellow columns: Monthly Prod and Daily Production Target. Every other cell is locked.",
       24,
     ],
     [
@@ -756,7 +684,7 @@ const buildInstructionsSheet = (wb) => {
       24,
     ],
     [
-      "Upload only reads the four yellow columns. Changes to any other cell are ignored, even if the sheet protection is removed.",
+      "Upload only reads the two yellow columns. Changes to any other cell are ignored, even if the sheet protection is removed.",
       24,
     ],
     [
@@ -981,10 +909,19 @@ const bindConfigInputs = (request, cfg) => {
   return request;
 };
 
+// Columns that Display Manager no longer edits but that may be NOT NULL in the table.
+// New rows get these fixed values; updates never touch them, so existing rows keep theirs.
+const LEGACY_INSERT_DEFAULTS = {
+  DarkMode: 0,
+  DailyProductionTarget2: 0,
+  ShowDisplay1: 1,
+  ShowDisplay2: 0,
+};
+
 const INSERT_SQL = `
   SET NOCOUNT ON;
-  INSERT INTO dbo.DashboardConfig (${FIELD_COLS.join(", ")}, IsActive, CreatedAt, UpdatedAt)
-  VALUES (${FIELD_COLS.map((c) => `@${c}`).join(", ")}, 1, GETDATE(), GETDATE());
+  INSERT INTO dbo.DashboardConfig (${[...FIELD_COLS, ...Object.keys(LEGACY_INSERT_DEFAULTS)].join(", ")}, IsActive, CreatedAt, UpdatedAt)
+  VALUES (${[...FIELD_COLS.map((c) => `@${c}`), ...Object.values(LEGACY_INSERT_DEFAULTS)].join(", ")}, 1, GETDATE(), GETDATE());
   ${SELECT_CONFIG} WHERE Id = SCOPE_IDENTITY();
 `;
 
@@ -1219,20 +1156,6 @@ export const getAllDashboardConfigs = tryCatch(async (req, res) => {
   ok(res, data);
 });
 
-// GET /dashboard/configs/:id
-export const getDashboardConfigById = tryCatch(async (req, res) => {
-  const id = parseId(req.params.id);
-  const data = await withPool(async (pool) => {
-    const result = await pool
-      .request()
-      .input("Id", sql.Int, id)
-      .query(`${SELECT_CONFIG} WHERE Id = @Id AND IsActive = 1`);
-    return result.recordset[0] || null;
-  });
-  if (!data) throw new AppError("Dashboard config not found.", 404);
-  ok(res, data);
-});
-
 // POST /dashboard/configs
 export const createDashboardConfig = tryCatch(async (req, res) => {
   const cfg = parseAndValidateConfig(req.body);
@@ -1341,11 +1264,12 @@ const getShiftContext = (req) => {
   };
 };
 
+// Internal use only (never sent to the browser): every column, so the other pages keep working
 const requireConfig = async (pool, configId) => {
   const result = await pool
     .request()
     .input("Id", sql.Int, configId)
-    .query(`${SELECT_CONFIG} WHERE Id = @Id AND IsActive = 1`);
+    .query("SELECT * FROM dbo.DashboardConfig WHERE Id = @Id AND IsActive = 1");
   const config = result.recordset[0];
   if (!config) throw new AppError("Dashboard config not found.", 404);
   return config;
@@ -1395,45 +1319,57 @@ const SQL_CFG_CTE = `cfg AS (
   )`;
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  PRODUCTION DISPLAY 1 / 2   (FG Packing / FG Loading)
-//  Returns ONLY the fields the two Production Display pages read.
-//  Daily target + balance are handled in the frontend from the config.
+//  PRODUCTION DISPLAY  (Current Stage)  ->  GET /dashboard/production-display-1
+//
+//  ShiftTarget  = units per minute (from cycle time) x working minutes x plan factor
+//  LossUnits    = UPH target - units made in the CURRENT clock hour (never negative)
+//  Performance  = actual vs shift target, prorated to elapsed productive time
+//  Balance qty is calculated in the frontend (ShiftTarget - ActualQty).
 // ═════════════════════════════════════════════════════════════════════════════
-const buildProductionQuery = ({ dailyTargetCol, monthlyPlanCol }) => `
+const buildProductionQuery = ({ monthlyPlanCol }) => `
   WITH ${activityCount("ShiftActual", "@shiftStart", "@shiftEnd")},
-  ${activityCount("MonthlyActual", "@monthStart", "@monthEnd")}
+  ${activityCount("MonthlyActual", "@monthStart", "@monthEnd")},
+  HourBounds AS (
+    -- the clock hour that is running now (the last hour of the shift once it is over)
+    SELECT DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(SECOND, -1, ${SQL_NOW_CAPPED})), 0) AS HourStart
+  ),
+  HourActual AS (
+    SELECT COUNT(pa.PSNo) AS Qty
+    FROM HourBounds hb
+    LEFT JOIN ProcessActivity pa
+      ON  pa.StationCode  = @stationCode
+      AND pa.ActivityType = 5
+      AND pa.Remark IN (SELECT value FROM STRING_SPLIT(@lineCode, ','))
+      AND pa.ActivityOn  >= hb.HourStart
+      AND pa.ActivityOn  <  DATEADD(HOUR, 1, hb.HourStart)
+  )
   SELECT
     dc.${monthlyPlanCol}                      AS MonthlyPlanQty,
+    st.Target                                 AS ShiftTarget,
     sa.Qty                                    AS ActualQty,
     sa.Qty                                    AS GaugeValue,
 
-    -- Loss units: target UPH x productive hours so far, minus actual (never negative)
-    CAST(CASE WHEN x.TargetToDate > sa.Qty THEN x.TargetToDate - sa.Qty ELSE 0 END AS INT) AS LossUnits,
+    CAST(CASE WHEN dc.LineTarget1 > ha.Qty THEN dc.LineTarget1 - ha.Qty ELSE 0 END AS INT) AS LossUnits,
 
-    -- Performance vs daily target, prorated to elapsed productive time
     CAST(sa.Qty * 100.0 / NULLIF(
-      dc.${dailyTargetCol} * (t.ProdMin / NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0)), 0)
+      st.Target * (t.ProdMin / NULLIF(CAST(dc.WorkingTimeMin AS FLOAT), 0)), 0)
     AS DECIMAL(6,2))                          AS PerformancePct,
 
     ma.Qty                                    AS MonthlyAchieved,
     dc.${monthlyPlanCol} - ma.Qty             AS MonthlyRemaining,
-    CAST((dc.${monthlyPlanCol} - ma.Qty) * 1.0 / NULLIF(d.RemainingDays, 0) AS INT) AS AskingRate,
     d.RemainingDays                           AS RemainingDays
   FROM dbo.DashboardConfig dc
   CROSS JOIN ShiftActual   sa
   CROSS JOIN MonthlyActual ma
+  CROSS JOIN HourActual    ha
   CROSS APPLY (SELECT DATEDIFF(MINUTE, @shiftStart, ${SQL_NOW_CAPPED}) * ${PRODUCTIVE_FACTOR} AS ProdMin) t
-  CROSS APPLY (SELECT dc.LineTarget1 * t.ProdMin / 60.0 AS TargetToDate) x
+  CROSS APPLY (SELECT CAST(((60.0 / NULLIF(dc.LineTaktTime1, 0)) * dc.WorkingTimeMin) * ${PLAN_FACTOR} AS INT) AS Target) st
   CROSS APPLY (SELECT DAY(EOMONTH(GETDATE())) - DAY(GETDATE()) + 1 AS RemainingDays) d
   WHERE dc.Id = @configId;
 `;
 
-const makeProductionHandler = ({
-  stationCol,
-  dailyTargetCol,
-  monthlyPlanCol,
-}) => {
-  const query = buildProductionQuery({ dailyTargetCol, monthlyPlanCol });
+const makeProductionHandler = ({ stationCol, monthlyPlanCol }) => {
+  const query = buildProductionQuery({ monthlyPlanCol });
 
   return tryCatch(async (req, res) => {
     const ctx = getShiftContext(req);
@@ -1464,19 +1400,9 @@ const makeProductionHandler = ({
   });
 };
 
-// GET /dashboard/production-display-1
+// GET /dashboard/production-display-1   (the Current Stage screen)
 export const getFGPackingData = makeProductionHandler({
   stationCol: "StationCode1",
-  dailyTargetCol: "DailyProductionTarget1",
-  monthlyPlanCol: "LineMonthlyProduction1",
-});
-
-// GET /dashboard/production-display-2
-// NOTE: Display 2 reuses Display 1's monthly plan, exactly as before.
-// If Display 2 should use its own plan, change monthlyPlanCol to "LineMonthlyProduction2".
-export const getFGLoadingData = makeProductionHandler({
-  stationCol: "StationCode2",
-  dailyTargetCol: "DailyProductionTarget2",
   monthlyPlanCol: "LineMonthlyProduction1",
 });
 

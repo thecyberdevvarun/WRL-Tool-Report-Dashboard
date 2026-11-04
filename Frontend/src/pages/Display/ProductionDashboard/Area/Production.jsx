@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TimerBar } from "../../../components/display-module/TimerBar";
+import { TimerBar } from "../../../../components/display-module/TimerBar";
 
 /* ─────────────────────────────────────────────────────────────────────────
    RESPONSIVE SIZING
@@ -182,14 +182,15 @@ const ProductionDisplay1 = ({
   shiftDate,
   config,
 }) => {
-  // API fields used here: ActualQty, PerformancePct, GaugeValue, LossUnits,
-  // MonthlyPlanQty, MonthlyAchieved, MonthlyRemaining, AskingRate, RemainingDays
+  // API fields used here: ShiftPlan, ActualQty, PerformancePct, GaugeValue, LossUnits,
+  // MonthlyPlanQty, MonthlyAchieved, MonthlyRemaining, RemainingDays
   const d = apiData;
-  const label = config?.stationName1 || "FG PACKING";
+  const label = config?.stationName1;
 
-  // Daily target comes from the saved config; balance is calculated here
-  const dailyTarget = num(config?.dailyProductionTarget1);
-  const balance = (dailyTarget ?? 0) - (num(d.ActualQty) ?? 0);
+  // Balance is worked out here from the shift Plan shown on the first tile
+  const shiftPlan = num(d.ShiftTarget);
+  const balance =
+    shiftPlan === null ? null : shiftPlan - (num(d.ActualQty) ?? 0);
 
   const perf = num(d.PerformancePct);
 
@@ -248,7 +249,7 @@ const ProductionDisplay1 = ({
       >
         {/* Top KPI row */}
         <div className="shrink-0 grid grid-cols-5" style={{ gap: s(16) }}>
-          <Tile label="Daily Target" value={fmt(dailyTarget)} color="#7c3aed" />
+          <Tile label="Shift Plan" value={fmt(shiftPlan)} color="#7c3aed" />
           <Tile label="Shift Output" value={fmt(d.ActualQty)} color={ACCENT} />
           <Tile
             label="Performance"
@@ -256,7 +257,12 @@ const ProductionDisplay1 = ({
             unit="%"
             color={perfColor(perf)}
           />
-          <Tile label="Loss Units" value={fmt(d.LossUnits)} color={RED} />
+          <Tile
+            label="Loss Units"
+            value={fmt(d.LossUnits)}
+            sub="UPH − this hour"
+            color={RED}
+          />
           <Tile label="Balance Qty" value={fmt(balance)} color="#b45309" />
         </div>
 
@@ -319,7 +325,7 @@ const ProductionDisplay1 = ({
         </section>
 
         {/* Monthly row */}
-        <div className="shrink-0 grid grid-cols-5" style={{ gap: s(16) }}>
+        <div className="shrink-0 grid grid-cols-4" style={{ gap: s(16) }}>
           <Tile
             big={false}
             label="Monthly Plan"
@@ -337,13 +343,6 @@ const ProductionDisplay1 = ({
             label="Remaining Qty"
             value={fmt(d.MonthlyRemaining)}
             color="#b45309"
-          />
-          <Tile
-            big={false}
-            label="Asking Rate"
-            value={fmt(d.AskingRate)}
-            sub="Units / Day"
-            color="#0f766e"
           />
           <Tile
             big={false}

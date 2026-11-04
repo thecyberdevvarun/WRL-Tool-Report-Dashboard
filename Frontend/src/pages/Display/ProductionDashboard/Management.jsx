@@ -16,7 +16,6 @@ import {
   Calendar,
   Settings,
   Layers,
-  Zap,
   Cpu,
   BarChart2,
   Shield,
@@ -31,7 +30,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
-import { baseURL } from "../../assets/assets";
+import { baseURL } from "../../../assets/assets";
 
 /* -- API base -- */
 const API = `${baseURL}dashboard/configs`;
@@ -53,17 +52,9 @@ const EMPTY_FORM = {
   lineTaktTime1: "",
   lineMonthlyProduction1: "",
   lineTarget1: "",
-  dailyProductionTarget1: "",
-  stationCode2: "",
-  stationName2: "",
-  lineTaktTime2: "",
-  lineMonthlyProduction2: "",
-  dailyProductionTarget2: "",
   qualityProcessCode: "",
   qualityLineName: "",
   sectionName: "",
-  showDisplay1: true,
-  showDisplay2: true,
   showHourly: true,
   showQuality: true,
   showLoss: true,
@@ -75,17 +66,11 @@ const COLUMNS = [
   { key: "lineName", label: "Line Name", group: "General" },
   { key: "lineCode", label: "Line Code", group: "General" },
   { key: "workingTimeMin", label: "Working Min", group: "General" },
-  { key: "stationCode1", label: "Station", group: "Display 1" },
-  { key: "stationName1", label: "Name", group: "Display 1" },
-  { key: "lineTaktTime1", label: "Cycle Time (s)", group: "Display 1" },
-  { key: "lineMonthlyProduction1", label: "Monthly", group: "Display 1" },
-  { key: "lineTarget1", label: "UPH", group: "Display 1" },
-  { key: "dailyProductionTarget1", label: "Daily Target", group: "Display 1" },
-  { key: "stationCode2", label: "Station", group: "Display 2" },
-  { key: "stationName2", label: "Name", group: "Display 2" },
-  { key: "lineTaktTime2", label: "Cycle Time (s)", group: "Display 2" },
-  { key: "lineMonthlyProduction2", label: "Monthly", group: "Display 2" },
-  { key: "dailyProductionTarget2", label: "Daily Target", group: "Display 2" },
+  { key: "stationCode1", label: "Station", group: "Current Stage" },
+  { key: "stationName1", label: "Name", group: "Current Stage" },
+  { key: "lineTaktTime1", label: "Cycle Time (s)", group: "Current Stage" },
+  { key: "lineMonthlyProduction1", label: "Monthly", group: "Current Stage" },
+  { key: "lineTarget1", label: "UPH", group: "Current Stage" },
   { key: "qualityProcessCode", label: "Process Code", group: "Quality" },
   { key: "qualityLineName", label: "Line Name", group: "Quality" },
   { key: "sectionName", label: "Section", group: "Loss" },
@@ -101,21 +86,13 @@ const GROUP_CONFIG = {
     Icon: Cpu,
     label: "General Info",
   },
-  "Display 1": {
+  "Current Stage": {
     hex: "#0ea5e9",
     light: "bg-sky-50",
     border: "border-sky-200",
     text: "text-sky-600",
     Icon: Layers,
-    label: "Main Display 1",
-  },
-  "Display 2": {
-    hex: "#f59e0b",
-    light: "bg-amber-50",
-    border: "border-amber-200",
-    text: "text-amber-600",
-    Icon: Zap,
-    label: "Main Display 2",
+    label: "Current Stage",
   },
   Quality: {
     hex: "#8b5cf6",
@@ -144,8 +121,6 @@ const GROUP_CONFIG = {
 };
 
 const VISIBILITY_FIELDS = [
-  { key: "showDisplay1", label: "Production Display 1", color: "#0ea5e9" },
-  { key: "showDisplay2", label: "Production Display 2", color: "#f59e0b" },
   { key: "showHourly", label: "Hourly Production", color: "#8b5cf6" },
   { key: "showQuality", label: "Quality", color: "#10b981" },
   { key: "showLoss", label: "Loss Analysis", color: "#ef4444" },
@@ -171,7 +146,7 @@ const FORM_SECTIONS = [
     ],
   },
   {
-    group: "Display 1",
+    group: "Current Stage",
     fields: [
       {
         key: "stationCode1",
@@ -190,37 +165,6 @@ const FORM_SECTIONS = [
         placeholder: "e.g. 27000",
       },
       { key: "lineTarget1", label: "Target UPH", placeholder: "e.g. 85" },
-      {
-        key: "dailyProductionTarget1",
-        label: "Daily Production Target",
-        placeholder: "e.g. 800",
-      },
-    ],
-  },
-  {
-    group: "Display 2",
-    fields: [
-      {
-        key: "stationCode2",
-        label: "Station Code",
-        placeholder: "e.g. 1220005",
-      },
-      {
-        key: "stationName2",
-        label: "Station Name",
-        placeholder: "e.g. FG LOADING",
-      },
-      { key: "lineTaktTime2", label: "Cycle Time (s)", placeholder: "e.g. 40" },
-      {
-        key: "lineMonthlyProduction2",
-        label: "Monthly Production",
-        placeholder: "e.g. 27000",
-      },
-      {
-        key: "dailyProductionTarget2",
-        label: "Daily Production Target",
-        placeholder: "e.g. 800",
-      },
     ],
   },
   {
@@ -272,10 +216,6 @@ const NUM_KEYS = new Set([
   "lineTaktTime1",
   "lineMonthlyProduction1",
   "lineTarget1",
-  "dailyProductionTarget1",
-  "dailyProductionTarget2",
-  "lineTaktTime2",
-  "lineMonthlyProduction2",
   "workingTimeMin",
 ]);
 
@@ -290,17 +230,9 @@ const dbToForm = (row) => ({
   lineTaktTime1: String(row.LineTaktTime1 ?? ""),
   lineMonthlyProduction1: String(row.LineMonthlyProduction1 ?? ""),
   lineTarget1: String(row.LineTarget1 ?? ""),
-  dailyProductionTarget1: String(row.DailyProductionTarget1 ?? ""),
-  stationCode2: row.StationCode2 ?? "",
-  stationName2: row.StationName2 ?? "",
-  lineTaktTime2: String(row.LineTaktTime2 ?? ""),
-  lineMonthlyProduction2: String(row.LineMonthlyProduction2 ?? ""),
-  dailyProductionTarget2: String(row.DailyProductionTarget2 ?? ""),
   qualityProcessCode: row.QualityProcessCode ?? "",
   qualityLineName: row.QualityLineName ?? "",
   sectionName: row.SectionName ?? "",
-  showDisplay1: row.ShowDisplay1 ?? true,
-  showDisplay2: row.ShowDisplay2 ?? true,
   showHourly: row.ShowHourly ?? true,
   showQuality: row.ShowQuality ?? true,
   showLoss: row.ShowLoss ?? true,
@@ -409,7 +341,7 @@ const ConfigModal = ({ config, saving, onClose, onSave }) => {
                   <span
                     className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black ${active ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"}`}
                   >
-                    {enabledCount}/5
+                    {enabledCount}/{VISIBILITY_FIELDS.length}
                   </span>
                 )}
               </button>
@@ -440,8 +372,9 @@ const ConfigModal = ({ config, saving, onClose, onSave }) => {
           {sec.isVisibilitySection ? (
             <div className="space-y-3">
               <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                Choose which dashboard pages are shown when this configuration
-                is launched.
+                The Current Stage screen always shows. Switch on the other pages
+                this line has — Quality and Loss also need a Quality Process
+                Code / Section Name.
               </p>
               {VISIBILITY_FIELDS.map((f) => (
                 <VisibilityToggle
@@ -452,12 +385,6 @@ const ConfigModal = ({ config, saving, onClose, onSave }) => {
                   disabled={saving}
                 />
               ))}
-              {enabledCount === 0 && (
-                <div className="mt-3 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs font-semibold">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" /> At least one
-                  page must be enabled.
-                </div>
-              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
@@ -510,8 +437,8 @@ const ConfigModal = ({ config, saving, onClose, onSave }) => {
             ) : (
               <button
                 onClick={() => onSave(form)}
-                disabled={saving || enabledCount === 0}
-                className={`flex items-center gap-2 px-7 py-2.5 rounded-lg font-bold text-[13px] transition-all ${saving || enabledCount === 0 ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-linear-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-200 hover:shadow-md"}`}
+                disabled={saving}
+                className={`flex items-center gap-2 px-7 py-2.5 rounded-lg font-bold text-[13px] transition-all ${saving ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-linear-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-200 hover:shadow-md"}`}
               >
                 {saving ? (
                   <>
@@ -596,7 +523,7 @@ const LaunchModal = ({ config, onClose, onLaunch }) => {
           </div>
           <div className="mb-4">
             <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-              <Eye className="w-3 h-3" /> Pages that will show
+              <Eye className="w-3 h-3" /> Other pages that will show
             </label>
             <div className="flex flex-wrap gap-1.5">
               {VISIBILITY_FIELDS.map((f) => {
@@ -625,14 +552,8 @@ const LaunchModal = ({ config, onClose, onLaunch }) => {
             {[
               ["Line", `${config.lineName || "—"} · ${config.lineCode || "—"}`],
               [
-                "Station 1",
+                "Station",
                 `${config.stationCode1 || "—"} — ${config.stationName1 || "—"}`,
-              ],
-              [
-                "Station 2",
-                config.stationCode2
-                  ? `${config.stationCode2} — ${config.stationName2}`
-                  : "Not configured",
               ],
               ["Quality", config.qualityProcessCode || "Not configured"],
               ["Section", config.sectionName || "Not configured"],
@@ -845,14 +766,7 @@ const Management = () => {
       return;
     }
     if (!form.stationCode1?.trim()) {
-      toast.error("Station Code 1 is required.");
-      return;
-    }
-    const enabledCount = VISIBILITY_FIELDS.filter(
-      (f) => form[f.key] !== false,
-    ).length;
-    if (enabledCount === 0) {
-      toast.error("At least one page must be enabled.");
+      toast.error("Station Code is required.");
       return;
     }
     setSaving(true);
@@ -965,13 +879,9 @@ const Management = () => {
 
   /* Derived */
   const filtered = configs.filter((c) =>
-    [
-      c.dashboardName,
-      c.lineName,
-      c.sectionName,
-      c.stationName1,
-      c.stationName2,
-    ].some((v) => (v || "").toLowerCase().includes(search.toLowerCase())),
+    [c.dashboardName, c.lineName, c.sectionName, c.stationName1].some((v) =>
+      (v || "").toLowerCase().includes(search.toLowerCase()),
+    ),
   );
 
   const closeModal = useCallback(() => {

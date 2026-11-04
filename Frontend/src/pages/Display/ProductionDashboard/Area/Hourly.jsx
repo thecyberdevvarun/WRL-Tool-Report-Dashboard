@@ -9,7 +9,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { Chart } from "react-chartjs-2";
-import { TimerBar } from "../../../components/display-module/TimerBar";
+import { TimerBar } from "../../../../components/display-module/TimerBar";
 
 ChartJS.register(
   CategoryScale,
@@ -293,7 +293,7 @@ const Hourly = ({ apiData = {}, progress, shift, shiftDate }) => {
             color="#7c3aed"
           />
           <Tile
-            label="Total Achieved"
+            label="Shift Output"
             value={fmt(summary.TotalAchieved)}
             color="#15803d"
           />

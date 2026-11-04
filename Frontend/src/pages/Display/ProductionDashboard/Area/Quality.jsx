@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { PackageOpen } from "lucide-react";
-import { TimerBar } from "../../../components/display-module/TimerBar";
+import { useEffect, useState } from "react";
+import { TimerBar } from "../../../../components/display-module/TimerBar";
 
 /* ─────────────────────────────────────────────────────────────────────────
    RESPONSIVE SIZING
@@ -14,13 +13,12 @@ import { TimerBar } from "../../../components/display-module/TimerBar";
 ───────────────────────────────────────────────────────────────────────── */
 const s = (px) => `calc(var(--u) * ${(px / 19.2).toFixed(4)})`;
 
-const ACCENT = "#b45309";
+const ACCENT = "#15803d";
+const RED = "#dc2626";
+const AMBER = "#f59e0b";
 
-/* How many station rows fit on screen (the rest are summarised as "+N more") */
-const MAX_STATION_ROWS = 8;
-
-/* A station with MORE stops than this is highlighted in red */
-const HIGH_STOP_COUNT = 10;
+/* How many defect rows fit on screen (the rest are summarised as "+N more") */
+const MAX_DEFECT_ROWS = 8;
 
 /* ── helpers ── */
 const pad = (n) => String(n).padStart(2, "0");
@@ -55,55 +53,57 @@ const Clock = () => {
   );
 };
 
-/* ── Stat tile (5 across) ── */
-const Tile = ({ label, value, color }) => (
+/* ── Stat tile (7 across) ── */
+const Tile = ({ label, value, sub, color }) => (
   <div
     className="min-w-0 bg-white border border-slate-200 shadow-sm flex flex-col justify-between"
     style={{
-      borderLeft: `${s(12)} solid ${color}`,
-      borderRadius: s(20),
-      padding: `${s(16)} ${s(22)}`,
-      gap: s(6),
+      borderLeft: `${s(10)} solid ${color}`,
+      borderRadius: s(18),
+      padding: `${s(14)} ${s(16)}`,
+      gap: s(4),
     }}
   >
     <p
       className="font-bold text-slate-500 leading-tight whitespace-nowrap"
-      style={{ fontSize: s(30) }}
+      style={{ fontSize: s(26) }}
     >
       {label}
     </p>
     <p
       className="font-black tabular-nums leading-none whitespace-nowrap"
-      style={{ color, fontSize: s(88) }}
+      style={{ color, fontSize: s(66) }}
     >
       {value}
     </p>
+    {sub !== undefined && (
+      <p
+        className="font-semibold text-slate-400 leading-tight whitespace-nowrap"
+        style={{ fontSize: s(22) }}
+      >
+        {sub}
+      </p>
+    )}
   </div>
 );
 
 /* ════════════════════════════════════════════════════════════
-   Pure SVG Doughnut — Consumed vs Remaining time
-   (drawn in a 260×260 box and scales to fit)
+   Pure SVG Doughnut — 3 segments: OK / Defect / Rework
+   (everything is drawn in a 260×260 box and scales to fit)
 ═══════════════════════════════════════════════════════════ */
-const SvgTimeDoughnut = ({ consumedPct = 0 }) => {
+const SvgDoughnut = ({ ok = 0, defect = 0, rework = 0, total = 0 }) => {
   const size = 260;
   const cx = size / 2;
   const cy = size / 2;
   const r = 95;
   const strokeW = 46;
   const circumference = 2 * Math.PI * r;
-
-  const consumed = Math.min(Math.max(consumedPct, 0), 100);
-  const remaining = Number((100 - consumed).toFixed(1));
+  const sum = ok + defect + rework;
 
   const segments = [
-    { key: "consumed", value: consumed, color: "#f59e0b", label: "Consumed" },
-    {
-      key: "remaining",
-      value: remaining,
-      color: "#e2e8f0",
-      label: "Remaining",
-    },
+    { key: "ok", value: ok, color: "#15803d" },
+    { key: "defect", value: defect, color: "#dc2626" },
+    { key: "rework", value: rework, color: "#f59e0b" },
   ].filter((seg) => seg.value > 0);
 
   const gap = segments.length > 1 ? 4 : 0;
@@ -115,7 +115,7 @@ const SvgTimeDoughnut = ({ consumedPct = 0 }) => {
 
   let cumulativeAngle = 0;
   const segmentData = segments.map((seg) => {
-    const frac = seg.value / 100;
+    const frac = seg.value / sum;
     const arcLen = frac * circumference;
     const startAngle = cumulativeAngle;
     const endAngle = cumulativeAngle + frac * 360;
@@ -127,7 +127,7 @@ const SvgTimeDoughnut = ({ consumedPct = 0 }) => {
       arcLen,
       startOffset: -((startAngle / 360) * circumference),
       labelPos: polarToXY(midAngle, r),
-      pct: seg.value.toFixed(1),
+      pct: ((seg.value / sum) * 100).toFixed(1),
     };
   });
 
@@ -146,84 +146,77 @@ const SvgTimeDoughnut = ({ consumedPct = 0 }) => {
         strokeWidth={strokeW}
       />
 
-      {segmentData.map((seg) => (
-        <circle
-          key={seg.key}
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke={seg.color}
-          strokeWidth={strokeW}
-          strokeDasharray={`${Math.max(seg.arcLen - gap, 0)} ${circumference}`}
-          strokeDashoffset={seg.startOffset}
-          strokeLinecap="butt"
-          transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition: "stroke-dasharray 1s ease" }}
-        />
-      ))}
+      {sum > 0 &&
+        segmentData.map((seg) => (
+          <circle
+            key={seg.key}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={strokeW}
+            strokeDasharray={`${Math.max(seg.arcLen - gap, 0)} ${circumference}`}
+            strokeDashoffset={seg.startOffset}
+            strokeLinecap="butt"
+            transform={`rotate(-90 ${cx} ${cy})`}
+            style={{ transition: "stroke-dasharray 1s ease" }}
+          />
+        ))}
 
-      {/* Segment labels — only if segment >= 12% */}
+      {/* Segment labels — only if segment >= 10% */}
       {segmentData
-        .filter((seg) => seg.frac >= 0.12)
-        .map((seg) => {
-          const isLight = seg.key === "remaining";
-          const textColor = isLight ? "#475569" : "#ffffff";
-          const shadow = isLight
-            ? "drop-shadow(0 1px 2px rgba(255,255,255,0.8))"
-            : "drop-shadow(0 1px 2px rgba(0,0,0,0.45))";
-          return (
-            <g key={`lbl-${seg.key}`} pointerEvents="none">
-              <text
-                x={seg.labelPos.x}
-                y={seg.labelPos.y - 4}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill={textColor}
-                fontSize="20"
-                fontWeight="900"
-                style={{ filter: shadow }}
-              >
-                {seg.pct}%
-              </text>
-              <text
-                x={seg.labelPos.x}
-                y={seg.labelPos.y + 14}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill={textColor}
-                fontSize="11"
-                fontWeight="800"
-                letterSpacing="1"
-                style={{ filter: shadow }}
-              >
-                {seg.label.toUpperCase()}
-              </text>
-            </g>
-          );
-        })}
+        .filter((seg) => seg.frac >= 0.1)
+        .map((seg) => (
+          <g key={`lbl-${seg.key}`} pointerEvents="none">
+            <text
+              x={seg.labelPos.x}
+              y={seg.labelPos.y - 6}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#ffffff"
+              fontSize="21"
+              fontWeight="900"
+              style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.45))" }}
+            >
+              {seg.value.toLocaleString()}
+            </text>
+            <text
+              x={seg.labelPos.x}
+              y={seg.labelPos.y + 15}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#ffffff"
+              fontSize="15"
+              fontWeight="800"
+              style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.45))" }}
+            >
+              {seg.pct}%
+            </text>
+          </g>
+        ))}
 
       {/* Center */}
       <text
         x={cx}
-        y={cy + 6}
+        y={cy + 4}
         textAnchor="middle"
-        fontSize="40"
+        fontSize="34"
         fontWeight="900"
-        fill="#0f172a"
+        fill={sum > 0 ? "#0f172a" : "#cbd5e1"}
       >
-        {consumed.toFixed(0)}%
+        {sum > 0 ? Number(total).toLocaleString() : "0"}
       </text>
       <text
         x={cx}
-        y={cy + 28}
+        y={cy + 26}
         textAnchor="middle"
         fontSize="12"
         fontWeight="800"
         fill="#64748b"
         letterSpacing="1.5"
       >
-        ELAPSED
+        {sum > 0 ? "TOTAL UNITS" : "NO DATA"}
       </text>
     </svg>
   );
@@ -232,26 +225,31 @@ const SvgTimeDoughnut = ({ consumedPct = 0 }) => {
 /* ════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
-const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
-  // API: stations = [{ StationName, TotalStopCount }]  (already sorted by stops, highest first)
-  //      summary  = { Plan, Achieved, Remaining, ConsumedTimePct }
-  const { stations = [], summary: ls = {} } = apiData;
+const Quality = ({ apiData = {}, progress, shift, shiftDate }) => {
+  // API: summary = { Plan, TotalAchieved, OkUnit, DefectUnit, ReworkDone, OkPct, DefectPct }
+  //      defects = [{ DefectName, DefectCount }]
+  const { summary: qs = {}, defects = [] } = apiData;
 
-  const consumedPct = Number(ls.ConsumedTimePct || 0);
-  const consumedClamped = Math.min(Math.max(consumedPct, 0), 100);
+  const ok = Number(qs.OkUnit) || 0;
+  const defect = Number(qs.DefectUnit) || 0;
+  const rework = Number(qs.ReworkDone) || 0;
+  const total = Number(qs.TotalAchieved) || ok + defect + rework;
 
-  const totalStopCount = useMemo(
-    () => stations.reduce((sum, st) => sum + (st.TotalStopCount ?? 0), 0),
-    [stations],
+  // Percentages — denominator = TotalAchieved (matches the cards)
+  const okPct = Number(
+    qs.OkPct ?? (total > 0 ? ((ok / total) * 100).toFixed(1) : 0),
+  );
+  const reworkPct = total > 0 ? ((rework / total) * 100).toFixed(1) : "0.0";
+  const defPct = Number(
+    qs.DefectPct ?? (total > 0 ? ((defect / total) * 100).toFixed(1) : 0),
   );
 
-  const statusColor =
-    consumedPct >= 90 ? "#dc2626" : consumedPct >= 70 ? "#f59e0b" : "#16a34a";
+  const statusColor = okPct >= 90 ? "#16a34a" : okPct >= 70 ? AMBER : RED;
   const statusLabel =
-    consumedPct >= 90 ? "CRITICAL" : consumedPct >= 70 ? "WARNING" : "ON TRACK";
+    okPct >= 90 ? "ON TRACK" : okPct >= 70 ? "WARNING" : "CRITICAL";
 
-  const shownStations = stations.slice(0, MAX_STATION_ROWS);
-  const hiddenCount = Math.max(stations.length - shownStations.length, 0);
+  const shownDefects = defects.slice(0, MAX_DEFECT_ROWS);
+  const hiddenCount = Math.max(defects.length - shownDefects.length, 0);
 
   return (
     <div
@@ -267,7 +265,7 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
           className="font-black uppercase tracking-wide leading-none truncate min-w-0"
           style={{ fontSize: s(48) }}
         >
-          Loss Performance
+          Quality Performance
         </h1>
         <div className="flex items-center shrink-0" style={{ gap: s(30) }}>
           <span
@@ -300,21 +298,34 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
         style={{ padding: `${s(18)} ${s(24)}`, gap: s(16) }}
       >
         {/* KPI row */}
-        <div className="shrink-0 grid grid-cols-5" style={{ gap: s(16) }}>
-          <Tile label="Plan" value={fmt(ls.Plan)} color="#7c3aed" />
-          <Tile label="Achieved" value={fmt(ls.Achieved)} color="#15803d" />
-          <Tile label="Balance" value={fmt(ls.Remaining)} color="#ef4444" />
+        <div className="shrink-0 grid grid-cols-6" style={{ gap: s(14) }}>
+          <Tile label="Shift Plan" value={fmt(qs.Plan)} color="#7c3aed" />
           <Tile
-            label="Total Stops"
-            value={totalStopCount.toLocaleString()}
-            color="#b45309"
+            label="Shift Output"
+            value={fmt(qs.TotalAchieved)}
+            color="#15803d"
           />
-          <Tile label="Stations" value={fmt(stations.length)} color="#2563eb" />
+          <Tile label="Accepted Units" value={fmt(qs.OkUnit)} color="#059669" />
+          <Tile
+            label="Reworked Units"
+            value={fmt(qs.ReworkDone)}
+            color="#f59e0b"
+          />
+          <Tile
+            label="Defective Units"
+            value={fmt(qs.DefectUnit)}
+            color="#ef4444"
+          />
+          <Tile
+            label="Defect Rate"
+            value={qs.DefectPct != null ? `${qs.DefectPct}%` : "—"}
+            color="#dc2626"
+          />
         </div>
 
         {/* Middle */}
         <div className="flex-1 min-h-0 flex" style={{ gap: s(16) }}>
-          {/* LEFT — Time doughnut */}
+          {/* LEFT — Doughnut */}
           <section
             className="min-w-0 min-h-0 flex flex-col shadow-md"
             style={{
@@ -330,18 +341,23 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                 className="font-black uppercase tracking-[0.2em] font-mono leading-none"
                 style={{ color: ACCENT, fontSize: s(42) }}
               >
-                Consumed Time
+                Quality Overview
               </p>
               <p
                 className="font-semibold text-slate-400 leading-none"
                 style={{ fontSize: s(26), marginTop: s(8) }}
               >
-                Shift Time Utilization
+                OK · Defect · Rework Distribution
               </p>
             </div>
 
             <div className="flex-1 min-h-0" style={{ margin: `${s(6)} 0` }}>
-              <SvgTimeDoughnut consumedPct={consumedPct} />
+              <SvgDoughnut
+                ok={ok}
+                defect={defect}
+                rework={rework}
+                total={total}
+              />
             </div>
 
             {/* Legend */}
@@ -350,16 +366,9 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
               style={{ fontSize: s(28), gap: s(40) }}
             >
               {[
-                {
-                  c: "#f59e0b",
-                  l: "Consumed",
-                  p: consumedClamped.toFixed(1),
-                },
-                {
-                  c: "#cbd5e1",
-                  l: "Remaining",
-                  p: (100 - consumedClamped).toFixed(1),
-                },
+                { c: "#15803d", l: "OK", p: okPct.toFixed(1) },
+                { c: "#dc2626", l: "Defect", p: defPct.toFixed(1) },
+                { c: "#f59e0b", l: "Rework", p: reworkPct },
               ].map((it) => (
                 <span
                   key={it.l}
@@ -368,7 +377,11 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                 >
                   <span
                     className="rounded-full"
-                    style={{ width: s(26), height: s(26), background: it.c }}
+                    style={{
+                      width: s(26),
+                      height: s(26),
+                      background: it.c,
+                    }}
                   />
                   {it.l}
                   <span className="font-mono text-slate-400">{it.p}%</span>
@@ -376,13 +389,13 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
               ))}
             </div>
 
-            {/* Stops badge + status */}
+            {/* OK badge + status */}
             <div
               className="shrink-0 flex items-center justify-center"
               style={{ gap: s(28), marginTop: s(12) }}
             >
               <div
-                className="text-white font-black font-mono tracking-[0.1em] leading-none"
+                className="text-white font-black font-mono tracking-[0.12em] leading-none"
                 style={{
                   background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}dd)`,
                   boxShadow: `0 8px 30px ${ACCENT}40`,
@@ -391,12 +404,12 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                   borderRadius: s(24),
                 }}
               >
-                {totalStopCount.toLocaleString()}
+                {String(ok).padStart(3, "0")}
                 <span
                   className="text-white/60"
                   style={{ fontSize: s(34), marginLeft: s(10) }}
                 >
-                  stops
+                  OK
                 </span>
               </div>
 
@@ -416,13 +429,13 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                 />
                 {statusLabel}
                 <span className="font-mono text-white/80">
-                  {consumedPct.toFixed(1)}%
+                  {okPct.toFixed(1)}%
                 </span>
               </span>
             </div>
           </section>
 
-          {/* RIGHT — Station-wise loss */}
+          {/* RIGHT — Top defects */}
           <section
             className="min-w-0 min-h-0 flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden"
             style={{ flex: "45 1 0%", borderRadius: s(24) }}
@@ -435,24 +448,20 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                 padding: `${s(18)} ${s(20)}`,
               }}
             >
-              Station-wise Loss Breakdown
+              Top Defects Today
             </div>
 
-            {shownStations.length > 0 ? (
+            {shownDefects.length > 0 ? (
               <div className="flex-1 min-h-0 flex flex-col">
-                {shownStations.map((st, i) => {
-                  const isHigh = (st.TotalStopCount ?? 0) > HIGH_STOP_COUNT;
-                  const rowBg = isHigh
-                    ? "#fef3c7"
-                    : i % 2 === 0
-                      ? "#ffffff"
-                      : "#f8fafc";
+                {shownDefects.map((df, i) => {
+                  const isTop = i < 3;
                   return (
                     <div
                       key={i}
-                      className="flex items-center border-b border-slate-100"
+                      className={`flex items-center border-b border-slate-100 ${
+                        i % 2 === 0 ? "bg-white" : "bg-slate-50"
+                      }`}
                       style={{
-                        background: rowBg,
                         flex: "1 1 0%",
                         maxHeight: s(110),
                         minHeight: 0,
@@ -462,7 +471,7 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                     >
                       <span
                         className={`shrink-0 inline-flex items-center justify-center rounded-full font-black font-mono border ${
-                          isHigh
+                          isTop
                             ? "bg-red-100 text-red-700 border-red-200"
                             : "bg-slate-100 text-slate-600 border-slate-200"
                         }`}
@@ -478,17 +487,17 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                         className="flex-1 min-w-0 flex items-center font-bold text-slate-700"
                         style={{ fontSize: s(34), gap: s(12) }}
                       >
-                        {isHigh && (
+                        {isTop && (
                           <span
                             className="shrink-0 rounded-full bg-red-500 animate-pulse"
-                            style={{ width: s(16), height: s(16) }}
+                            style={{ width: s(14), height: s(14) }}
                           />
                         )}
-                        <span className="truncate">{st.StationName}</span>
+                        <span className="truncate">{df.DefectName}</span>
                       </span>
                       <span
                         className={`shrink-0 font-black font-mono tabular-nums leading-none border ${
-                          isHigh
+                          isTop
                             ? "bg-red-50 text-red-600 border-red-200"
                             : "bg-amber-50 text-amber-600 border-amber-200"
                         }`}
@@ -498,7 +507,7 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                           borderRadius: s(14),
                         }}
                       >
-                        {st.TotalStopCount}
+                        {df.DefectCount}
                       </span>
                     </div>
                   );
@@ -508,22 +517,16 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
                     className="shrink-0 text-center font-semibold text-slate-400"
                     style={{ fontSize: s(26), padding: `${s(8)} 0` }}
                   >
-                    +{hiddenCount} more station{hiddenCount > 1 ? "s" : ""}
+                    +{hiddenCount} more defect type
+                    {hiddenCount > 1 ? "s" : ""}
                   </p>
                 )}
               </div>
             ) : (
-              <div
-                className="flex-1 flex flex-col items-center justify-center text-slate-400"
-                style={{ gap: s(16) }}
-              >
-                <PackageOpen
-                  className="opacity-20"
-                  style={{ width: s(130), height: s(130) }}
-                  strokeWidth={1.2}
-                />
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                <span style={{ fontSize: s(110) }}>✓</span>
                 <p className="font-bold" style={{ fontSize: s(38) }}>
-                  No loss data recorded this shift
+                  No defects recorded this shift
                 </p>
               </div>
             )}
@@ -534,4 +537,4 @@ const Loss = ({ apiData = {}, progress, shift, shiftDate }) => {
   );
 };
 
-export default Loss;
+export default Quality;
