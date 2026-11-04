@@ -130,7 +130,7 @@ const CHART = {
 // -- How tall one data-row is (px) — tune once to match HourlyWidget --
 const ROW_H = 34;
 const WIDGET_CHROME = 120;
-const MAX_VISIBLE_ROWS = 13;
+const MAX_VISIBLE_ROWS = 6;
 const WIDGET_MIN_H = WIDGET_CHROME + ROW_H * MAX_VISIBLE_ROWS;
 
 // -- Spinner --------------------------------------------------------------------

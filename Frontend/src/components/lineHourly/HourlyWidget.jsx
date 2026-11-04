@@ -65,18 +65,18 @@ const heatBg = (frac) => {
 };
 
 // ─── Chart option factories ───────────────────────────────────────────────────
-const makeOptions = (maxVal, showLegend) => ({
+const makeOptions = (maxVal, showLegend, fs = 9) => ({
   responsive: true, maintainAspectRatio: false, animation: { duration: 220 },
   plugins: {
-    legend: { display: showLegend, position: "top", labels: { font: { size: 9, family: "inherit" }, boxWidth: 7, padding: 6, color: "#64748b" } },
+    legend: { display: showLegend, position: "top", labels: { font: { size: fs, weight: "bold", family: "inherit" }, boxWidth: 7, padding: 6, color: "#64748b" } },
     tooltip: { backgroundColor: "#0f172a", titleColor: "#94a3b8", bodyColor: "#f1f5f9", padding: 8,
       callbacks: { label: (ctx) => `  ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString() ?? ""}` } },
   },
   scales: {
     y: { beginAtZero: true, max: maxVal + Math.max(Math.ceil(maxVal * 0.18), 5), border: { display: false },
       grid: { color: "rgba(0,0,0,0.04)" },
-      ticks: { font: { size: 9, family: "monospace" }, color: "#94a3b8", callback: (v) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v, maxTicksLimit: 5 } },
-    x: { border: { display: false }, grid: { display: false }, ticks: { font: { size: 9 }, color: "#94a3b8", maxRotation: 0 } },
+      ticks: { font: { size: fs, weight: "bold", family: "monospace" }, color: "#94a3b8", callback: (v) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v, maxTicksLimit: 5 } },
+    x: { border: { display: false }, grid: { display: false }, ticks: { font: { size: fs, weight: "bold" }, color: "#94a3b8", maxRotation: 0 } },
   },
 });
 
@@ -168,7 +168,7 @@ const CombinedReportPanel = ({ title, data, datasets, manpowerWorkers, onClose }
   ];
 
   return (
-    <div style={{ position:"absolute", inset:0, zIndex:20, background:"#fff", borderRadius:12,
+    <div style={{ position:"absolute", inset:0,fontWeight:400, zIndex:20, background:"#fff", borderRadius:12,
       display:"flex", flexDirection:"column", overflow:"hidden", border:"2px solid #c7d2fe" }}>
 
       {/* Header */}
@@ -421,7 +421,7 @@ const ManpowerPanel = ({ workers, onClose }) => {
   };
 
   return (
-    <div style={{ position:"absolute", inset:0, zIndex:20, background:"#fff", borderRadius:12,
+    <div style={{ position:"absolute", inset:0,fontWeight:400, zIndex:20, background:"#fff", borderRadius:12,
       display:"flex", flexDirection:"column", overflow:"hidden", border:"2px solid #fed7aa" }}>
 
       {/* Header */}
@@ -624,7 +624,7 @@ const HourlyModelPanel = ({ modelData, onClose }) => {
   };
 
   return (
-    <div style={{ position:"absolute",inset:0,zIndex:10,background:"#fff",borderRadius:12,
+    <div style={{ position:"absolute",inset:0,fontWeight:400,zIndex:10,background:"#fff",borderRadius:12,
       display:"flex",flexDirection:"column",overflow:"hidden" }}>
       <div style={{ height:36,flexShrink:0,display:"flex",alignItems:"center",
         justifyContent:"space-between",padding:"0 12px",borderBottom:"1px solid #e2e8f0",background:"#f8fafc" }}>
@@ -717,7 +717,7 @@ const TotalModelPanel = ({ modelData, onClose }) => {
   const chartH = Math.max(160, modelTotals.length*24);
 
   return (
-    <div style={{ position:"absolute",inset:0,zIndex:10,background:"#fff",borderRadius:12,
+    <div style={{ position:"absolute",inset:0,fontWeight:400,zIndex:10,background:"#fff",borderRadius:12,
       display:"flex",flexDirection:"column",overflow:"hidden" }}>
       <div style={{ height:36,flexShrink:0,display:"flex",alignItems:"center",
         justifyContent:"space-between",padding:"0 12px",borderBottom:"1px solid #e2e8f0",background:"#f8fafc" }}>
@@ -819,21 +819,21 @@ const CategoryWidget = ({ title, data=[], icon: Icon }) => {
     plugins:{ legend:{display:false},tooltip:{ backgroundColor:"#0f172a",titleColor:"#94a3b8",
       bodyColor:"#f1f5f9",padding:8,callbacks:{label:(ctx)=>`  ${ctx.parsed.x.toLocaleString()} units`} } },
     scales:{ x:{ beginAtZero:true,border:{display:false},grid:{color:"rgba(0,0,0,0.04)"},
-        ticks:{font:{size:9,family:"monospace"},color:"#94a3b8",maxTicksLimit:5} },
-      y:{ border:{display:false},grid:{display:false},ticks:{font:{size:9},color:"#475569"} } },
+        ticks:{font:{size:16,weight:"bold",family:"monospace"},color:"#94a3b8",maxTicksLimit:5} },
+      y:{ border:{display:false},grid:{display:false},ticks:{font:{size:16,weight:"bold"},color:"#475569"} } },
   };
 
   return (
     <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"#fff",borderRadius:12,
-      border:"1px solid #e2e8f0",overflow:"hidden" }}>
+      border:"1px solid #e2e8f0",overflow:"hidden",fontWeight:700 }}>
       <div style={{ height:36,flexShrink:0,display:"flex",alignItems:"center",
         justifyContent:"space-between",padding:"0 12px",borderBottom:"1px solid #f1f5f9" }}>
         <div style={{ display:"flex",alignItems:"center",gap:6 }}>
           {Icon && <Icon size={13} color="#64748b" />}
-          <span style={{ fontSize:12,fontWeight:700,color:"#475569" }}>{title}</span>
+          <span style={{ fontSize:19,fontWeight:700,color:"#475569" }}>{title}</span>
         </div>
         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-          <span style={{ fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#1e293b" }}>{total.toLocaleString()}</span>
+          <span style={{ fontFamily:"monospace",fontSize:20,fontWeight:700,color:"#1e293b" }}>{total.toLocaleString()}</span>
           <button onClick={exportCSV} title="Export CSV" style={{ display:"flex",alignItems:"center",
             padding:4,borderRadius:6,border:"1px solid #f1f5f9",background:"transparent",
             color:"#cbd5e1",cursor:"pointer" }}><FiDownload size={13}/></button>
@@ -841,13 +841,13 @@ const CategoryWidget = ({ title, data=[], icon: Icon }) => {
       </div>
       {data.length>0 ? (
         <div style={{ flex:1,minHeight:0,display:"flex" }}>
-          <div style={{ width:"44%",overflowY:"auto",borderRight:"1px solid #f1f5f9" }}>
-            <table style={{ width:"100%",fontSize:11,borderCollapse:"collapse" }}>
+          <div style={{ width:"50%",overflowY:"auto",borderRight:"1px solid #f1f5f9" }}>
+            <table style={{ width:"100%",fontSize:17,borderCollapse:"collapse" }}>
               <thead>
                 <tr style={{ position:"sticky",top:0,background:"#f8fafc",zIndex:1 }}>
                   {["#","Category","Count","Share"].map((h,i)=>(
-                    <th key={i} style={{ padding:"6px 8px",textAlign:i>=2?"right":"left",
-                      color:"#94a3b8",fontWeight:600,borderBottom:"1px solid #f1f5f9" }}>{h}</th>
+                    <th key={i} style={{ padding:"6px 8px",textAlign:i>=2?"center":"left",
+                      color:"#94a3b8",fontWeight:700,borderBottom:"1px solid #f1f5f9" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -858,17 +858,17 @@ const CategoryWidget = ({ title, data=[], icon: Icon }) => {
                   return (
                     <tr key={i} style={{ borderBottom:"1px solid #f8fafc",background:heatBg(frac) }}>
                       <td style={{ padding:"5px 8px",color:"#cbd5e1",fontFamily:"monospace" }}>{i+1}</td>
-                      <td style={{ padding:"5px 8px",color:"#475569",maxWidth:110,overflow:"hidden",
+                      <td style={{ padding:"5px 8px",color:"#475569",maxWidth:220,overflow:"hidden",
                         textOverflow:"ellipsis",whiteSpace:"nowrap" }} title={row.category}>{row.category}</td>
-                      <td style={{ padding:"5px 8px",textAlign:"right",fontFamily:"monospace",fontWeight:700,color:"#1e293b" }}>
+                      <td style={{ padding:"5px 8px",textAlign:"center",fontFamily:"monospace",fontWeight:700,color:"#1e293b" }}>
                         {(row.TotalCount||0).toLocaleString()}</td>
                       <td style={{ padding:"5px 8px 5px 4px" }}>
-                        <div style={{ display:"flex",alignItems:"center",justifyContent:"flex-end",gap:4 }}>
+                        <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
                           <div style={{ width:40,height:4,background:"#f1f5f9",borderRadius:2,overflow:"hidden" }}>
                             <div style={{ height:"100%",width:`${Math.round(frac*100)}%`,
                               background:`hsla(${200-i*8},70%,${55-i*1.2}%,0.85)`,borderRadius:2 }}/>
                           </div>
-                          <span style={{ fontFamily:"monospace",color:"#94a3b8",width:34,textAlign:"right" }}>{pct}%</span>
+                          <span style={{ fontFamily:"monospace",color:"#94a3b8",width:62,textAlign:"right" }}>{pct}%</span>
                         </div>
                       </td>
                     </tr>
@@ -994,7 +994,7 @@ const HourlyWidget = ({
 
   return (
     <div style={{ display:"flex",flexDirection:"column",height:"100%",background:"#fff",borderRadius:12,
-      border:"1px solid #e2e8f0",overflow:"hidden",position:"relative" }}>
+      border:"1px solid #e2e8f0",overflow:"hidden",position:"relative",fontWeight:700 }}>
 
       {/* ── Overlay panels ── */}
       {activePanel==="hourly"   && hasModelData && <HourlyModelPanel modelData={modelData} onClose={()=>setActivePanel(null)}/>}
@@ -1010,7 +1010,7 @@ const HourlyWidget = ({
         justifyContent:"space-between",padding:"0 10px",borderBottom:"1px solid #f1f5f9" }}>
         <div style={{ display:"flex",alignItems:"center",gap:6 }}>
           {Icon && <Icon size={13} color="#94a3b8"/>}
-          <span style={{ fontSize:12,fontWeight:700,color:"#334155" }}>{title}</span>
+          <span style={{ fontSize:19,fontWeight:700,color:"#334155" }}>{title}</span>
         </div>
         <div style={{ display:"flex",alignItems:"center",gap:1 }}>
 
@@ -1018,14 +1018,14 @@ const HourlyWidget = ({
           {hasModelData && (<>
             <button onClick={()=>togglePanel("hourly")} title="Model Hourly"
               style={{ display:"flex",alignItems:"center",gap:2,padding:"3px 7px",borderRadius:5,
-                border:`1px solid ${activePanel==="hourly"?"#0ea5e9":"#e0f2fe"}`,cursor:"pointer",fontSize:10,fontWeight:700,
+                border:`1px solid ${activePanel==="hourly"?"#0ea5e9":"#e0f2fe"}`,cursor:"pointer",fontSize:12,fontWeight:700,
                 background:activePanel==="hourly"?"#0ea5e9":"#f0f9ff",
                 color:activePanel==="hourly"?"#fff":"#0891b2" }}>
               <MdSchedule size={11}/><span>Hrly</span>
             </button>
             <button onClick={()=>togglePanel("total")} title="Model Total"
               style={{ display:"flex",alignItems:"center",gap:2,padding:"3px 7px",borderRadius:5,
-                border:`1px solid ${activePanel==="total"?"#14b8a6":"#ccfbf1"}`,cursor:"pointer",fontSize:10,fontWeight:700,
+                border:`1px solid ${activePanel==="total"?"#14b8a6":"#ccfbf1"}`,cursor:"pointer",fontSize:12,fontWeight:700,
                 background:activePanel==="total"?"#14b8a6":"#f0fdfa",
                 color:activePanel==="total"?"#fff":"#0d9488",marginLeft:2 }}>
               <MdLeaderboard size={11}/><span>Total</span>
@@ -1038,7 +1038,7 @@ const HourlyWidget = ({
             <button onClick={()=>hasManpower?togglePanel("manpower"):undefined}
               disabled={manpowerLoading}
               title={manpowerLoading?"Loading…":`${manpowerWorkers.length} workers · click to view`}
-              style={{ display:"flex",alignItems:"center",gap:3,padding:"3px 7px",borderRadius:5,fontSize:10,fontWeight:700,
+              style={{ display:"flex",alignItems:"center",gap:3,padding:"3px 7px",borderRadius:5,fontSize:12,fontWeight:700,
                 border:`1px solid ${activePanel==="manpower"?"#ea580c":"#fed7aa"}`,cursor:manpowerLoading?"wait":"pointer",
                 background:activePanel==="manpower"?"#ea580c":manpowerLoading?"#fff7ed":"#fff7ed",
                 color:activePanel==="manpower"?"#fff":manpowerLoading?"#fdba74":"#ea580c",marginLeft:0 }}>
@@ -1049,7 +1049,7 @@ const HourlyWidget = ({
             {/* UPW badge */}
             {upw!==null && !manpowerLoading && (
               <button onClick={()=>togglePanel("combined")} title="Combined P×MP Report"
-                style={{ display:"flex",alignItems:"center",gap:2,padding:"3px 7px",borderRadius:5,fontSize:10,fontWeight:700,
+                style={{ display:"flex",alignItems:"center",gap:2,padding:"3px 7px",borderRadius:5,fontSize:12,fontWeight:700,
                   border:`1px solid ${activePanel==="combined"?"#059669":"#bbf7d0"}`,cursor:"pointer",
                   background:activePanel==="combined"?"#059669":"#f0fdf4",
                   color:activePanel==="combined"?"#fff":"#059669",marginLeft:2 }}>
@@ -1065,7 +1065,7 @@ const HourlyWidget = ({
               color:showCumul?"#0ea5e9":"#cbd5e1" }}>
             <MdFunctions size={13}/>
           </button>
-          <span style={{ fontFamily:"monospace",fontSize:13,fontWeight:800,color:"#1e293b",marginLeft:2,marginRight:2 }}>
+          <span style={{ fontFamily:"monospace",fontSize:20,fontWeight:800,color:"#1e293b",marginLeft:2,marginRight:2 }}>
             {total.toLocaleString()}
           </span>
           <button onClick={exportCSV} title="Export CSV"
@@ -1080,14 +1080,14 @@ const HourlyWidget = ({
         <div style={{ height:28,flexShrink:0,display:"flex",alignItems:"center",padding:"0 12px",gap:8,
           borderBottom:"1px solid #f8fafc" }}>
           <FiSun size={10} color="#0ea5e9" style={{ flexShrink:0 }}/>
-          <span style={{ fontSize:10,color:"#64748b",fontFamily:"monospace",flexShrink:0 }}>
+          <span style={{ fontSize:16,color:"#64748b",fontFamily:"monospace",flexShrink:0 }}>
             {shiftTotals.day.toLocaleString()}
           </span>
           <div style={{ flex:1,height:4,background:"#f1f5f9",borderRadius:2,overflow:"hidden" }}>
             <div style={{ height:"100%",width:`${dayPct}%`,
               background:"linear-gradient(90deg,#0ea5e9,#38bdf8)",borderRadius:2,transition:"width 0.6s" }}/>
           </div>
-          <span style={{ fontSize:10,color:"#64748b",fontFamily:"monospace",flexShrink:0 }}>
+          <span style={{ fontSize:16,color:"#64748b",fontFamily:"monospace",flexShrink:0 }}>
             {shiftTotals.night.toLocaleString()}
           </span>
           <FiMoon size={10} color="#8b5cf6" style={{ flexShrink:0 }}/>
@@ -1095,19 +1095,19 @@ const HourlyWidget = ({
             {peakRow && (
               <span style={{ display:"flex",alignItems:"center",gap:2,padding:"1px 6px",
                 borderRadius:20,background:"#fef3c7",border:"1px solid #fcd34d",
-                color:"#d97706",fontSize:9,fontWeight:700 }}>
+                color:"#d97706",fontSize:15,fontWeight:700 }}>
                 <FiZap size={8}/>{peakRow.TIMEHOUR}:00
               </span>
             )}
             <span style={{ display:"flex",alignItems:"center",gap:2,padding:"1px 6px",
               borderRadius:20,background:"#f1f5f9",border:"1px solid #e2e8f0",
-              color:"#64748b",fontSize:9 }}>
+              color:"#64748b",fontSize:15 }}>
               <FiTrendingUp size={8}/>{avgPerRow.toLocaleString()}/hr
             </span>
             {upw!==null && (
               <span style={{ display:"flex",alignItems:"center",gap:2,padding:"1px 6px",
                 borderRadius:20,background:"#d1fae5",border:"1px solid #6ee7b7",
-                color:"#059669",fontSize:9,fontWeight:700 }}>
+                color:"#059669",fontSize:15,fontWeight:700 }}>
                 <FiUsers size={8}/>{upw}u/w
               </span>
             )}
@@ -1119,31 +1119,28 @@ const HourlyWidget = ({
       {data.length>0 ? (
         <div style={{ flex:1,minHeight:0,display:"flex" }}>
           {/* Table */}
-          <div style={{ width:"38%",display:"flex",flexDirection:"column",borderRight:"1px solid #f1f5f9",overflow:"hidden" }}>
+          <div style={{ width:"50%",display:"flex",flexDirection:"column",borderRight:"1px solid #f1f5f9",overflow:"hidden" }}>
             <div style={{ flex:1,overflowY:"auto" }}>
-              <table style={{ width:"100%",fontSize:10.5,borderCollapse:"collapse" }}>
+              <table style={{ width:"100%",fontSize:17,borderCollapse:"collapse" }}>
                 <thead>
                   <tr style={{ position:"sticky",top:0,background:"#f8fafc",zIndex:1 }}>
-                    <th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:600,textAlign:"center",
+                    <th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:700,textAlign:"center",
                       borderBottom:"1px solid #f1f5f9",width:28 }}>Hr</th>
-                    <th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:600,textAlign:"center",
+                    <th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:700,textAlign:"center",
                       borderBottom:"1px solid #f1f5f9",width:38 }}>Time</th>
                     {datasets.map(ds=>(
-                      <th key={ds.key} style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:600,
-                        textAlign:"right",borderBottom:"1px solid #f1f5f9" }}>{ds.label}</th>
+                      <th key={ds.key} style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:700,
+                        textAlign:"center",borderBottom:"1px solid #f1f5f9" }}>{ds.label}</th>
                     ))}
-                    {datasets.length>1&&<th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:600,
-                      textAlign:"right",borderBottom:"1px solid #f1f5f9" }}>Tot</th>}
-                    <th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:600,textAlign:"right",
-                      borderBottom:"1px solid #f1f5f9" }}>%</th>
-                    {showCumul&&<th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:600,textAlign:"right",
+                    {datasets.length>1&&<th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:700,
+                      textAlign:"center",borderBottom:"1px solid #f1f5f9" }}>Tot</th>}
+                    {showCumul&&<th style={{ padding:"5px 6px",color:"#94a3b8",fontWeight:700,textAlign:"center",
                       borderBottom:"1px solid #f1f5f9" }}>Cum</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {data.map((row,i)=>{
                     const rTotal=rowTotals[i];
-                    const frac=total>0?rTotal/total:0;
                     const isPeak=i===peakIdx;
                     const bg=isPeak?"rgba(245,158,11,0.08)":heatBg(maxRowVal>0?rTotal/maxRowVal:0);
                     return (
@@ -1152,7 +1149,7 @@ const HourlyWidget = ({
                           {row.HOUR_NUMBER||row.HourNumber||i+1}
                         </td>
                         <td style={{ padding:"4px 6px",textAlign:"center" }}>
-                          <span style={{ fontSize:10,fontWeight:500,
+                          <span style={{ fontSize:17,fontWeight:700,
                             color:isDay(row.TIMEHOUR??-1)?"#0ea5e9":"#8b5cf6",
                             display:"inline-flex",alignItems:"center",gap:2 }}>
                             {row.TIMEHOUR??'?'}:00
@@ -1160,16 +1157,13 @@ const HourlyWidget = ({
                           </span>
                         </td>
                         {datasets.map(ds=>(
-                          <td key={ds.key} style={{ padding:"4px 6px",textAlign:"right",fontFamily:"monospace",
+                          <td key={ds.key} style={{ padding:"4px 6px",textAlign:"center",fontFamily:"monospace",
                             fontWeight:700,color:"#1e293b" }}>
                             {(row[ds.key]||0).toLocaleString()}
                           </td>
                         ))}
-                        {datasets.length>1&&<td style={{ padding:"4px 6px",textAlign:"right",fontFamily:"monospace",color:"#475569" }}>{rTotal.toLocaleString()}</td>}
-                        <td style={{ padding:"4px 6px",textAlign:"right",fontFamily:"monospace",color:"#94a3b8",fontSize:10 }}>
-                          {(frac*100).toFixed(1)}%
-                        </td>
-                        {showCumul&&<td style={{ padding:"4px 6px",textAlign:"right",fontFamily:"monospace",color:"#475569",fontSize:10 }}>{cumulative[i].toLocaleString()}</td>}
+                        {datasets.length>1&&<td style={{ padding:"4px 6px",textAlign:"center",fontFamily:"monospace",color:"#475569" }}>{rTotal.toLocaleString()}</td>}
+                        {showCumul&&<td style={{ padding:"4px 6px",textAlign:"center",fontFamily:"monospace",color:"#475569",fontSize:16 }}>{cumulative[i].toLocaleString()}</td>}
                       </tr>
                     );
                   })}
@@ -1178,15 +1172,15 @@ const HourlyWidget = ({
             </div>
             <div style={{ height:28,flexShrink:0,display:"flex",alignItems:"center",
               justifyContent:"space-between",padding:"0 10px",borderTop:"1px solid #e2e8f0",background:"#f8fafc" }}>
-              <span style={{ fontSize:10,color:"#94a3b8",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em" }}>Total</span>
-              <span style={{ fontFamily:"monospace",fontWeight:700,fontSize:12,color:"#1e293b" }}>{total.toLocaleString()}</span>
+              <span style={{ fontSize:16,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em" }}>Total</span>
+              <span style={{ fontFamily:"monospace",fontWeight:700,fontSize:19,color:"#1e293b" }}>{total.toLocaleString()}</span>
             </div>
           </div>
 
           {/* Chart panel */}
           <div style={{ flex:1,minWidth:0,display:"flex",flexDirection:"column",padding:"6px 10px 8px" }}>
             <div style={{ display:"flex",justifyContent:"flex-end",gap:4,marginBottom:4,flexShrink:0 }}>
-              <div style={{ display:"flex",alignItems:"center",gap:8,marginRight:"auto",fontSize:9,color:"#94a3b8" }}>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginRight:"auto",fontSize:16,color:"#94a3b8" }}>
                 {[[DAY_COLOR,"Day"],[NIGHT_COLOR,"Night"]].map(([c,l])=>(
                   <span key={l} style={{ display:"flex",alignItems:"center",gap:3 }}>
                     <span style={{ width:8,height:8,borderRadius:2,background:c,display:"inline-block" }}/>
@@ -1207,8 +1201,8 @@ const HourlyWidget = ({
             </div>
             <div style={{ flex:1,minHeight:0,position:"relative" }}>
               {chartType==="bar"
-                ? <Bar  data={{labels,datasets:finalDatasets}} options={makeOptions(maxVal,showLegend)}/>
-                : <Line data={{labels,datasets:finalDatasets}} options={makeOptions(maxVal,showLegend)}/>}
+                ? <Bar  data={{labels,datasets:finalDatasets}} options={makeOptions(maxVal,showLegend,16)}/>
+                : <Line data={{labels,datasets:finalDatasets}} options={makeOptions(maxVal,showLegend,16)}/>}
             </div>
           </div>
         </div>
@@ -1216,7 +1210,7 @@ const HourlyWidget = ({
         <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",
           justifyContent:"center",gap:6,color:"#cbd5e1" }}>
           <FiBarChart2 size={26}/>
-          <span style={{ fontSize:12,color:"#94a3b8" }}>No data — select a range and query</span>
+          <span style={{ fontSize:14,color:"#94a3b8" }}>No data — select a range and query</span>
         </div>
       )}
     </div>
