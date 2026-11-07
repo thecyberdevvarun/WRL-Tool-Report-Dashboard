@@ -49,7 +49,6 @@ const EMPTY_FORM = {
   workingTimeMin: "",
   stationCode1: "",
   stationName1: "",
-  lineTaktTime1: "",
   lineMonthlyProduction1: "",
   lineTarget1: "",
   qualityProcessCode: "",
@@ -68,7 +67,6 @@ const COLUMNS = [
   { key: "workingTimeMin", label: "Working Min", group: "General" },
   { key: "stationCode1", label: "Station", group: "Current Stage" },
   { key: "stationName1", label: "Name", group: "Current Stage" },
-  { key: "lineTaktTime1", label: "Cycle Time (s)", group: "Current Stage" },
   { key: "lineMonthlyProduction1", label: "Monthly", group: "Current Stage" },
   { key: "lineTarget1", label: "UPH", group: "Current Stage" },
   { key: "qualityProcessCode", label: "Process Code", group: "Quality" },
@@ -141,7 +139,7 @@ const FORM_SECTIONS = [
       {
         key: "workingTimeMin",
         label: "Working Time (min)",
-        placeholder: "e.g. 720",
+        placeholder: "e.g. 660",
       },
     ],
   },
@@ -158,7 +156,6 @@ const FORM_SECTIONS = [
         label: "Station Name",
         placeholder: "e.g. FG PACKING",
       },
-      { key: "lineTaktTime1", label: "Cycle Time (s)", placeholder: "e.g. 40" },
       {
         key: "lineMonthlyProduction1",
         label: "Monthly Production",
@@ -213,7 +210,6 @@ const GROUP_SPANS = (() => {
 })();
 
 const NUM_KEYS = new Set([
-  "lineTaktTime1",
   "lineMonthlyProduction1",
   "lineTarget1",
   "workingTimeMin",
@@ -227,7 +223,6 @@ const dbToForm = (row) => ({
   workingTimeMin: String(row.WorkingTimeMin ?? ""),
   stationCode1: row.StationCode1 ?? "",
   stationName1: row.StationName1 ?? "",
-  lineTaktTime1: String(row.LineTaktTime1 ?? ""),
   lineMonthlyProduction1: String(row.LineMonthlyProduction1 ?? ""),
   lineTarget1: String(row.LineTarget1 ?? ""),
   qualityProcessCode: row.QualityProcessCode ?? "",
@@ -822,7 +817,7 @@ const Management = () => {
     [navigate],
   );
 
-  /* ── Download Excel (updates Monthly / Daily plan of EXISTING configs only) ── */
+  /* ── Download Excel (updates the Monthly plan of EXISTING configs only) ── */
   const hasConfigs = configs.length > 0;
 
   const handleExport = useCallback(async () => {
@@ -980,7 +975,7 @@ const Management = () => {
             <span className="font-medium">No configs yet.</span>
             <span className="text-violet-500">
               Click <strong>New Config</strong> to add one. Excel can only
-              update the Monthly and Daily plan of existing configs.
+              update the Monthly plan of existing configs.
             </span>
           </div>
         )}
@@ -998,7 +993,7 @@ const Management = () => {
               <button
                 onClick={handleExport}
                 disabled={exporting || !hasConfigs}
-                title="Download the Excel file to update Monthly Prod and Daily Target"
+                title="Download the Excel file to update Monthly Production"
                 className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${exporting || !hasConfigs ? "text-slate-300 cursor-not-allowed" : "text-emerald-600 hover:text-emerald-700"}`}
               >
                 {exporting ? (
@@ -1012,7 +1007,7 @@ const Management = () => {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importing}
-                title="Upload the edited Excel file (only Monthly Prod and Daily Target are read)"
+                title="Upload the edited Excel file (only Monthly Production is read)"
                 className={`flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer ${importing ? "text-slate-300 cursor-not-allowed" : "text-violet-600 hover:text-violet-700"}`}
               >
                 {importing ? (

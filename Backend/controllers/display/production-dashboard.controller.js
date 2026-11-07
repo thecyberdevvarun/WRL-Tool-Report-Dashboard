@@ -51,10 +51,16 @@ const toKey = (col) => col.charAt(0).toLowerCase() + col.slice(1); // DashboardN
 const ok = (res, data, extra = {}, status = 200) =>
   res.status(status).json({ success: true, ...extra, data });
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  CONFIG COLUMN METADATA  (single source of truth for CRUD, import and the Excel template)
-// ═════════════════════════════════════════════════════════════════════════════
+const parseId = (value) => {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0)
+    throw new AppError("Invalid config id.", 400);
+  return id;
+};
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  CONFIG COLUMN METADATA  (single source of truth for CRUD, import and Excel)
+// ═════════════════════════════════════════════════════════════════════════════
 const GROUPS = [
   {
     label: "General",
@@ -67,7 +73,6 @@ const GROUPS = [
     fields: [
       "StationCode1",
       "StationName1",
-      "LineTaktTime1",
       "LineMonthlyProduction1",
       "LineTarget1",
     ],
@@ -89,7 +94,6 @@ const BOOL_FIELDS = new Set(["ShowHourly", "ShowQuality", "ShowLoss"]);
 
 const NUM_FIELDS = new Set([
   "WorkingTimeMin",
-  "LineTaktTime1",
   "LineMonthlyProduction1",
   "LineTarget1",
 ]);
@@ -97,7 +101,6 @@ const NUM_FIELDS = new Set([
 // Numeric fields that fall back to a default when blank (the rest become NULL)
 const NUM_DEFAULTS = {
   WorkingTimeMin: 660,
-  LineTaktTime1: 40,
   LineMonthlyProduction1: 0,
   LineTarget1: 0,
 };
@@ -132,7 +135,6 @@ const COL_LABELS = {
   WorkingTimeMin: "Working Time (min)",
   StationCode1: "Station Code",
   StationName1: "Station Name",
-  LineTaktTime1: "Cycle Time (s)",
   LineMonthlyProduction1: "Monthly Prod 1",
   LineTarget1: "Target UPH",
   QualityProcessCode: "Quality Process Code",
@@ -148,14 +150,11 @@ const EXCEL_EDITABLE = new Set(["LineMonthlyProduction1"]);
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  EXCEL TEMPLATE
-//  Export builds a PROTECTED workbook: every column is locked except the two
-//  plan columns (EXCEL_EDITABLE). Everything else is managed in Display Manager.
-//  Import reads the same layout and only ever updates those two columns.
-// ═════════════════════════════════════════════════════════════════════════════
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  LAYOUT  (import finds the header row by itself, so this can change safely)
+//  Export builds a PROTECTED workbook: every column is locked except the plan
+//  column (EXCEL_EDITABLE). Everything else is managed in Display Manager.
+//  Import reads the same layout and only ever updates that column.
 //
+//  LAYOUT  (import finds the header row by itself, so this can change safely)
 //    Row 1  title banner
 //    Row 2  subtitle / quick hint
 //    Row 3  group headers (merged)
@@ -194,10 +193,9 @@ const DOCS = {
   WorkingTimeMin: "Shift working time in minutes (720 = 12 h shift).",
   StationCode1: "Station code of the current stage.",
   StationName1: "Name shown on the Current Stage screen.",
-  LineTaktTime1: "Cycle time in seconds. Used to calculate the Shift Target.",
   LineMonthlyProduction1: "Monthly production plan. Type the number of units.",
   LineTarget1:
-    "Target units per hour (UPH). Loss Units = UPH minus the output of the current hour.",
+    "Target units per hour (UPH). Shift Target = UPH x working hours. Loss Units = UPH minus the output of the current hour.",
   QualityProcessCode:
     "Quality inspection process codes, comma-separated, e.g. 12210,12206.",
   QualityLineName: "Line name used by the Quality page.",
@@ -217,7 +215,6 @@ const EXAMPLES = {
   WorkingTimeMin: "720",
   StationCode1: "1220010",
   StationName1: "FG PACKING",
-  LineTaktTime1: "40",
   LineMonthlyProduction1: "14728",
   LineTarget1: "85",
   QualityProcessCode: "12210,12206",
@@ -236,7 +233,6 @@ const COL_WIDTHS = {
   WorkingTimeMin: 15,
   StationCode1: 15,
   StationName1: 20,
-  LineTaktTime1: 13,
   LineMonthlyProduction1: 15,
   LineTarget1: 12,
   QualityProcessCode: 26,
@@ -306,7 +302,6 @@ const dxfFill = (hex) => ({
 
 // Sheet protection WITHOUT a password: stops accidental edits, still lets users
 // select/copy, resize columns and filter. (Import re-enforces the same rule.)
-// protect() applies synchronously, so there is nothing to await.
 const lockSheet = (ws) =>
   ws.protect(undefined, {
     selectLockedCells: true,
@@ -318,7 +313,7 @@ const lockSheet = (ws) =>
 // ═════════════════════════════════════════════════════════════════════════════
 //  SHEET 1 — DashboardConfigs
 // ═════════════════════════════════════════════════════════════════════════════
-// Only the editable plan columns get an input rule (any number ≥ 0, formulas allowed)
+// Only the editable plan column gets an input rule (any number ≥ 0, formulas allowed)
 const validationFor = (key) => ({
   allowBlank: true,
   showInputMessage: true,
@@ -437,7 +432,7 @@ const buildConfigSheet = (wb, rows, exportedAt) => {
     cell.alignment = { horizontal: "center", vertical: "middle" };
   }
 
-  // Row 4 — column headers (editable columns stand out in amber)
+  // Row 4 — column headers (editable column stands out in amber)
   ws.getRow(HEADER_ROW).height = 36;
   COLS.forEach((col) => {
     const c = ws.getCell(HEADER_ROW, col.n);
@@ -592,7 +587,7 @@ const buildInstructionsSheet = (wb) => {
   ins.mergeCells(r, FIRST, r, LAST);
   paint(r, FIRST, LAST, NAVY, {});
   let c = ins.getCell(r, FIRST);
-  c.value = "DASHBOARD CONFIGURATION — MONTHLY & DAILY PLAN UPLOAD";
+  c.value = "DASHBOARD CONFIGURATION — MONTHLY PLAN UPLOAD";
   c.font = font({ hex: "FFFFFF", bold: true, size: 15 });
   c.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   r++;
@@ -602,7 +597,7 @@ const buildInstructionsSheet = (wb) => {
   paint(r, FIRST, LAST, KEY_FILL, {});
   c = ins.getCell(r, FIRST);
   c.value =
-    "Update the Monthly Prod and Daily Target columns, save as .xlsx and upload from Display Manager → Upload Excel.";
+    "Update the Monthly Prod column, save as .xlsx and upload from Display Manager → Upload Excel.";
   c.font = font({ hex: MUTED, size: 10 });
   c.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
   r++;
@@ -656,12 +651,8 @@ const buildInstructionsSheet = (wb) => {
       24,
     ],
     [
-      "Edit only the two yellow columns: Monthly Prod and Daily Production Target. Every other cell is locked.",
+      "Edit only the yellow column: Monthly Prod. Every other cell is locked.",
       24,
-    ],
-    [
-      "Daily target = monthly plan ÷ working days in the month. Type the number, or a formula such as =I5/26 (monthly plan in I5, 26 working days).",
-      36,
     ],
     [
       "Save as .xlsx and click Upload Excel. A summary shows how many rows were updated, unchanged or skipped.",
@@ -684,7 +675,7 @@ const buildInstructionsSheet = (wb) => {
       24,
     ],
     [
-      "Upload only reads the two yellow columns. Changes to any other cell are ignored, even if the sheet protection is removed.",
+      "Upload only reads the yellow column. Changes to any other cell are ignored, even if the sheet protection is removed.",
       24,
     ],
     [
@@ -833,9 +824,6 @@ const buildInstructionsSheet = (wb) => {
   lockSheet(ins);
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  PUBLIC
-// ═════════════════════════════════════════════════════════════════════════════
 const buildConfigWorkbook = (rows = [], exportedAt = new Date()) => {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Dashboard Manager";
@@ -843,7 +831,7 @@ const buildConfigWorkbook = (rows = [], exportedAt = new Date()) => {
   wb.created = exportedAt;
   wb.modified = exportedAt;
   wb.title = "Dashboard Configuration";
-  wb.subject = "Monthly and daily plan upload";
+  wb.subject = "Monthly plan upload";
 
   buildConfigSheet(wb, rows, exportedAt);
   buildInstructionsSheet(wb);
@@ -851,7 +839,7 @@ const buildConfigWorkbook = (rows = [], exportedAt = new Date()) => {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  CONFIG HELPERS
+//  CONFIG SQL + PARSING
 // ═════════════════════════════════════════════════════════════════════════════
 
 // Only the columns the frontend uses (no IsActive / CreatedAt / UpdatedAt ...)
@@ -864,7 +852,7 @@ const sqlTypeOf = (col) =>
       ? sql.Int
       : sql.NVarChar(STR_LENGTHS[col]);
 
-/** Normalise any camelCase source (request body / Excel row) into { DbColumn: value } */
+/** Normalise any camelCase source (request body) into { DbColumn: value } */
 const parseConfig = (src = {}) => {
   const out = {};
   for (const col of FIELD_COLS) {
@@ -912,6 +900,7 @@ const bindConfigInputs = (request, cfg) => {
 // Columns that Display Manager no longer edits but that may be NOT NULL in the table.
 // New rows get these fixed values; updates never touch them, so existing rows keep theirs.
 const LEGACY_INSERT_DEFAULTS = {
+  LineTaktTime1: 40,
   DarkMode: 0,
   DailyProductionTarget2: 0,
   ShowDisplay1: 1,
@@ -925,20 +914,13 @@ const INSERT_SQL = `
   ${SELECT_CONFIG} WHERE Id = SCOPE_IDENTITY();
 `;
 
-const UPDATE_SET = `${FIELD_COLS.map((c) => `${c} = @${c}`).join(", ")}, UpdatedAt = GETDATE()`;
-
 const UPDATE_SQL = `
   SET NOCOUNT ON;
-  UPDATE dbo.DashboardConfig SET ${UPDATE_SET} WHERE Id = @Id AND IsActive = 1;
+  UPDATE dbo.DashboardConfig
+  SET ${FIELD_COLS.map((c) => `${c} = @${c}`).join(", ")}, UpdatedAt = GETDATE()
+  WHERE Id = @Id AND IsActive = 1;
   ${SELECT_CONFIG} WHERE Id = @Id AND IsActive = 1;
 `;
-
-const parseId = (value) => {
-  const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0)
-    throw new AppError("Invalid config id.", 400);
-  return id;
-};
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  EXPORT
@@ -1010,7 +992,7 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
 
   if (!headerRowNum) {
     throw new AppError(
-      "Could not locate the column header row. Please use the Excel file downloaded from Display Manager (the header row must contain ID, Monthly Prod and Daily Production Target).",
+      "Could not locate the column header row. Please use the Excel file downloaded from Display Manager (the header row must contain ID and Monthly Prod).",
       400,
     );
   }
@@ -1032,12 +1014,7 @@ export const importDashboardConfigs = tryCatch(async (req, res) => {
   ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
     if (rowNum <= headerRowNum) return;
 
-    const idRaw = readCell(row, "Id");
-    // hint row of the old template ("Leave blank to create new")
-    if (typeof idRaw === "string" && idRaw.trim() && isNaN(Number(idRaw)))
-      return;
-
-    const id = Number(idRaw);
+    const id = Number(readCell(row, "Id"));
     if (!Number.isInteger(id) || id <= 0) {
       const name = String(readCell(row, "DashboardName") ?? "").trim();
       if (name)
@@ -1245,19 +1222,16 @@ const resolveMonthBounds = (shiftStart) => ({
 
 /** Validates ?configId, ?shiftDate, ?shift and returns everything every endpoint needs */
 const getShiftContext = (req) => {
-  const { shiftDate, shift = "A" } = req.query;
+  const { shiftDate, configId: rawId, shift = "A" } = req.query;
   if (!shiftDate)
     throw new AppError("Missing required query parameter: shiftDate.", 400);
   if (!["A", "B"].includes(shift))
     throw new AppError("Invalid shift. Must be A or B.", 400);
-
-  const rawId = req.query.configId || req.params.id;
   if (!rawId) throw new AppError("Missing configId.", 400);
-  const configId = parseId(rawId);
 
   const { shiftStart, shiftEnd } = resolveShiftBounds(shiftDate, shift);
   return {
-    configId,
+    configId: parseId(rawId),
     shiftStart,
     istStart: convertToIST(shiftStart),
     istEnd: convertToIST(shiftEnd),
@@ -1285,7 +1259,6 @@ const bindShift = (request, { configId, istStart, istEnd }) =>
 //  SHARED SQL FRAGMENTS
 // ═════════════════════════════════════════════════════════════════════════════
 const PRODUCTIVE_FACTOR = 0.92; // share of elapsed shift time that is productive
-const PLAN_FACTOR = 0.85; // share of theoretical output used as the shift plan
 
 // "Now", clamped into the shift so past/future shifts don't produce odd numbers
 const SQL_NOW_CAPPED = `CASE
@@ -1294,8 +1267,9 @@ const SQL_NOW_CAPPED = `CASE
     ELSE GETDATE()
   END`;
 
-// Needs a CTE/alias named `cfg` exposing LineTaktTime1 and WorkingTimeMin
-const SQL_SHIFT_PLAN = `CAST(((60.0 / NULLIF(cfg.LineTaktTime1, 0)) * cfg.WorkingTimeMin) * ${PLAN_FACTOR} AS INT)`;
+// Shift plan = UPH x working HOURS (WorkingTimeMin is stored in minutes, so / 60)
+// Needs a CTE/alias named `cfg` exposing LineTarget1 and WorkingTimeMin
+const SQL_SHIFT_PLAN = `CAST(cfg.LineTarget1 * (cfg.WorkingTimeMin / 60.0) AS INT)`;
 
 const SQL_CONSUMED_PCT = `CAST(ROUND(
     DATEDIFF(MINUTE, @shiftStart, ${SQL_NOW_CAPPED}) * 100.0
@@ -1313,20 +1287,20 @@ const activityCount = (name, from, to) => `${name} AS (
   )`;
 
 const SQL_CFG_CTE = `cfg AS (
-    SELECT LineTaktTime1, WorkingTimeMin, LineMonthlyProduction1
+    SELECT LineTarget1, WorkingTimeMin
     FROM dbo.DashboardConfig
     WHERE Id = @configId AND IsActive = 1
   )`;
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  PRODUCTION DISPLAY  (Current Stage)  ->  GET /dashboard/production-display-1
+//  CURRENT STAGE  ->  GET /dashboard/current-stage-production-performance
 //
-//  ShiftTarget  = units per minute (from cycle time) x working minutes x plan factor
+//  ShiftTarget  = UPH x working hours
 //  LossUnits    = UPH target - units made in the CURRENT clock hour (never negative)
 //  Performance  = actual vs shift target, prorated to elapsed productive time
 //  Balance qty is calculated in the frontend (ShiftTarget - ActualQty).
 // ═════════════════════════════════════════════════════════════════════════════
-const buildProductionQuery = ({ monthlyPlanCol }) => `
+const PRODUCTION_QUERY = `
   WITH ${activityCount("ShiftActual", "@shiftStart", "@shiftEnd")},
   ${activityCount("MonthlyActual", "@monthStart", "@monthEnd")},
   HourBounds AS (
@@ -1344,10 +1318,9 @@ const buildProductionQuery = ({ monthlyPlanCol }) => `
       AND pa.ActivityOn  <  DATEADD(HOUR, 1, hb.HourStart)
   )
   SELECT
-    dc.${monthlyPlanCol}                      AS MonthlyPlanQty,
+    dc.LineMonthlyProduction1                 AS MonthlyPlanQty,
     st.Target                                 AS ShiftTarget,
     sa.Qty                                    AS ActualQty,
-    sa.Qty                                    AS GaugeValue,
 
     CAST(CASE WHEN dc.LineTarget1 > ha.Qty THEN dc.LineTarget1 - ha.Qty ELSE 0 END AS INT) AS LossUnits,
 
@@ -1356,58 +1329,48 @@ const buildProductionQuery = ({ monthlyPlanCol }) => `
     AS DECIMAL(6,2))                          AS PerformancePct,
 
     ma.Qty                                    AS MonthlyAchieved,
-    dc.${monthlyPlanCol} - ma.Qty             AS MonthlyRemaining,
+    dc.LineMonthlyProduction1 - ma.Qty        AS MonthlyRemaining,
     d.RemainingDays                           AS RemainingDays
   FROM dbo.DashboardConfig dc
   CROSS JOIN ShiftActual   sa
   CROSS JOIN MonthlyActual ma
   CROSS JOIN HourActual    ha
   CROSS APPLY (SELECT DATEDIFF(MINUTE, @shiftStart, ${SQL_NOW_CAPPED}) * ${PRODUCTIVE_FACTOR} AS ProdMin) t
-  CROSS APPLY (SELECT CAST(((60.0 / NULLIF(dc.LineTaktTime1, 0)) * dc.WorkingTimeMin) * ${PLAN_FACTOR} AS INT) AS Target) st
+  CROSS APPLY (SELECT CAST(dc.LineTarget1 * (dc.WorkingTimeMin / 60.0) AS INT) AS Target) st
   CROSS APPLY (SELECT DAY(EOMONTH(GETDATE())) - DAY(GETDATE()) + 1 AS RemainingDays) d
   WHERE dc.Id = @configId;
 `;
 
-const makeProductionHandler = ({ stationCol, monthlyPlanCol }) => {
-  const query = buildProductionQuery({ monthlyPlanCol });
+export const getFGPackingData = tryCatch(async (req, res) => {
+  const ctx = getShiftContext(req);
+  const { monthStart, monthEnd } = resolveMonthBounds(ctx.shiftStart);
 
-  return tryCatch(async (req, res) => {
-    const ctx = getShiftContext(req);
-    const { monthStart, monthEnd } = resolveMonthBounds(ctx.shiftStart);
+  const data = await withPool(async (pool) => {
+    const config = await requireConfig(pool, ctx.configId);
+    if (!config.StationCode1)
+      throw new AppError(
+        "StationCode1 is not configured for this dashboard.",
+        400,
+      );
 
-    const data = await withPool(async (pool) => {
-      const config = await requireConfig(pool, ctx.configId);
-      const stationCode = config[stationCol];
-      if (!stationCode)
-        throw new AppError(
-          `${stationCol} is not configured for this dashboard.`,
-          400,
-        );
+    const result = await bindShift(pool.request(), ctx)
+      .input("lineCode", sql.NVarChar(50), String(config.LineCode ?? ""))
+      .input("stationCode", sql.NVarChar(50), String(config.StationCode1))
+      .input("monthStart", sql.DateTime, convertToIST(monthStart))
+      .input("monthEnd", sql.DateTime, convertToIST(monthEnd))
+      .query(PRODUCTION_QUERY);
 
-      const result = await bindShift(pool.request(), ctx)
-        .input("lineCode", sql.NVarChar(50), String(config.LineCode ?? ""))
-        .input("stationCode", sql.NVarChar(50), String(stationCode))
-        .input("monthStart", sql.DateTime, convertToIST(monthStart))
-        .input("monthEnd", sql.DateTime, convertToIST(monthEnd))
-        .query(query);
-
-      return result.recordset[0] || null;
-    });
-
-    if (!data)
-      throw new AppError("No data found for the given shift and date.", 404);
-    ok(res, data);
+    return result.recordset[0] || null;
   });
-};
 
-// GET /dashboard/production-display-1   (the Current Stage screen)
-export const getFGPackingData = makeProductionHandler({
-  stationCol: "StationCode1",
-  monthlyPlanCol: "LineMonthlyProduction1",
+  if (!data)
+    throw new AppError("No data found for the given shift and date.", 404);
+  ok(res, data);
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  HOURLY      -> hours[{ HourNo, Actual }]  +  summary{ ShiftPlan, TotalAchieved, Remaining, ConsumedTimePct }
+//  HOURLY  ->  hours[{ HourNo, Actual }]
+//              summary{ ShiftPlan, TotalAchieved, Remaining, ConsumedTimePct }
 // ═════════════════════════════════════════════════════════════════════════════
 const HOURLY_FROM = `
   FROM MaterialBarcode mb
@@ -1445,7 +1408,7 @@ const HOURLY_SUMMARY_QUERY = `
   FROM cfg CROSS JOIN ShiftActual sa;
 `;
 
-// GET /dashboard/hourly
+// GET /dashboard/hourly-production-performance
 export const getHourlyProductionData = tryCatch(async (req, res) => {
   const ctx = getShiftContext(req);
 
@@ -1474,8 +1437,8 @@ export const getHourlyProductionData = tryCatch(async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  QUALITY     -> summary{ Plan, TotalAchieved, OkUnit, DefectUnit, ReworkDone, OkPct, DefectPct }
-//                 defects[{ DefectName, DefectCount }]
+//  QUALITY  ->  summary{ Plan, TotalAchieved, OkUnit, DefectUnit, ReworkDone, OkPct, DefectPct }
+//               defects[{ DefectName, DefectCount }]
 // ═════════════════════════════════════════════════════════════════════════════
 const QUALITY_SUMMARY_QUERY = `
   WITH ${SQL_CFG_CTE},
@@ -1520,7 +1483,7 @@ const QUALITY_DEFECTS_QUERY = `
   ORDER BY DefectCount DESC;
 `;
 
-// GET /dashboard/quality
+// GET /dashboard/quality-performance
 export const getQualityData = tryCatch(async (req, res) => {
   const ctx = getShiftContext(req);
 
@@ -1548,8 +1511,9 @@ export const getQualityData = tryCatch(async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  LOSS        -> stations[{ StationName, TotalStopCount }]
-//                 summary{ Plan, Achieved, Remaining, ConsumedTimePct }
+//  LOSS  ->  stations[{ StationName, TotalStopCount }]
+//            summary{ Plan, Achieved, ConsumedTimePct }
+//  (Balance is calculated in the frontend: Plan - Achieved)
 // ═════════════════════════════════════════════════════════════════════════════
 const LOSS_STATIONS_QUERY = `
   WITH EMG AS (
@@ -1597,14 +1561,13 @@ const LOSS_SUMMARY_QUERY = `
   WITH ${SQL_CFG_CTE},
   ${activityCount("ShiftActual", "@shiftStart", "@shiftEnd")}
   SELECT
-    ${SQL_SHIFT_PLAN} AS [Plan],
-    sa.Qty            AS Achieved,
-    CAST(cfg.LineMonthlyProduction1 * 1.0 / NULLIF(DAY(EOMONTH(@shiftStart)), 0) AS INT) - sa.Qty AS Remaining,
+    ${SQL_SHIFT_PLAN}   AS [Plan],
+    sa.Qty              AS Achieved,
     ${SQL_CONSUMED_PCT} AS ConsumedTimePct
   FROM cfg CROSS JOIN ShiftActual sa;
 `;
 
-// GET /dashboard/loss
+// GET /dashboard/loss-performance
 export const getLossData = tryCatch(async (req, res) => {
   const ctx = getShiftContext(req);
 

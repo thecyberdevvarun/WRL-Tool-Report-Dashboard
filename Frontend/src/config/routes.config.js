@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import {
+  FireExtinguisher,
   Monitor,
   Wrench,
   Factory,
@@ -27,8 +28,15 @@ import {
 
 // Lazy loaded components
 // ---------> Display Module
-const Management = lazy(() => import("../pages/Display/ProductionDashboard/Management"));
-const Monitoring = lazy(() => import("../pages/Display/ProductionDashboard/Monitoring"));
+const Management = lazy(
+  () => import("../pages/Display/ProductionDashboard/Management"),
+);
+const Monitoring = lazy(
+  () => import("../pages/Display/ProductionDashboard/Monitoring"),
+);
+const BrazingDashboard = lazy(
+  () => import("../pages/Display/BrazingDashboard/BrazingDashboard"),
+);
 
 // ---------> Production Planning Module
 const UploadPlan = lazy(() => import("../pages/ProductionPlaning/UploadPlan"));
@@ -324,6 +332,12 @@ export const ROUTE_CONFIG = [
         label: "Management",
         icon: Wrench,
         component: Management,
+      },
+      {
+        path: "/display/brazing-dashboard",
+        label: "Brazing Dashboard",
+        icon: FireExtinguisher,
+        component: BrazingDashboard,
       },
     ],
     hiddenItems: [

@@ -19,7 +19,7 @@ const AMBER = "#d97706";
 const RED = "#dc2626";
 const SLATE = "#64748b";
 
-/* Gauge scale (same as your original maxValue) */
+/* Gauge scale */
 const GAUGE_MAX = 1000;
 
 /* ── helpers ── */
@@ -42,7 +42,7 @@ const pad = (n) => String(n).padStart(2, "0");
 const perfColor = (pct) =>
   pct === null ? SLATE : pct >= 90 ? GREEN : pct >= 70 ? AMBER : RED;
 
-/* Gauge status — same rules as the original gauge (80% / 50% of max) */
+/* Gauge status (80% / 50% of the gauge scale) */
 const gaugeStatus = (pct) =>
   pct >= 80
     ? { color: GREEN, text: "ON TRACK" }
@@ -109,85 +109,75 @@ const Tile = ({ label, value, unit, sub, color, big = true }) => (
   </div>
 );
 
-/* ── Semicircle gauge (pure SVG — scales to any size) ── */
+/* ── Semicircle gauge (pure SVG — scales to any size) ──
+   `value` must already be between 0 and `max`. */
 const ARC = "M 20 210 A 180 180 0 0 1 380 210";
 
-const Gauge = ({ value, max, color }) => {
-  const v = num(value) ?? 0;
-  const pct = max > 0 ? Math.min(Math.max(v / max, 0), 1) : 0;
-
-  return (
-    <svg
-      viewBox="0 0 400 250"
-      className="w-full h-full"
-      preserveAspectRatio="xMidYMid meet"
+const Gauge = ({ value, max, color }) => (
+  <svg
+    viewBox="0 0 400 250"
+    className="w-full h-full"
+    preserveAspectRatio="xMidYMid meet"
+  >
+    <path
+      d={ARC}
+      fill="none"
+      stroke="#e2e8f0"
+      strokeWidth="46"
+      pathLength="100"
+    />
+    <path
+      d={ARC}
+      fill="none"
+      stroke={color}
+      strokeWidth="46"
+      pathLength="100"
+      strokeDasharray={`${(value / max) * 100} 100`}
+      style={{ transition: "stroke-dasharray 1.2s ease" }}
+    />
+    <text
+      x="200"
+      y="205"
+      textAnchor="middle"
+      fontSize="104"
+      fontWeight="900"
+      fill={color}
+      style={{ fontVariantNumeric: "tabular-nums" }}
     >
-      <path
-        d={ARC}
-        fill="none"
-        stroke="#e2e8f0"
-        strokeWidth="46"
-        pathLength="100"
-      />
-      <path
-        d={ARC}
-        fill="none"
-        stroke={color}
-        strokeWidth="46"
-        pathLength="100"
-        strokeDasharray={`${pct * 100} 100`}
-        style={{ transition: "stroke-dasharray 1.2s ease" }}
-      />
-      <text
-        x="200"
-        y="205"
-        textAnchor="middle"
-        fontSize="104"
-        fontWeight="900"
-        fill={color}
-        style={{ fontVariantNumeric: "tabular-nums" }}
-      >
-        {fmt(value)}
-      </text>
-      <text
-        x="20"
-        y="242"
-        textAnchor="middle"
-        fontSize="22"
-        fontWeight="600"
-        fill="#94a3b8"
-      >
-        0
-      </text>
-      <text
-        x="380"
-        y="242"
-        textAnchor="middle"
-        fontSize="22"
-        fontWeight="600"
-        fill="#94a3b8"
-      >
-        {fmt(max)}
-      </text>
-    </svg>
-  );
-};
+      {fmt(value)}
+    </text>
+    <text
+      x="20"
+      y="242"
+      textAnchor="middle"
+      fontSize="22"
+      fontWeight="600"
+      fill="#94a3b8"
+    >
+      0
+    </text>
+    <text
+      x="380"
+      y="242"
+      textAnchor="middle"
+      fontSize="22"
+      fontWeight="600"
+      fill="#94a3b8"
+    >
+      {fmt(max)}
+    </text>
+  </svg>
+);
 
 /* ═════════════════════════════════════════════════════════════════════════ */
 
-const ProductionDisplay1 = ({
-  apiData = {},
-  progress,
-  shift,
-  shiftDate,
-  config,
-}) => {
-  // API fields used here: ShiftPlan, ActualQty, PerformancePct, GaugeValue, LossUnits,
-  // MonthlyPlanQty, MonthlyAchieved, MonthlyRemaining, RemainingDays
+const Production = ({ apiData = {}, progress, shift, shiftDate, config }) => {
+  // API: ShiftTarget, ActualQty, PerformancePct, LossUnits,
+  //      MonthlyPlanQty, MonthlyAchieved, MonthlyRemaining, RemainingDays
   const d = apiData;
   const label = config?.stationName1;
 
-  // Balance is worked out here from the shift Plan shown on the first tile
+  // Balance = Shift Plan − Shift Output
   const shiftPlan = num(d.ShiftTarget);
   const balance =
     shiftPlan === null ? null : shiftPlan - (num(d.ActualQty) ?? 0);
@@ -195,7 +185,7 @@ const ProductionDisplay1 = ({
   const perf = num(d.PerformancePct);
 
   /* Gauge */
-  const gaugeValue = Math.min(Math.max(num(d.GaugeValue) ?? 0, 0), GAUGE_MAX);
+  const gaugeValue = Math.min(Math.max(num(d.ActualQty) ?? 0, 0), GAUGE_MAX);
   const gaugePct = (gaugeValue / GAUGE_MAX) * 100;
   const status = gaugeStatus(gaugePct);
 
@@ -209,14 +199,12 @@ const ProductionDisplay1 = ({
         className="shrink-0 flex items-center justify-between text-white"
         style={{ background: ACCENT, padding: `${s(14)} ${s(36)}` }}
       >
-        <div className="min-w-0">
-          <h1
-            className="font-black uppercase tracking-wide leading-none truncate"
-            style={{ fontSize: s(48) }}
-          >
-            Production Performance
-          </h1>
-        </div>
+        <h1
+          className="font-black uppercase tracking-wide leading-none truncate min-w-0"
+          style={{ fontSize: s(48) }}
+        >
+          Production Performance
+        </h1>
         <div className="flex items-center shrink-0" style={{ gap: s(30) }}>
           <span
             className="bg-white font-black leading-none"
@@ -356,4 +344,4 @@ const ProductionDisplay1 = ({
   );
 };
 
-export default ProductionDisplay1;
+export default Production;

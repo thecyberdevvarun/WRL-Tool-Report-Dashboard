@@ -12,6 +12,7 @@ import {
   exportDashboardConfigs,
   importDashboardConfigs,
 } from "../controllers/display/production-dashboard.controller.js";
+import { getBrazingReport } from "../controllers/display/brazing-dashboard.controller.js";
 
 import multer from "multer";
 
@@ -40,12 +41,15 @@ router.post("/configs", authenticate, createDashboardConfig);
 router.put("/configs/:id", authenticate, updateDashboardConfig);
 router.delete("/configs/:id", authenticate, deleteDashboardConfig);
 
-// ── Dashboard data ──
+// ── Production Dashboard ──
 // Public by design — these feed the shop-floor TV display (/display/:slug),
 // which has no login session. Do not add `authenticate` here.
 router.get("/current-stage-production-performance", getFGPackingData);
 router.get("/hourly-production-performance", getHourlyProductionData);
 router.get("/quality-performance", getQualityData);
 router.get("/loss-performance", getLossData);
+
+// ── Brazing Dashboard ──
+router.get("/report", getBrazingReport);
 
 export default router;
