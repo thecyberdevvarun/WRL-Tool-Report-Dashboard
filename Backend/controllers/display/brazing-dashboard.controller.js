@@ -2,214 +2,162 @@ import sql from "mssql";
 import { dbConfig1 } from "../../config/db.config.js";
 import { tryCatch } from "../../utils/try-catch.js";
 import { AppError } from "../../utils/app-error.js";
-// ↑ copy these 4 import lines from production-dashboard.controller.js if the paths differ
 
-/* Route:  GET .../brazing-performance?line=freezer|sus|visi|all
-                                      &shiftDate=YYYY-MM-DD&shift=A|B   */
+/* Route:  GET /dashboard/brazing-performance?line=freezer|sus|visi&shiftDate=YYYY-MM-DD&shift=A|B
 
-// Header process -> brazing station process mapping
-const LINE_MAP_SQL = {
-  freezer: `
-    SELECT h.p, s.p
-    FROM (VALUES (12206),(12401),(12402)) h(p)
-    CROSS JOIN (VALUES (12204),(12205),(12302)) s(p)
-  `,
-  sus: `
-    SELECT h.p, s.p
-    FROM (VALUES (12603),(12610),(12611)) h(p)
-    CROSS JOIN (VALUES (12606),(12608)) s(p)
-  `,
-  visi: `
-    SELECT h.p, s.p
-    FROM (VALUES (12612),(12613),(12617)) h(p)
-    CROSS JOIN (VALUES (12614),(12615),(12616)) s(p)
-  `,
+   Response: { success, data: { machines: [{
+       MachineName, CameraUrl, OperatorName, OperatorCode, OperatorPhoto,
+       TotalJoints, TotalOk, TotalNotOk, Efficiency }] } }
+   One entry per brazing station of the line (stations with no output show 0). */
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SETTINGS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Header process -> brazing station process, per line
+const LINES = {
+  freezer: { headers: [12206, 12401, 12402], stations: [12204, 12205, 12302] },
+  sus: { headers: [12603, 12610, 12611], stations: [12606, 12608] },
+  visi: { headers: [12612, 12613, 12617], stations: [12614, 12615, 12616] },
 };
 
-const LINE_LABELS = {
-  freezer: "Freezer Brazing",
-  sus: "SUS Brazing",
-  visi: "VISI Brazing",
+// OPTIONAL — fill these in when you know where the camera / photo come from.
+// While they return null the dashboard shows "Camera not available" and initials.
+const CAMERA_URLS = {
+  // "FZ BRAZING - I": "http://<camera-ip>/snapshot.jpg",
+};
+const operatorPhotoUrl = (/* userCode */) => null;
+// e.g. (userCode) => `http://10.100.95.160/Garuda_Arch/Photos/${userCode}.jpg`
+
+// The dashboard refreshes every 15s on every TV; identical requests inside this window share one query
+const CACHE_MS = 10_000;
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SHARED DB POOL  (the old code opened and closed a new pool on every request)
+// ═════════════════════════════════════════════════════════════════════════════
+let poolPromise = null;
+
+const getPool = () => {
+  if (!poolPromise) {
+    poolPromise = new sql.ConnectionPool(dbConfig1)
+      .connect()
+      .then((pool) => {
+        pool.on("error", (err) => {
+          console.error("[brazing pool error]", err);
+          poolPromise = null;
+        });
+        return pool;
+      })
+      .catch((err) => {
+        poolPromise = null;
+        throw err;
+      });
+  }
+  return poolPromise;
 };
 
-const buildQuery = (mapSql) => `
+// ═════════════════════════════════════════════════════════════════════════════
+//  SQL  — READ ONLY
+//  One SELECT built from CTEs. It creates, changes and drops nothing in the database
+//  (no temp tables, no INSERT / UPDATE / DELETE / DROP). The matching logic
+//  (inspection -> joint -> station -> brazer login) is the same as before.
+//  Recordset 1 = output per station / brazer / joint.
+//  Recordset 2 = every station of the line, so idle machines still show up with 0.
+// ═════════════════════════════════════════════════════════════════════════════
+const values = (codes) => codes.map((c) => `(${Number(c)})`).join(",");
+
+const buildQuery = ({ headers, stations }) => `
   SET NOCOUNT ON;
 
-  DROP TABLE IF EXISTS
-    #Map, #Insp, #Brazing, #StationTime, #Login;
-
-  /* Header process -> allowed brazing station */
-  CREATE TABLE #Map (
-    HeaderProcess INT NOT NULL,
-    StationProcess INT NOT NULL,
-    PRIMARY KEY (HeaderProcess, StationProcess)
-  );
-
-  INSERT INTO #Map (HeaderProcess, StationProcess)
-  ${mapSql};
-
-  /* Get inspections in selected date range */
-  SELECT
-    it.ID,
-    it.InspectionLotNo,
-    it.InspectedOn,
-    ih.DocNo,
-    ih.Process,
-    iud.Status,
-    iud.LineCode
-  INTO #Insp
-  FROM InspectionTrans it
-  INNER JOIN InspectionHeader ih
-    ON ih.InspectionLotNo = it.InspectionLotNo
-  INNER JOIN InspectionUD iud
-    ON iud.ID = it.ID
-  WHERE it.InspectedOn >= @startDate
-    AND it.InspectedOn <= @endDate
-    AND ih.Process IN (
-      SELECT DISTINCT HeaderProcess FROM #Map
-    );
-
-  CREATE CLUSTERED INDEX IX_Insp
-    ON #Insp (DocNo, Process);
-
-  /* Resolve joint and brazing station */
-  SELECT DISTINCT
-    pp.Name AS Station,
-    pt.Name AS Joint_Name,
-    pt.Description AS Joint_Description,
-    ri.SeqNo,
-    i.DocNo,
-    pt.LineCode,
-    pr.RouteCode,
-    i.Status,
-    pr.ProcessCode,
-    rt.ProcessCode AS StationProcessCode,
-    wp.StationCode,
-    i.InspectionLotNo,
-    i.ID,
-    i.InspectedOn
-  INTO #Brazing
-  FROM #Insp i
-  INNER JOIN ProcessRouting pr
-    ON pr.PSNo = i.DocNo
-    AND pr.ProcessCode = i.Process
-  INNER JOIN ParameterTran pt
-    ON pt.ParameterCode = pr.ParameterCode
-    AND pt.LineCode = i.LineCode
-  INNER JOIN RouteInstruction ri
-    ON ri.RouteCode = pr.RouteCode
-    AND ri.Instruction = pt.Name
-  INNER JOIN RoutingTrans rt
-    ON rt.SeqNo = ri.SeqNo
-    AND rt.RouteCode = ri.RouteCode
-  INNER JOIN #Map m
-    ON m.HeaderProcess = i.Process
-    AND m.StationProcess = rt.ProcessCode
-  INNER JOIN ProductionProcess pp
-    ON pp.ProcessCode = rt.ProcessCode
-  INNER JOIN WorkCenterProcesses wp
-    ON wp.ProcessCode = rt.ProcessCode;
-
-  /* Find brazer login for each station and timestamp */
-  SELECT DISTINCT
-    StationCode,
-    InspectedOn
-  INTO #StationTime
-  FROM #Brazing;
-
-  SELECT
-    st.StationCode,
-    st.InspectedOn,
-    pl.UserCode
-  INTO #Login
-  FROM #StationTime st
-  OUTER APPLY (
-    SELECT TOP (1)
-      pul.UserCode
-    FROM ProcessUserLogin pul
-    WHERE pul.Station = st.StationCode
-      AND pul.Login <= st.InspectedOn
-      AND (
-        pul.Logout IS NULL
-        OR pul.Logout >= st.InspectedOn
-      )
-    ORDER BY
-      pul.Login DESC,
-      pul.RowID DESC
-  ) pl;
-
-  CREATE CLUSTERED INDEX IX_Login
-    ON #Login (StationCode, InspectedOn);
-
-  /* Final report */
-  ;WITH Final AS (
+  WITH LineMap AS (
+    SELECT h.p AS HeaderProcess, s.p AS StationProcess
+    FROM (VALUES ${values(headers)}) h(p)
+    CROSS JOIN (VALUES ${values(stations)}) s(p)
+  ),
+  Insp AS (
     SELECT
-      us.UserName AS Brazer_Name,
-      b.Joint_Name,
-      b.Joint_Description,
-      b.Station,
-      CAST(b.InspectedOn AS DATE) AS InspDate,
-      b.Status,
-      b.DocNo
-    FROM #Brazing b
-    INNER JOIN #Login l
-      ON l.StationCode = b.StationCode
-      AND l.InspectedOn = b.InspectedOn
-    LEFT JOIN Users us
-      ON us.UserCode = l.UserCode
+      it.ID, it.InspectionLotNo, it.InspectedOn,
+      ih.DocNo, ih.Process,
+      iud.Status, iud.LineCode
+    FROM InspectionTrans it
+    INNER JOIN InspectionHeader ih  ON ih.InspectionLotNo = it.InspectionLotNo
+    INNER JOIN InspectionUD     iud ON iud.ID             = it.ID
+    WHERE it.InspectedOn >= @startDate
+      AND it.InspectedOn <= @endDate
+      AND ih.Process IN (SELECT HeaderProcess FROM LineMap)
+  ),
+  Brazing AS (
+    SELECT DISTINCT
+      pp.Name AS Station,
+      pt.Name AS Joint_Name,
+      ri.SeqNo,
+      i.DocNo,
+      pt.LineCode,
+      pr.RouteCode,
+      i.Status,
+      pr.ProcessCode,
+      rt.ProcessCode AS StationProcessCode,
+      wp.StationCode,
+      i.InspectionLotNo,
+      i.ID,
+      i.InspectedOn
+    FROM Insp i
+    INNER JOIN ProcessRouting pr
+      ON pr.PSNo = i.DocNo AND pr.ProcessCode = i.Process
+    INNER JOIN ParameterTran pt
+      ON pt.ParameterCode = pr.ParameterCode AND pt.LineCode = i.LineCode
+    INNER JOIN RouteInstruction ri
+      ON ri.RouteCode = pr.RouteCode AND ri.Instruction = pt.Name
+    INNER JOIN RoutingTrans rt
+      ON rt.SeqNo = ri.SeqNo AND rt.RouteCode = ri.RouteCode
+    INNER JOIN LineMap m
+      ON m.HeaderProcess = i.Process AND m.StationProcess = rt.ProcessCode
+    INNER JOIN ProductionProcess pp
+      ON pp.ProcessCode = rt.ProcessCode
+    INNER JOIN WorkCenterProcesses wp
+      ON wp.ProcessCode = rt.ProcessCode
+  ),
+  Logins AS (
+    SELECT st.StationCode, st.InspectedOn, pl.UserCode
+    FROM (SELECT DISTINCT StationCode, InspectedOn FROM Brazing) st
+    OUTER APPLY (
+      SELECT TOP (1) pul.UserCode
+      FROM ProcessUserLogin pul
+      WHERE pul.Station = st.StationCode
+        AND pul.Login  <= st.InspectedOn
+        AND (pul.Logout IS NULL OR pul.Logout >= st.InspectedOn)
+      ORDER BY pul.Login DESC, pul.RowID DESC
+    ) pl
+  ),
+  Final AS (
+    SELECT l.UserCode, us.UserName AS Brazer_Name,
+           b.Station, b.Joint_Name, b.Status, b.DocNo
+    FROM Brazing b
+    INNER JOIN Logins l
+      ON l.StationCode = b.StationCode AND l.InspectedOn = b.InspectedOn
+    LEFT JOIN Users us ON us.UserCode = l.UserCode
   )
   SELECT
-    ISNULL(Brazer_Name, 'Not Logged In') AS Brazer_Name,
-    Joint_Name,
-    Joint_Description,
-    Station,
-    CONVERT(VARCHAR(11), InspDate, 106) AS [Date],
-    DATENAME(MONTH, InspDate) AS [Month],
-    SUM(
-      CASE WHEN Status = 0 THEN 1 ELSE 0 END
-    ) AS Leakage_Count,
-    COUNT(DISTINCT DocNo) AS Total_Joint_Brazed
+    UserCode, Brazer_Name, Station, Joint_Name,
+    SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS Leakage_Count,
+    COUNT(DISTINCT DocNo)                       AS Total_Joint_Brazed
   FROM Final
-  GROUP BY
-    Brazer_Name,
-    Joint_Name,
-    Joint_Description,
-    Station,
-    InspDate
-  ORDER BY
-    InspDate,
-    Station,
-    Brazer_Name;
+  GROUP BY UserCode, Brazer_Name, Station, Joint_Name;
 
-  DROP TABLE IF EXISTS
-    #Map, #Insp, #Brazing, #StationTime, #Login;
+  SELECT DISTINCT pp.Name AS Station
+  FROM ProductionProcess pp
+  WHERE pp.ProcessCode IN (${stations.map(Number).join(",")});
 `;
 
-const runLine = async (pool, line, start, end) => {
-  const result = await pool
-    .request()
-    .input("startDate", sql.DateTime, start)
-    .input("endDate", sql.DateTime, end)
-    .query(buildQuery(LINE_MAP_SQL[line]));
-
-  return result.recordset.map((row) => ({
-    ...row,
-    Line: LINE_LABELS[line],
-  }));
-};
-
-/* ─────────────────────────── shift window ─────────────────────────── */
-
-// Shift A = 08:00 → 20:00 on shiftDate
-// Shift B = 20:00 on shiftDate → 08:00 next day
+// ═════════════════════════════════════════════════════════════════════════════
+//  SHIFT WINDOW
+//  Shift A = 08:00 -> 20:00 on shiftDate · Shift B = 20:00 on shiftDate -> 08:00 next day.
+//  mssql (useUTC = true, the default) sends the UTC parts of a JS Date, so a "Z"
+//  date reaches SQL Server as exactly 08:00 / 20:00. If dbConfig1 sets
+//  options.useUTC = false, build local Dates here instead.
+// ═════════════════════════════════════════════════════════════════════════════
 const SHIFT_HOURS = { A: { from: 8, to: 20 }, B: { from: 20, to: 32 } };
 
-const NOT_LOGGED_IN = "Not Logged In";
-
-/* Shift window as "wall-clock" dates.
-   mssql (useUTC = true, the default) sends the UTC parts of a JS Date, so
-   building the Date with "Z" makes SQL Server receive exactly 08:00 / 20:00.
-   If your dbConfig1 sets options.useUTC = false, build local Dates instead. */
 const buildShiftWindow = (shiftDate, shift) => {
   const hours = SHIFT_HOURS[shift];
   if (!hours || !/^\d{4}-\d{2}-\d{2}$/.test(shiftDate ?? "")) return null;
@@ -221,86 +169,93 @@ const buildShiftWindow = (shiftDate, shift) => {
   };
 };
 
-/* ─────────────────────────── aggregation ─────────────────────────── */
-
-const bump = (map, key, seed, joints, leakage) => {
-  const cur = map.get(key) ?? { ...seed, joints: 0, leakage: 0 };
-  cur.joints += joints;
-  cur.leakage += leakage;
-  map.set(key, cur);
-};
-
-const withRate = (m) => ({
-  ...m,
-  leakagePct:
-    m.joints > 0 ? Number(((m.leakage / m.joints) * 100).toFixed(1)) : 0,
-});
-
-const aggregateBrazing = (rows) => {
-  const brazers = new Map();
-  const stations = new Map();
-  const joints = new Map();
-  let totalJoints = 0;
-  let totalLeakage = 0;
-
-  for (const r of rows) {
-    const j = Number(r.Total_Joint_Brazed) || 0;
-    const l = Number(r.Leakage_Count) || 0;
-    totalJoints += j;
-    totalLeakage += l;
-
-    bump(brazers, r.Brazer_Name, { name: r.Brazer_Name }, j, l);
-    bump(
-      stations,
-      `${r.Line}|${r.Station}`,
-      { name: r.Station, line: r.Line },
-      j,
-      l,
-    );
-    bump(
-      joints,
-      `${r.Line}|${r.Joint_Name}`,
-      { name: r.Joint_Name, description: r.Joint_Description, line: r.Line },
-      j,
-      l,
-    );
-  }
-
-  const list = (map) => [...map.values()].map(withRate);
-
-  return {
-    summary: {
-      totalJoints,
-      leakage: totalLeakage,
-      leakagePct:
-        totalJoints > 0
-          ? Number(((totalLeakage / totalJoints) * 100).toFixed(1))
-          : 0,
-      brazerCount: [...brazers.keys()].filter((n) => n !== NOT_LOGGED_IN)
-        .length,
-      stationCount: stations.size,
-    },
-    // most joints first
-    brazers: list(brazers).sort((a, b) => b.joints - a.joints),
-    stations: list(stations).sort((a, b) => b.joints - a.joints),
-    // worst first — only joints that actually leaked
-    joints: list(joints)
-      .filter((x) => x.leakage > 0)
-      .sort((a, b) => b.leakage - a.leakage || b.leakagePct - a.leakagePct),
+// ═════════════════════════════════════════════════════════════════════════════
+//  SHAPE THE DATA FOR THE FRONTEND
+//  Machine totals = every brazer who worked the station this shift.
+//  The operator shown on the card = the logged-in brazer with the most joints.
+// ═════════════════════════════════════════════════════════════════════════════
+const buildMachines = ([rows, stationRows]) => {
+  const machines = new Map();
+  const ensure = (name) => {
+    if (!machines.has(name))
+      machines.set(name, { name, joints: 0, leakage: 0, operators: new Map() });
+    return machines.get(name);
   };
+
+  stationRows.forEach((r) => ensure(r.Station));
+
+  rows.forEach((r) => {
+    const m = ensure(r.Station);
+    const joints = Number(r.Total_Joint_Brazed) || 0;
+    m.joints += joints;
+    m.leakage += Number(r.Leakage_Count) || 0;
+
+    if (r.UserCode != null) {
+      const code = String(r.UserCode).trim();
+      const op = m.operators.get(code) ?? {
+        code,
+        name: r.Brazer_Name || code,
+        joints: 0,
+      };
+      op.joints += joints;
+      m.operators.set(code, op);
+    }
+  });
+
+  return [...machines.values()]
+    .map((m) => {
+      const top = [...m.operators.values()].sort(
+        (a, b) => b.joints - a.joints,
+      )[0];
+      const notOk = Math.min(m.leakage, m.joints);
+      const ok = m.joints - notOk;
+      return {
+        MachineName: m.name,
+        CameraUrl: CAMERA_URLS[m.name] ?? null,
+        OperatorName: top?.name ?? null,
+        OperatorCode: top?.code ?? null,
+        OperatorPhoto: top ? operatorPhotoUrl(top.code) : null,
+        TotalJoints: m.joints,
+        TotalOk: ok,
+        TotalNotOk: notOk,
+        Efficiency:
+          m.joints > 0 ? Number(((ok / m.joints) * 100).toFixed(1)) : null,
+      };
+    })
+    .sort((a, b) =>
+      a.MachineName.localeCompare(b.MachineName, undefined, { numeric: true }),
+    );
 };
 
-/* ─────────────────────────── handler ─────────────────────────── */
+// ═════════════════════════════════════════════════════════════════════════════
+//  SHORT CACHE (one query per line + shift per CACHE_MS, shared by all TVs)
+// ═════════════════════════════════════════════════════════════════════════════
+const cache = new Map(); // key -> { at, promise }
 
+const cached = (key, load) => {
+  const now = Date.now();
+  for (const [k, v] of cache) if (now - v.at > 60_000) cache.delete(k); // prune
+
+  const hit = cache.get(key);
+  if (hit && now - hit.at < CACHE_MS) return hit.promise;
+
+  const promise = load().catch((err) => {
+    cache.delete(key); // never cache a failure
+    throw err;
+  });
+  cache.set(key, { at: now, promise });
+  return promise;
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  HANDLER
+// ═════════════════════════════════════════════════════════════════════════════
 export const getBrazingDashboard = tryCatch(async (req, res) => {
-  const { line = "all", shiftDate, shift } = req.query;
+  const { line, shiftDate, shift } = req.query;
 
-  if (
-    line !== "all" &&
-    !Object.prototype.hasOwnProperty.call(LINE_MAP_SQL, line)
-  ) {
+  if (!line || !Object.prototype.hasOwnProperty.call(LINES, line)) {
     throw new AppError(
-      `Invalid line. Expected one of: all, ${Object.keys(LINE_MAP_SQL).join(", ")}.`,
+      `Invalid line. Expected one of: ${Object.keys(LINES).join(", ")}.`,
       400,
     );
   }
@@ -310,28 +265,24 @@ export const getBrazingDashboard = tryCatch(async (req, res) => {
     throw new AppError("Invalid shiftDate (YYYY-MM-DD) or shift (A | B).", 400);
   }
 
-  const pool = await new sql.ConnectionPool(dbConfig1).connect();
-
-  try {
-    const lines = line === "all" ? Object.keys(LINE_MAP_SQL) : [line];
-    const results = await Promise.all(
-      lines.map((l) => runLine(pool, l, win.start, win.end)),
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Brazing dashboard data retrieved successfully.",
-      line,
-      shiftDate,
-      shift,
-      data: aggregateBrazing(results.flat()),
-    });
-  } catch (error) {
+  const machines = await cached(`${line}|${shiftDate}|${shift}`, async () => {
+    const pool = await getPool();
+    const result = await pool
+      .request()
+      .input("startDate", sql.DateTime, win.start)
+      .input("endDate", sql.DateTime, win.end)
+      .query(buildQuery(LINES[line]));
+    return buildMachines(result.recordsets);
+  }).catch((error) => {
     throw new AppError(
-      `Failed to fetch Brazing dashboard: ${error.message}`,
+      `Failed to fetch brazing dashboard: ${error.message}`,
       500,
     );
-  } finally {
-    await pool.close();
-  }
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Brazing dashboard data retrieved successfully.",
+    data: { machines },
+  });
 });

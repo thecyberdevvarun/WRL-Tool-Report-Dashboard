@@ -12,8 +12,7 @@ import {
   exportDashboardConfigs,
   importDashboardConfigs,
 } from "../controllers/display/production-dashboard.controller.js";
-import { getBrazingReport } from "../controllers/display/brazing-dashboard.controller.js";
-
+import { getBrazingDashboard } from "../controllers/display/brazing-dashboard.controller.js";
 import multer from "multer";
 
 const upload = multer({
@@ -50,6 +49,6 @@ router.get("/quality-performance", getQualityData);
 router.get("/loss-performance", getLossData);
 
 // ── Brazing Dashboard ──
-router.get("/report", getBrazingReport);
+router.get("/brazing-performance", getBrazingDashboard);
 
 export default router;

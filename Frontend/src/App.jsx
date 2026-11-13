@@ -5,13 +5,15 @@ import { useRoleAccess } from "./hooks/useRoleAccess.js";
 import { ROUTE_CONFIG, ROLES } from "./config/routes.config.js";
 import { initializePermissions } from "./utils/permissionStore";
 
-const Layout     = lazy(() => import("./components/Layout"));
-const Login      = lazy(() => import("./pages/Auth/Login"));
-const Home       = lazy(() => import("./pages/Home"));
-const NotFound   = lazy(() => import("./pages/NotFound"));
-const Monitoring = lazy(() => import("./pages/Display/ProductionDashboard/Monitoring.jsx"));
-const Settings   = lazy(() => import("./pages/Settings/Settings"));
-const MailServerConfig = lazy(() => import("./pages/Settings/MailServerConfig"));
+const Layout = lazy(() => import("./components/Layout"));
+const Login = lazy(() => import("./pages/Auth/Login"));
+const Home = lazy(() => import("./pages/Home"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Monitoring = lazy(() => import("./pages/Display/ProductionDashboard/index.jsx"));
+const Settings = lazy(() => import("./pages/Settings/Settings"));
+const MailServerConfig = lazy(
+  () => import("./pages/Settings/MailServerConfig"),
+);
 const UserManagement = lazy(() => import("./pages/Settings/UserManagement"));
 
 // ── Seed permissions from routeConfig on first ever load ─────────────────────
@@ -53,8 +55,14 @@ function App() {
 
             {/* Settings — always registered, guarded inside the component */}
             <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/mail-server" element={<MailServerConfig />} />
-            <Route path="/settings/user-management" element={<UserManagement />} />
+            <Route
+              path="/settings/mail-server"
+              element={<MailServerConfig />}
+            />
+            <Route
+              path="/settings/user-management"
+              element={<UserManagement />}
+            />
 
             {/* Dynamic role-based routes */}
             {accessibleRoutes.map((route) => (

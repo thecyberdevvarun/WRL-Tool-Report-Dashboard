@@ -1,6 +1,5 @@
 import { lazy } from "react";
 import {
-  FireExtinguisher,
   Monitor,
   Wrench,
   Factory,
@@ -11,32 +10,17 @@ import {
   SlidersHorizontal,
   ClipboardCheck,
   Gauge,
-  FileText,
   Cog,
   Settings2,
-  BarChart2,
-  Shield,
-  Activity,
-  Network,
-  Users,
-  Clock,
-  BookOpen,
-  Database,
   ScanEye,
   Droplets,
 } from "lucide-react";
 
 // Lazy loaded components
+
 // ---------> Display Module
-const Management = lazy(
-  () => import("../pages/Display/ProductionDashboard/Management"),
-);
-const Monitoring = lazy(
-  () => import("../pages/Display/ProductionDashboard/Monitoring"),
-);
-const BrazingDashboard = lazy(
-  () => import("../pages/Display/BrazingDashboard/BrazingDashboard"),
-);
+const Management = lazy(() => import("../pages/Display/DisplayManagement"));
+const Monitoring = lazy(() => import("../pages/Display/ProductionDashboard"));
 
 // ---------> Production Planning Module
 const UploadPlan = lazy(() => import("../pages/ProductionPlaning/UploadPlan"));
@@ -332,12 +316,6 @@ export const ROUTE_CONFIG = [
         label: "Management",
         icon: Wrench,
         component: Management,
-      },
-      {
-        path: "/display/brazing-dashboard",
-        label: "Brazing Dashboard",
-        icon: FireExtinguisher,
-        component: BrazingDashboard,
       },
     ],
     hiddenItems: [

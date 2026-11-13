@@ -18,10 +18,10 @@ import {
 } from "lucide-react";
 import { baseURL } from "../../../assets/assets";
 
-import Production from "../ProductionDashboard/Area/Production";
-import Hourly from "../ProductionDashboard/Area/Hourly";
-import Quality from "../ProductionDashboard/Area/Quality";
-import Loss from "../ProductionDashboard/Area/Loss";
+import Production from "./screens/Production";
+import Hourly from "./screens/Hourly";
+import Quality from "./screens/Quality";
+import Loss from "./screens/Loss";
 
 const PAGE_DURATION_MS = 30_000;
 

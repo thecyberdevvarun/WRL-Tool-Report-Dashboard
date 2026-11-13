@@ -897,20 +897,10 @@ const bindConfigInputs = (request, cfg) => {
   return request;
 };
 
-// Columns that Display Manager no longer edits but that may be NOT NULL in the table.
-// New rows get these fixed values; updates never touch them, so existing rows keep theirs.
-const LEGACY_INSERT_DEFAULTS = {
-  LineTaktTime1: 40,
-  DarkMode: 0,
-  DailyProductionTarget2: 0,
-  ShowDisplay1: 1,
-  ShowDisplay2: 0,
-};
-
 const INSERT_SQL = `
   SET NOCOUNT ON;
-  INSERT INTO dbo.DashboardConfig (${[...FIELD_COLS, ...Object.keys(LEGACY_INSERT_DEFAULTS)].join(", ")}, IsActive, CreatedAt, UpdatedAt)
-  VALUES (${[...FIELD_COLS.map((c) => `@${c}`), ...Object.values(LEGACY_INSERT_DEFAULTS)].join(", ")}, 1, GETDATE(), GETDATE());
+  INSERT INTO dbo.DashboardConfig (${FIELD_COLS.join(", ")}, IsActive, CreatedAt, UpdatedAt)
+  VALUES (${FIELD_COLS.map((c) => `@${c}`).join(", ")}, 1, GETDATE(), GETDATE());
   ${SELECT_CONFIG} WHERE Id = SCOPE_IDENTITY();
 `;
 

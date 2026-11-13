@@ -76,14 +76,6 @@ const Tile = ({ label, value, sub, color }) => (
     >
       {value}
     </p>
-    {sub !== undefined && (
-      <p
-        className="font-semibold text-slate-400 leading-tight whitespace-nowrap"
-        style={{ fontSize: s(22) }}
-      >
-        {sub}
-      </p>
-    )}
   </div>
 );
 

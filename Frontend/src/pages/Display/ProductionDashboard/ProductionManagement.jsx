@@ -722,7 +722,7 @@ const ImportResultModal = ({ result, onClose, onRefresh }) => {
 /* ═══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════════ */
-const Management = () => {
+const ProductionManagement = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
@@ -1224,4 +1224,4 @@ const Management = () => {
   );
 };
 
-export default Management;
+export default ProductionManagement;
