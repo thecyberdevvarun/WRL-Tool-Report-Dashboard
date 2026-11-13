@@ -36,28 +36,6 @@ const SortIcon = ({ active, dir }) => (
   </span>
 );
 
-// ── QuickBtn ───────────────────────────────────────────────────────────────────
-const QuickBtn = ({ label, sublabel, loading, onClick, colorClass }) => (
-  <button
-    disabled={loading}
-    onClick={onClick}
-    className={`w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-150 ${
-      loading ? "bg-slate-200 text-slate-400 cursor-not-allowed" : colorClass
-    }`}
-  >
-    {loading ? (
-      <span className="flex items-center gap-2">
-        <Spinner /> Loading…
-      </span>
-    ) : (
-      <>
-        <span className="text-[15px] font-bold tracking-widest">{label}</span>
-        <span className="text-[10px] opacity-75 font-normal">{sublabel}</span>
-      </>
-    )}
-  </button>
-);
-
 // ── Department options ─────────────────────────────────────────────────────────
 const DEPARTMENT_OPTIONS = [
   { label: "Post Foaming", value: "post-foaming" },
@@ -548,124 +526,110 @@ const TotalProduction = () => {
 
         {/* ── MAIN PANEL ── */}
         <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
-          {/* Section header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 shrink-0">
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
-                Production Records
-              </span>
-              {selectedModelName && (
-                <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
-                  Filtered: {selectedModelName}
-                  <button
-                    onClick={() => setSelectedModelName(null)}
-                    className="ml-1 hover:text-red-500 transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] text-slate-400">
-                {selectedModelName
-                  ? `${sortedData.length} of ${totalCount.toLocaleString()} records`
-                  : totalProductionData.length > 0
-                    ? `${totalProductionData.length} records`
-                    : ""}
-              </span>
-              {productionExportData.length > 0 && (
-                <ExportButton
-                  data={productionExportData}
-                  filename="Total_Production_Records"
-                />
-              )}
-            </div>
-          </div>
-
           {/* Three-panel body */}
           <div className="flex-1 flex min-h-0 overflow-hidden">
-            {/* ── Main table ── */}
-            <div className="flex-1 overflow-auto min-w-0">
-              {anyLoading && totalProductionData.length === 0 ? (
-                <div className="flex items-center justify-center h-full gap-2 text-blue-600">
-                  <Spinner cls="w-5 h-5" />{" "}
-                  <span className="text-sm">Loading…</span>
-                </div>
-              ) : (
-                <table className="min-w-175 w-full text-xs text-left border-separate border-spacing-0">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-slate-100">
-                      {COLUMNS.map((col) => (
-                        <th
-                          key={col.key}
-                          onClick={() => requestSort(col.key)}
-                          className="px-3 py-2.5 font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap cursor-pointer hover:bg-slate-200 transition-colors"
-                        >
-                          <span className="flex items-center">
-                            {col.label}
-                            <SortIcon
-                              active={sortConfig.key === col.key}
-                              dir={sortConfig.direction}
-                            />
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedData.length > 0 ? (
-                      sortedData.map((item, idx) => {
-                        const isLast = idx === sortedData.length - 1;
-                        return (
-                          <tr
-                            key={idx}
-                            ref={
-                              isLast && !selectedModelName ? lastRowRef : null
-                            }
-                            className="hover:bg-blue-50/60 transition-colors even:bg-slate-50/40"
+            {/* ── Summary / Main Table ── */}
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b bg-slate-100 border-slate-200 shrink-0">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  Summary
+                </span>
+                {productionExportData.length > 0 && (
+                  <button
+                    onClick={() =>
+                      exportToExcel(
+                        productionExportData,
+                        "Production",
+                        "Total_Production",
+                      )
+                    }
+                    className="flex items-center gap-1 text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold border border-emerald-200 rounded-md px-1.5 py-0.5 hover:bg-emerald-50 transition cursor-pointer"
+                  >
+                    <Download className="w-2.5 h-2.5" /> Export
+                  </button>
+                )}
+              </div>
+              <div className="flex-1 overflow-auto min-w-0">
+                {anyLoading && totalProductionData.length === 0 ? (
+                  <div className="flex items-center justify-center h-full gap-2 text-blue-600">
+                    <Spinner cls="w-5 h-5" />{" "}
+                    <span className="text-sm">Loading…</span>
+                  </div>
+                ) : (
+                  <table className="min-w-175 w-full text-xs text-left border-separate border-spacing-0">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-slate-100">
+                        {COLUMNS.map((col) => (
+                          <th
+                            key={col.key}
+                            onClick={() => requestSort(col.key)}
+                            className="px-3 py-2.5 font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap cursor-pointer hover:bg-slate-200 transition-colors"
                           >
-                            <td className="px-3 py-2 border-b border-slate-100 font-medium text-slate-800 whitespace-nowrap">
-                              {item.Model_Name}
-                            </td>
-                            <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-700 whitespace-nowrap">
-                              {item.FG_SR}
-                            </td>
-                            <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-600 whitespace-nowrap">
-                              {item.Asset_tag || ""}
-                            </td>
-                            <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-600 whitespace-nowrap break-all">
-                              {item.CustomerQR || ""}
-                            </td>
-                            <td className="px-3 py-2 border-b border-slate-100 font-mono text-blue-600 whitespace-nowrap">
-                              {item.NFC_UID || ""}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="py-16 text-center">
-                          <div className="flex flex-col items-center gap-3 text-slate-400">
-                            <PackageOpen
-                              className="w-12 h-12 opacity-20"
-                              strokeWidth={1.2}
-                            />
-                            <p className="text-sm">
-                              No records found. Apply filters and click Query.
-                            </p>
-                          </div>
-                        </td>
+                            <span className="flex items-center">
+                              {col.label}
+                              <SortIcon
+                                active={sortConfig.key === col.key}
+                                dir={sortConfig.direction}
+                              />
+                            </span>
+                          </th>
+                        ))}
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
-              {loading && totalProductionData.length > 0 && (
-                <div className="flex items-center justify-center py-4 gap-2 text-blue-600 text-xs border-t border-slate-100">
-                  <Spinner /> Loading more records…
-                </div>
-              )}
+                    </thead>
+                    <tbody>
+                      {sortedData.length > 0 ? (
+                        sortedData.map((item, idx) => {
+                          const isLast = idx === sortedData.length - 1;
+                          return (
+                            <tr
+                              key={idx}
+                              ref={
+                                isLast && !selectedModelName ? lastRowRef : null
+                              }
+                              className="hover:bg-blue-50/60 transition-colors even:bg-slate-50/40"
+                            >
+                              <td className="px-3 py-2 border-b border-slate-100 font-medium text-slate-800 whitespace-nowrap">
+                                {item.Model_Name}
+                              </td>
+                              <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-700 whitespace-nowrap">
+                                {item.FG_SR}
+                              </td>
+                              <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-600 whitespace-nowrap">
+                                {item.Asset_tag || ""}
+                              </td>
+                              <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-600 whitespace-nowrap break-all">
+                                {item.CustomerQR || ""}
+                              </td>
+                              <td className="px-3 py-2 border-b border-slate-100 font-mono text-blue-600 whitespace-nowrap">
+                                {item.NFC_UID || ""}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="py-16 text-center">
+                            <div className="flex flex-col items-center gap-3 text-slate-400">
+                              <PackageOpen
+                                className="w-12 h-12 opacity-20"
+                                strokeWidth={1.2}
+                              />
+                              <p className="text-sm">
+                                No records found. Apply filters and click Query.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+                {loading && totalProductionData.length > 0 && (
+                  <div className="flex items-center justify-center py-4 gap-2 text-blue-600 text-xs border-t border-slate-100">
+                    <Spinner /> Loading more records…
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ── By Model panel ── */}
@@ -677,7 +641,7 @@ const TotalProduction = () => {
                 {summaryData.length > 0 && (
                   <button
                     onClick={handleExportModelSummary}
-                    className="flex items-center gap-1 text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold border border-emerald-200 rounded-md px-1.5 py-0.5 hover:bg-emerald-50 transition"
+                    className="flex items-center gap-1 text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold border border-emerald-200 rounded-md px-1.5 py-0.5 hover:bg-emerald-50 transition cursor-pointer"
                   >
                     <Download className="w-2.5 h-2.5" /> Export
                   </button>
@@ -756,7 +720,7 @@ const TotalProduction = () => {
                 {summaryData.length > 0 && (
                   <button
                     onClick={handleExportCategorySummary}
-                    className="flex items-center gap-1 text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold border border-emerald-200 rounded-md px-1.5 py-0.5 hover:bg-emerald-50 transition"
+                    className="flex items-center gap-1 text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold border border-emerald-200 rounded-md px-1.5 py-0.5 hover:bg-emerald-50 transition cursor-pointer"
                   >
                     <Download className="w-2.5 h-2.5" /> Export
                   </button>
