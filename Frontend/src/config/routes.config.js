@@ -693,6 +693,12 @@ export const ROUTE_CONFIG = [
         group: "bis",
       },
       {
+        path: "/quality/bis-upload",
+        label: "Upload BIS Report",
+        component: BISDashboard,
+        group: "bis",
+      },
+      {
         path: "/quality/bis-legacy-reports",
         label: "BIS Legacy PDF Reports",
         component: BISDashboard,

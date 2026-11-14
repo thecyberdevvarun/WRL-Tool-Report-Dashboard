@@ -33,6 +33,7 @@ import BISConfigTab from "./BISConfigTab";
 import BISModelSetupModal from "./BISModelSetupModal";
 import BISTestScheduleTab from "./BISTestScheduleTab";
 import BISApprovalQueue from "./BISApprovalQueue";
+import BISUploadTab from "./BISUploadTab";
 
 // Each tab is also its own route (see routes.config.js) — all pointing at
 // this same BISDashboard component, which derives which tab is active from
@@ -40,6 +41,7 @@ import BISApprovalQueue from "./BISApprovalQueue";
 // happens via the sidebar) while keeping all the fetching/state logic in
 // one place.
 const TABS = [
+  { key: "upload", path: "/quality/bis-upload" },
   { key: "testReports", path: "/quality/bis-reports" },
   { key: "approvals", path: "/quality/bis-approvals" },
   { key: "schedule", path: "/quality/bis-test-schedule" },
@@ -513,6 +515,46 @@ const BISDashboard = () => {
     }
   };
 
+  // ── Upload ──────────────────────────────────────────────────────────────
+  const handleUpload = async ({ modelName, year, month, testFrequency, description, file }) => {
+    const formData = new FormData();
+    formData.append("modelName", modelName);
+    formData.append("year", year);
+    formData.append("month", month);
+    formData.append("testFrequency", testFrequency);
+    formData.append("description", description);
+    formData.append("file", file);
+
+    try {
+      setLoading(true);
+      setShowScanningModal(true);
+      const res = await axios.post(`${baseURL}quality/upload-bis-pdf`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res?.data?.success) {
+        toast.success("BIS Report uploaded successfully");
+        fetchUploadedFiles();
+        fetchStatus();
+        const energyData = res.data.energyData || {};
+        setConfirmData({
+          srNo: res.data.srNo,
+          declaredAnnualEnergy: energyData.declaredAnnualEnergy ?? "",
+          measuredAnnualEnergy: energyData.measuredAnnualEnergy ?? "",
+          energyDeviationPercent: energyData.energyDeviationPercent ?? "",
+          testResult: energyData.testResult || "",
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to upload BIS Report");
+      return false;
+    } finally {
+      setLoading(false);
+      setShowScanningModal(false);
+    }
+  };
+
   const handleFetchEnergyData = async (file) => {
     try {
       setShowScanningModal(true);
@@ -710,6 +752,10 @@ const BISDashboard = () => {
       {/* ── BODY ── */}
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
         {/* ── STAT CARDS — legacy PDF archive stats, only relevant on that page ── */}
+
+        {activeTab === "upload" && (
+          <BISUploadTab uploading={loading} onUpload={handleUpload} />
+        )}
 
         {activeTab === "testReports" && <BISTestReportsTab />}
 
