@@ -25,30 +25,26 @@ export default function useDashboardData() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, modelRes, recentRes, cpRes] = await Promise.all([
+      const [statsRes, modelRes, recentRes] = await Promise.all([
         fetchAuditStats(),
         fetchAuditModelSummary({}),
-        loadAudits({ limit: 10, page: 1 }),
-        loadAudits({ limit: 200, page: 1 }), // for checkpoint aggregation
+        loadAudits({ limit: 10, page: 1, lite: true }),
       ]);
 
-      setStats(statsRes?.data?.summary || null);
+      const summary = statsRes?.data?.summary || null;
+      setStats(summary);
       setModelSummary(modelRes?.data || []);
       setRecentAudits(recentRes?.data || []);
 
-      // Aggregate checkpoint pass/fail/warning from audit summaries
-      const agg = { ...EMPTY_CP_AGG };
-      (cpRes?.data || []).forEach((a) => {
-        if (a.summary && typeof a.summary === "object") {
-          agg.pass += a.summary.pass || 0;
-          agg.fail += a.summary.fail || 0;
-          agg.warning += a.summary.warning || 0;
-          agg.na += a.summary.na || 0;
-          agg.pending += a.summary.pending || 0;
-          agg.total += a.summary.total || 0;
-        }
+      // Checkpoint totals are summed server-side across every audit.
+      setCpAgg({
+        pass: summary?.CpPass || 0,
+        fail: summary?.CpFail || 0,
+        warning: summary?.CpWarning || 0,
+        na: summary?.CpNa || 0,
+        pending: summary?.CpPending || 0,
+        total: summary?.CpTotal || 0,
       });
-      setCpAgg(agg);
       setLastRefreshed(new Date());
     } catch (err) {
       toast.error("Failed to load dashboard: " + err.message);
@@ -67,7 +63,8 @@ export default function useDashboardData() {
   const approvedCount = stats?.ApprovedCount || 0;
   const submittedCount = stats?.SubmittedCount || 0;
   const rejectedCount = stats?.RejectedCount || 0;
-  const draftCount = Math.max(0, totalAudits - approvedCount - submittedCount - rejectedCount);
+  const draftCount = stats?.DraftCount || 0;
+  const reworkCount = stats?.ReworkCount || 0;
   const approvalRate = pct(approvedCount, totalAudits);
   const cpPassRate = pct(cpAgg.pass, cpAgg.total);
 
@@ -90,7 +87,7 @@ export default function useDashboardData() {
     loading,
     lastRefreshed,
     refresh: loadDashboard,
-    stats: { totalAudits, approvedCount, submittedCount, rejectedCount, draftCount, approvalRate },
+    stats: { totalAudits, approvedCount, submittedCount, rejectedCount, draftCount, reworkCount, approvalRate },
     cpAgg,
     cpPassRate,
     modelSummary,

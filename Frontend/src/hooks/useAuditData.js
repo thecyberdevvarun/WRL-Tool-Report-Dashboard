@@ -6,6 +6,14 @@ const API_BASE = `${baseURL}audit-report`;
 
 // ==================== DATA TRANSFORMERS ====================
 
+// BOM Sheet / CRF file names (same shape on templates and audits).
+const docFields = (row) => ({
+  bomFileName: row.BomFileName ?? row.bomFileName ?? null,
+  bomOriginalName: row.BomOriginalName ?? row.bomOriginalName ?? null,
+  crfFileName: row.CrfFileName ?? row.crfFileName ?? null,
+  crfOriginalName: row.CrfOriginalName ?? row.crfOriginalName ?? null,
+});
+
 const transformTemplate = (template) => {
   if (!template) return null;
   return {
@@ -38,6 +46,7 @@ const transformTemplate = (template) => {
     createdAt: template.CreatedAt ?? template.createdAt,
     updatedBy: template.UpdatedBy ?? template.updatedBy,
     updatedAt: template.UpdatedAt ?? template.updatedAt,
+    ...docFields(template),
   };
 };
 
@@ -75,6 +84,7 @@ const transformAudit = (audit) => {
     approvedBy: audit.ApprovedBy ?? audit.approvedBy,
     approvedAt: audit.ApprovedAt ?? audit.approvedAt,
     approvalComments: audit.ApprovalComments ?? audit.approvalComments,
+    ...docFields(audit),
   };
 };
 
@@ -92,7 +102,8 @@ export const useAuditData = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_BASE}/templates`, { params });
+      // Lists filter client-side, so ask for all (server caps at 1000), not the API default of 50.
+      const response = await axios.get(`${API_BASE}/templates`, { params: { limit: 1000, ...params } });
       const transformedTemplates = (response.data.data || []).map(
         transformTemplate,
       );
@@ -470,6 +481,28 @@ export const useAuditData = () => {
     }
   }, []);
 
+  // BOM Sheet / CRF on a template. Both resolve to the template's new
+  // document fields ({ bomFileName, bomOriginalName, crfFileName, crfOriginalName }).
+  const uploadTemplateDocument = useCallback(async (id, kind, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const response = await axios.post(`${API_BASE}/templates/${id}/documents/${kind}`, form);
+      return docFields(response.data.data || {});
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Upload failed");
+    }
+  }, []);
+
+  const removeTemplateDocument = useCallback(async (id, kind) => {
+    try {
+      const response = await axios.delete(`${API_BASE}/templates/${id}/documents/${kind}`);
+      return docFields(response.data.data || {});
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Remove failed");
+    }
+  }, []);
+
   return {
     templates,
     audits,
@@ -485,6 +518,8 @@ export const useAuditData = () => {
     updateTemplate,
     deleteTemplate,
     duplicateTemplate,
+    uploadTemplateDocument,
+    removeTemplateDocument,
     // Audit methods
     loadAudits,
     getAuditById,

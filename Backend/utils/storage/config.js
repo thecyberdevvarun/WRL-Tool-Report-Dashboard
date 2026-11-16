@@ -13,6 +13,7 @@ export const DIRS = {
   calibration: path.resolve(UPLOADS_DIR, "Calibration"),
   auditImages: path.resolve(UPLOADS_DIR, "AuditImages"),
   auditTemplates: path.resolve(UPLOADS_DIR, "AuditTemplates"),
+  auditTemplateDocs: path.resolve(UPLOADS_DIR, "AuditTemplateDocs"), // BOM Sheet / CRF per template
   machineImages: path.resolve(UPLOADS_DIR, "MachineImages"),
   materialDrawings: path.resolve(UPLOADS_DIR, "MaterialDrawings"),
   bisSignatures: path.resolve(UPLOADS_DIR, "BISSignatures"),
@@ -82,6 +83,13 @@ export const UPLOAD_CONFIGS = {
     ...FILE_TYPES.image,
     errorMessage: "Only JPEG, JPG or PNG images are allowed",
     maxSize: FILE_TYPES.image.maxSize, // 10MB
+  },
+
+  // BOM Sheet / CRF reference files on audit templates.
+  auditTemplateDoc: {
+    allowedMimes: [...FILE_TYPES.pdf.allowedMimes, ...FILE_TYPES.excel.allowedMimes],
+    errorMessage: "Only PDF or Excel files (.pdf, .xlsx, .xls) are allowed",
+    maxSize: 20 * 1024 * 1024, // 20MB
   },
 
   machineImage: {

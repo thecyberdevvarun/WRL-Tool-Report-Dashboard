@@ -12,7 +12,12 @@ import {
   getTemplateVersions,
   getTemplateVersionFile,
   compareTemplateVersions,
+  requireTemplateAuthor,
+  uploadTemplateDocument,
+  removeTemplateDocument,
+  serveTemplateDocument,
 } from "../controllers/audit-report/template.controller.js";
+import { uploadAuditTemplateDoc, handleMulterError } from "../middlewares/upload-middleware.js";
 import {
   getAllAudits,
   getAuditById,
@@ -30,12 +35,22 @@ import {
   getImageMetadata,
   serveImage,
 } from "../controllers/audit-report/image.controller.js";
+import { getAuditMis } from "../controllers/audit-report/audit-mis.controller.js";
 import { authenticate } from "../middlewares/auth.js";
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticate);
+
+// Every :id is an integer key — reject anything else with a 400 up front
+// instead of letting the SQL driver fail it as a 500.
+router.param("id", (req, res, next, id) => {
+  if (!/^\d{1,10}$/.test(id) || Number(id) > 2147483647) {
+    return res.status(400).json({ success: false, message: "Invalid id" });
+  }
+  next();
+});
 
 // ==================== Image Routes ====================
 router.get("/images/:filename/download", downloadImage);
@@ -57,6 +72,20 @@ router.get("/templates/:id/history", getTemplateHistory);
 router.get("/templates/:id/versions", getTemplateVersions);
 router.get("/templates/:id/compare", compareTemplateVersions);
 router.get("/templates/:id/versions/:version", getTemplateVersionFile);
+
+// ==================== BOM Sheet / CRF documents ====================
+router.post(
+  "/templates/:id/documents/:kind",
+  requireTemplateAuthor,
+  uploadAuditTemplateDoc.single("file"),
+  handleMulterError,
+  uploadTemplateDocument,
+);
+router.delete("/templates/:id/documents/:kind", removeTemplateDocument);
+router.get("/documents/:filename", serveTemplateDocument);
+
+// ==================== Audit MIS ====================
+router.get("/mis", getAuditMis);
 
 // ==================== Audit Routes ====================
 router.get("/audits/stats", getAuditStats);

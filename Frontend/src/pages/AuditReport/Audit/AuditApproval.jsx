@@ -62,6 +62,7 @@ const AuditApproval = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState({ approved: 0, rejected: 0, draft: 0 });
+  const [hiddenPending, setHiddenPending] = useState(0);
 
   // Reject modal
   const [rejectModal, setRejectModal] = useState({ open: false, audit: null });
@@ -79,12 +80,14 @@ const AuditApproval = () => {
     try {
       const [pendingRes, approvedRes, rejectedRes, draftRes] =
         await Promise.all([
-          loadAudits({ status: "submitted", limit: 100 }),
+          // lite: the queue never renders sections; 500 covers any real backlog.
+          loadAudits({ status: "submitted", limit: 500, lite: true }),
           loadAudits({ status: "approved", limit: 1 }),
           loadAudits({ status: "rejected", limit: 1 }),
           loadAudits({ status: "draft", limit: 1 }),
         ]);
       setAudits(pendingRes.data || []);
+      setHiddenPending(Math.max(0, (pendingRes.totalCount || 0) - (pendingRes.data || []).length));
       setStats({
         approved: approvedRes.totalCount || 0,
         rejected: rejectedRes.totalCount || 0,
@@ -253,6 +256,11 @@ const AuditApproval = () => {
             <span className="font-black text-gray-800">{audits.length}</span>
             <span className="text-gray-500">Pending Review</span>
           </div>
+          {hiddenPending > 0 && (
+            <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+              +{hiddenPending} older pending not loaded — refresh after clearing these
+            </div>
+          )}
           {filtered.length !== audits.length && (
             <div className="flex items-center gap-2 text-xs text-gray-400">
               (showing {filtered.length} filtered)

@@ -10,9 +10,9 @@ import { ProgressBar, CardSkeleton } from "../../components/common";
 
 export default function AuditStatusBreakdownCard({ loading, stats }) {
   const navigate = useNavigate();
-  if (loading) return <CardSkeleton rows={4} />;
+  if (loading) return <CardSkeleton rows={5} />;
 
-  const { totalAudits, approvedCount, submittedCount, rejectedCount, draftCount } = stats;
+  const { totalAudits, approvedCount, submittedCount, rejectedCount, draftCount, reworkCount } = stats;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -30,6 +30,7 @@ export default function AuditStatusBreakdownCard({ loading, stats }) {
         <ProgressBar value={approvedCount} max={totalAudits} color="bg-emerald-400" label="Approved" count={approvedCount} />
         <ProgressBar value={submittedCount} max={totalAudits} color="bg-amber-400" label="Pending" count={submittedCount} />
         <ProgressBar value={rejectedCount} max={totalAudits} color="bg-red-400" label="Rejected" count={rejectedCount} />
+        <ProgressBar value={reworkCount} max={totalAudits} color="bg-orange-400" label="Rework" count={reworkCount} />
         <ProgressBar value={draftCount} max={totalAudits} color="bg-slate-300" label="Draft" count={draftCount} />
       </div>
 

@@ -275,10 +275,6 @@ const AuditList = () => {
     useAuditData();
 
   const { user } = useSelector((store) => store.auth);
-  // Quality Auditor can only view — no create or edit
-  const isViewOnly = [user?.role, user?.roleName].includes(
-    ROLES.QUALITY_AUDITOR,
-  );
   // Super Admin can delete drafts (e.g. abandoned/test entries). Soft delete
   // on the server — hidden from lists, kept in the database with its history.
   const isSuperAdmin = [user?.role, user?.roleName].includes(ROLES.SUPER_ADMIN);
@@ -347,6 +343,12 @@ const AuditList = () => {
   // UI state
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Audits beyond LIST_PARAMS.limit aren't loaded — say so rather than hide them.
+  const [hiddenAudits, setHiddenAudits] = useState(0);
+  const loadList = async () => {
+    const res = await loadAudits(LIST_PARAMS);
+    setHiddenAudits(Math.max(0, (res?.totalCount || 0) - (res?.data?.length || 0)));
+  };
   const [viewMode, setViewMode] = useState("table"); // "table" | "card"
 
   // Bulk select
@@ -386,7 +388,7 @@ const AuditList = () => {
     const fetchData = async () => {
       setInitialLoading(true);
       try {
-        await Promise.all([loadAudits(LIST_PARAMS), loadTemplates()]);
+        await Promise.all([loadList(), loadTemplates()]);
       } catch {
         toast.error("Failed to load data");
       } finally {
@@ -412,7 +414,7 @@ const AuditList = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadAudits(LIST_PARAMS), loadTemplates()]);
+      await Promise.all([loadList(), loadTemplates()]);
       toast.success("Refreshed");
     } catch {
       toast.error("Refresh failed");
@@ -904,6 +906,11 @@ const AuditList = () => {
       </div>
 
       <div className="w-full px-4 py-5 space-y-4">
+        {hiddenAudits > 0 && (
+          <div className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Showing the newest {LIST_PARAMS.limit} audits — {hiddenAudits} older audit(s) are not loaded, so counts and search here leave them out.
+          </div>
+        )}
         {/* ==================== STAT CARDS ==================== */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <StatCard
@@ -1126,7 +1133,7 @@ const AuditList = () => {
                   <MdOutlineFilterAltOff size={14} /> Clear Filters
                 </button>
               )}
-              {!isViewOnly && (
+              {(
                 <button
                   onClick={() => navigate("/auditreport/templates")}
                   className="inline-flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-indigo-200"
@@ -1356,7 +1363,7 @@ const AuditList = () => {
                                 )}
                               </button>
                             )}
-                            {(!isViewOnly || audit.status === "draft") &&
+                            {
                               audit.status !== "approved" && (
                                 <button
                                   onClick={() =>
@@ -1615,7 +1622,7 @@ const AuditList = () => {
                             )}
                           </button>
                         )}
-                        {(!isViewOnly || audit.status === "draft") &&
+                        {
                           audit.status !== "approved" && (
                             <button
                               onClick={() =>

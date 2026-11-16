@@ -14,12 +14,17 @@ import { assembleContent, disassembleContent } from "../../utils/storage/templat
 import { validateTemplatePayload } from "../../utils/validation/template-schema.js";
 import { diffTemplateConfigs, flattenTemplateDiff } from "../../utils/diff/template-diff.js";
 import { actorOf } from "../../utils/request-actor.js";
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
+import { DIRS } from "../../utils/storage/config.js";
 
 const PARENT_COLUMNS = `
   Id, TemplateCode, TemplateFileName, Name, Description, Category, Version, IsActive,
   Models, ApprovalStatus, ApprovedBy, ApprovedAt, RejectionReason,
   TemplateHash, TemplateSize, SectionCount, StageCount, CheckpointCount, RequiredCheckpointCount,
-  CurrentVersionContentId, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt
+  CurrentVersionContentId, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
+  BomFileName, BomOriginalName, CrfFileName, CrfOriginalName
 `;
 
 const EMPTY_CONTENT = { headerConfig: {}, infoFields: [], columns: [], defaultSections: [] };
@@ -30,6 +35,24 @@ const EMPTY_CONTENT = { headerConfig: {}, infoFields: [], columns: [], defaultSe
 const AUTHOR_STATUSES = ["draft", "pending_approval"];
 const ALL_STATUSES = [...AUTHOR_STATUSES, "approved", "rejected"];
 const TEMPLATE_APPROVER_ROLES = ["super admin", "quality manager"];
+
+// Same roles the Template List/View/Builder screens allow to create & edit.
+const TEMPLATE_AUTHOR_ROLES = ["super admin", "quality manager", "line quality engineer"];
+const roleOf = (req) => String(req.user?.roleName || "").trim().toLowerCase();
+
+const assertTemplateAuthor = (req) => {
+  if (!TEMPLATE_AUTHOR_ROLES.includes(roleOf(req))) {
+    throw new AppError("You do not have permission to change audit templates", 403);
+  }
+};
+
+// CreatedBy holds the display name (newer rows) or usercode (older rows).
+const isTemplateOwner = (req, createdBy) => {
+  const owner = String(createdBy || "").trim().toLowerCase();
+  if (!owner) return false;
+  return [req.user?.name, req.user?.usercode, req.user?.id]
+    .some((v) => v != null && String(v).trim().toLowerCase() === owner);
+};
 
 const assertAuthorStatus = (approvalStatus) => {
   if (approvalStatus !== undefined && !AUTHOR_STATUSES.includes(approvalStatus)) {
@@ -77,6 +100,8 @@ const loadContentForTemplate = async (pool, parent, version = null) => {
       .input("version", sql.NVarChar(20), version)
       .query(`SELECT TOP 1 * FROM AuditTemplateContent WHERE TemplateId = @templateId AND Version = @version`);
     if (result.recordset.length) return assembleContent(result.recordset[0]);
+    // Asked for a specific version: never silently answer with another one.
+    throw new AppError(`Version ${version} not found for this template`, 404);
   }
 
   if (parent.CurrentVersionContentId) {
@@ -141,8 +166,10 @@ const getTemplateByIdInternal = async (pool, id) => {
 
 // Get all templates
 export const getAllTemplates = tryCatch(async (req, res) => {
-  const { category, isActive, search, includeHistory, page = 1, limit = 50 } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { category, isActive, search, includeHistory } = req.query;
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 1000);
+  const offset = (page - 1) * limit;
   const wantsHistory = includeHistory === "true";
 
   const pool = global.pool3;
@@ -170,7 +197,7 @@ export const getAllTemplates = tryCatch(async (req, res) => {
   }
 
   request.input("offset", sql.Int, offset);
-  request.input("limit", sql.Int, parseInt(limit));
+  request.input("limit", sql.Int, limit);
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
 
@@ -189,6 +216,24 @@ export const getAllTemplates = tryCatch(async (req, res) => {
   `;
 
   const result = await request.query(query);
+
+  // One query for every listed template's versions (was one query per row).
+  const versionsByTemplate = new Map();
+  if (wantsHistory && result.recordset.length) {
+    const ids = result.recordset.map((t) => t.Id);
+    const vReq = pool.request();
+    ids.forEach((tid, i) => vReq.input(`t${i}`, sql.Int, tid));
+    const versions = await vReq.query(`
+      SELECT TemplateId, Version, IsActiveVersion, ApprovalStatus, CreatedBy, CreatedAt
+      FROM AuditTemplateContent
+      WHERE TemplateId IN (${ids.map((_, i) => `@t${i}`).join(",")})
+      ORDER BY CreatedAt DESC
+    `);
+    for (const { TemplateId, ...v } of versions.recordset) {
+      if (!versionsByTemplate.has(TemplateId)) versionsByTemplate.set(TemplateId, []);
+      versionsByTemplate.get(TemplateId).push(v);
+    }
+  }
 
   // Stat columns are computed once at version-creation time and already
   // cover what the list view needs. Only fall back to a file read for
@@ -209,15 +254,7 @@ export const getAllTemplates = tryCatch(async (req, res) => {
         DefaultSections: content?.defaultSections || [],
       };
 
-      if (wantsHistory) {
-        const versions = await pool.request()
-          .input("templateId", sql.Int, template.Id)
-          .query(`
-            SELECT Version, IsActiveVersion, ApprovalStatus, CreatedBy, CreatedAt
-            FROM AuditTemplateContent WHERE TemplateId = @templateId ORDER BY CreatedAt DESC
-          `);
-        row.versions = versions.recordset;
-      }
+      if (wantsHistory) row.versions = versionsByTemplate.get(template.Id) || [];
 
       return row;
     }),
@@ -229,8 +266,8 @@ export const getAllTemplates = tryCatch(async (req, res) => {
     message: "Templates retrieved successfully.",
     data: templates,
     totalCount: result.recordset.length > 0 ? result.recordset[0].TotalCount : 0,
-    page: parseInt(page),
-    limit: parseInt(limit),
+    page,
+    limit,
   });
 });
 
@@ -377,6 +414,7 @@ export const createTemplate = tryCatch(async (req, res) => {
     defaultSections,
   } = req.body;
 
+  assertTemplateAuthor(req);
   if (!name) throw new AppError("Template name is required", 400);
   assertAuthorStatus(approvalStatus);
 
@@ -524,6 +562,7 @@ export const createTemplateVersion = tryCatch(async (req, res) => {
   } = req.body;
 
   if (!id) throw new AppError("Template ID is required", 400);
+  assertTemplateAuthor(req);
   assertAuthorStatus(approvalStatus);
   validateTemplatePayload({ headerConfig, infoFields, columns, defaultSections });
 
@@ -680,9 +719,11 @@ export const updateTemplate = tryCatch(async (req, res) => {
     defaultSections,
     approvalStatus,
     rejectionReason,
+    version,
   } = req.body;
 
   if (!id) throw new AppError("Template ID is required", 400);
+  assertTemplateAuthor(req);
   if (approvalStatus !== undefined && !ALL_STATUSES.includes(approvalStatus)) {
     throw new AppError(`approvalStatus must be one of: ${ALL_STATUSES.join(", ")}`, 400);
   }
@@ -710,8 +751,30 @@ export const updateTemplate = tryCatch(async (req, res) => {
   // Approving/rejecting: approver role only; who/when come from the session
   // and server clock. Any other update keeps the existing approval stamp.
   const isDecision = approvalStatus === "approved" || approvalStatus === "rejected";
-  if (isDecision && !TEMPLATE_APPROVER_ROLES.includes(String(req.user?.roleName || "").trim().toLowerCase())) {
-    throw new AppError("Only a Quality Manager can approve or reject templates", 403);
+  if (isDecision) {
+    if (!TEMPLATE_APPROVER_ROLES.includes(roleOf(req))) {
+      throw new AppError("Only a Quality Manager can approve or reject templates", 403);
+    }
+    // Only a submitted template is decided on (legacy rows may have no status).
+    if (currentTemplate.ApprovalStatus && currentTemplate.ApprovalStatus !== "pending_approval") {
+      throw new AppError(`Cannot ${approvalStatus === "approved" ? "approve" : "reject"} a template with status: ${currentTemplate.ApprovalStatus}`, 400);
+    }
+    // The approver must be deciding on the version they reviewed — a newer
+    // version saved meanwhile must not be approved unseen.
+    if (!version) throw new AppError("version is required to approve or reject a template", 400);
+    if (String(version) !== String(currentTemplate.Version)) {
+      throw new AppError(
+        `This template has changed since you loaded it (now at version ${currentTemplate.Version}). Please reload and review again.`,
+        409,
+      );
+    }
+    if (approvalStatus === "rejected" && !String(rejectionReason || "").trim()) {
+      throw new AppError("Rejection reason is required", 400);
+    }
+    // UpdatedBy is whoever last saved/submitted this version — its author.
+    if (roleOf(req) !== "super admin" && isTemplateOwner(req, currentTemplate.UpdatedBy)) {
+      throw new AppError("You cannot approve or reject a template you submitted", 403);
+    }
   }
   const approvedBy = isDecision ? updatedBy : undefined;
   const approvedAt = isDecision ? new Date().toISOString() : undefined;
@@ -743,6 +806,7 @@ export const updateTemplate = tryCatch(async (req, res) => {
       .input("rejectionReason", sql.NVarChar, rejectionReason !== undefined ? (rejectionReason || null) : currentTemplate.RejectionReason)
       .input("models", sql.NVarChar, models !== undefined ? JSON.stringify(models) : null)
       .input("updatedBy", sql.NVarChar(200), updatedBy)
+      .input("expectedVersion", sql.NVarChar(20), isDecision ? String(version) : null)
       .query(`
         UPDATE AuditTemplates
         SET
@@ -751,9 +815,13 @@ export const updateTemplate = tryCatch(async (req, res) => {
           ApprovalStatus = @approvalStatus, ApprovedBy = @approvedBy, ApprovedAt = @approvedAt,
           RejectionReason = @rejectionReason, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
         OUTPUT INSERTED.*
-        WHERE Id = @id AND IsDeleted = 0;
+        WHERE Id = @id AND IsDeleted = 0
+          ${isDecision ? "AND Version = @expectedVersion AND (ApprovalStatus = 'pending_approval' OR ApprovalStatus IS NULL)" : ""};
       `);
     template = result.recordset[0];
+    if (!template) {
+      throw new AppError("This template was changed by someone else. Please reload and try again.", 409);
+    }
 
     // Mirror the same status fields onto the active content row, if migrated.
     if (currentTemplate.CurrentVersionContentId) {
@@ -811,19 +879,29 @@ export const deleteTemplate = tryCatch(async (req, res) => {
   const { id } = req.params;
 
   if (!id) throw new AppError("Template ID is required", 400);
+  assertTemplateAuthor(req);
 
   const updatedBy = actorOf(req);
 
   const pool = global.pool3;
 
   const checkResult = await pool.request().input("id", sql.Int, id).query(`
-    SELECT Id, TemplateCode, TemplateFileName
+    SELECT Id, TemplateCode, TemplateFileName, ApprovalStatus, CreatedBy
     FROM AuditTemplates
     WHERE Id = @id AND IsDeleted = 0
   `);
 
   if (checkResult.recordset.length === 0) {
     throw new AppError("Template not found", 404);
+  }
+
+  // Mirrors the Template View screen: Super Admin, or the creator while the
+  // template is not approved.
+  if (roleOf(req) !== "super admin") {
+    const t = checkResult.recordset[0];
+    if (t.ApprovalStatus === "approved" || !isTemplateOwner(req, t.CreatedBy)) {
+      throw new AppError("Only the creator (before approval) or a Super Admin can delete this template", 403);
+    }
   }
 
   const templateFileName = checkResult.recordset[0].TemplateFileName;
@@ -842,14 +920,19 @@ export const deleteTemplate = tryCatch(async (req, res) => {
     );
   }
 
-  await pool
+  const deleted = await pool
     .request()
     .input("id", sql.Int, id)
     .input("updatedBy", sql.NVarChar(200), updatedBy).query(`
       UPDATE AuditTemplates
       SET IsDeleted = 1, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
-      WHERE Id = @id;
+      WHERE Id = @id AND IsDeleted = 0
+        -- re-checked here: an audit may have been started on it meanwhile
+        AND NOT EXISTS (SELECT 1 FROM Audits WHERE TemplateId = @id AND IsDeleted = 0);
     `);
+  if (!deleted.rowsAffected[0]) {
+    throw new AppError("Cannot delete template. It is used in existing audits.", 409);
+  }
 
 
   // Legacy-row-only: SQL-backed (migrated) templates have no JSON file to
@@ -879,6 +962,7 @@ export const duplicateTemplate = tryCatch(async (req, res) => {
   const { newName, confirmCreateVersion } = req.body;
 
   if (!id) throw new AppError("Template ID is required", 400);
+  assertTemplateAuthor(req);
   if (!newName || !newName.trim()) throw new AppError("A new name is required to duplicate a template", 400);
 
   const pool = global.pool3;
@@ -1131,7 +1215,10 @@ export const getTemplateHistory = tryCatch(async (req, res) => {
 
   const history = result.recordset.map((r) => ({
     ...r,
-    FieldChanges: r.FieldChanges ? JSON.parse(r.FieldChanges) : null,
+    FieldChanges: (() => {
+      if (!r.FieldChanges) return null;
+      try { return JSON.parse(r.FieldChanges); } catch { return null; } // one bad row must not break the log
+    })(),
   }));
 
   res.status(200).json({ success: true, data: history });
@@ -1310,4 +1397,147 @@ export const getTemplateCategories = tryCatch(async (req, res) => {
     message: "Template categories retrieved successfully",
     data: result.recordset,
   });
+});
+
+// ==================== BOM SHEET / CRF DOCUMENTS ====================
+// Two optional reference files per template, shown to the auditor during an
+// audit. Replacing one never deletes the old file: audits keep pointing at
+// the file that was attached when they were started.
+
+const DOC_KINDS = {
+  bom: { label: "BOM Sheet", file: "BomFileName", original: "BomOriginalName" },
+  crf: { label: "CRF", file: "CrfFileName", original: "CrfOriginalName" },
+};
+const DOC_DIR = DIRS.auditTemplateDocs;
+export const TEMPLATE_DOC_NAME = /^TPL\d+_(bom|crf)_\d{13}_[0-9a-f]{16}\.(pdf|xlsx|xls)$/;
+
+// Type comes from the file's own bytes (the browser's MIME type for Excel is
+// unreliable), and must agree with the extension of the uploaded name.
+const detectDocType = (buf, originalName) => {
+  const ext = path.extname(originalName || "").toLowerCase();
+  const head = buf.subarray(0, 8);
+  if (ext === ".pdf" && head.subarray(0, 5).toString("latin1") === "%PDF-") return ".pdf";
+  if (ext === ".xlsx" && head.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) return ".xlsx";
+  if (ext === ".xls" && head.equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))) return ".xls";
+  return null;
+};
+
+const docKindOf = (req) => {
+  const kind = DOC_KINDS[req.params.kind];
+  if (!kind) throw new AppError("Document type must be bom or crf", 400);
+  return kind;
+};
+
+// Runs before the upload is read, so non-authors can't push 20 MB at us.
+export const requireTemplateAuthor = (req, _res, next) => {
+  try {
+    assertTemplateAuthor(req);
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /templates/:id/documents/:kind   (multipart, field "file")
+export const uploadTemplateDocument = tryCatch(async (req, res) => {
+  assertTemplateAuthor(req);
+  const kind = docKindOf(req);
+  if (!req.file) throw new AppError("Please choose a file to upload", 400);
+
+  const ext = detectDocType(req.file.buffer, req.file.originalname);
+  if (!ext) throw new AppError("Only PDF or Excel files (.pdf, .xlsx, .xls) are allowed", 400);
+
+  const pool = global.pool3;
+  const { id } = req.params;
+  const found = await pool.request().input("id", sql.Int, id)
+    .query(`SELECT Id, Version, ${kind.file} AS OldFile FROM AuditTemplates WHERE Id = @id AND IsDeleted = 0`);
+  if (!found.recordset.length) throw new AppError("Template not found", 404);
+
+  const fileName = `TPL${Number(id)}_${req.params.kind}_${Date.now()}_${crypto.randomBytes(8).toString("hex")}${ext}`;
+  // Original name is only shown back to users — keep it short and printable.
+  const originalName = String(req.file.originalname).replace(/[^\w .()-]/g, "_").slice(0, 200);
+  await fs.promises.writeFile(path.join(DOC_DIR, fileName), req.file.buffer);
+
+  const actor = actorOf(req);
+  let updated;
+  try {
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .input("file", sql.NVarChar(500), fileName)
+      .input("original", sql.NVarChar(500), originalName)
+      .input("updatedBy", sql.NVarChar(200), actor)
+      .query(`
+        UPDATE AuditTemplates
+        SET ${kind.file} = @file, ${kind.original} = @original, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
+        OUTPUT INSERTED.Id, INSERTED.BomFileName, INSERTED.BomOriginalName, INSERTED.CrfFileName, INSERTED.CrfOriginalName
+        WHERE Id = @id AND IsDeleted = 0`);
+    updated = result.recordset[0];
+    if (!updated) throw new AppError("Template not found", 404);
+  } catch (err) {
+    await fs.promises.unlink(path.join(DOC_DIR, fileName)).catch(() => {});
+    throw err;
+  }
+
+  await logTemplateHistory(pool, {
+    templateId: Number(id),
+    action: "document_uploaded",
+    actionBy: actor,
+    versionNumber: found.recordset[0].Version,
+    comments: `${kind.label} ${found.recordset[0].OldFile ? "replaced" : "uploaded"}: ${originalName}`,
+  });
+
+  res.status(200).json({ success: true, message: `${kind.label} uploaded`, data: updated });
+});
+
+// DELETE /templates/:id/documents/:kind — detaches it from the template; the
+// file stays on disk for audits that were started with it.
+export const removeTemplateDocument = tryCatch(async (req, res) => {
+  assertTemplateAuthor(req);
+  const kind = docKindOf(req);
+  const pool = global.pool3;
+  const { id } = req.params;
+  const actor = actorOf(req);
+
+  const result = await pool.request()
+    .input("id", sql.Int, id)
+    .input("updatedBy", sql.NVarChar(200), actor)
+    .query(`
+      UPDATE AuditTemplates
+      SET ${kind.file} = NULL, ${kind.original} = NULL, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
+      OUTPUT INSERTED.Id, INSERTED.Version, INSERTED.BomFileName, INSERTED.BomOriginalName, INSERTED.CrfFileName, INSERTED.CrfOriginalName
+      WHERE Id = @id AND IsDeleted = 0`);
+  const updated = result.recordset[0];
+  if (!updated) throw new AppError("Template not found", 404);
+
+  await logTemplateHistory(pool, {
+    templateId: Number(id),
+    action: "document_removed",
+    actionBy: actor,
+    versionNumber: updated.Version,
+    comments: `${kind.label} removed`,
+  });
+
+  res.status(200).json({ success: true, message: `${kind.label} removed`, data: updated });
+});
+
+// GET /documents/:filename — any logged-in user (auditors read these).
+export const serveTemplateDocument = tryCatch(async (req, res) => {
+  const { filename } = req.params;
+  if (!TEMPLATE_DOC_NAME.test(filename)) throw new AppError("Invalid file name", 400);
+  const filePath = path.join(DOC_DIR, filename);
+  if (!fs.existsSync(filePath)) throw new AppError("File not found", 404);
+
+  const ext = path.extname(filename);
+  const label = filename.includes("_bom_") ? "BOM_Sheet" : "CRF";
+  res.setHeader("Cache-Control", "private, max-age=86400");
+  if (ext === ".pdf") {
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${label}.pdf"`);
+  } else {
+    res.setHeader("Content-Type", ext === ".xlsx"
+      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : "application/vnd.ms-excel");
+    res.setHeader("Content-Disposition", `attachment; filename="${label}${ext}"`);
+  }
+  fs.createReadStream(filePath).on("error", () => res.destroy()).pipe(res);
 });

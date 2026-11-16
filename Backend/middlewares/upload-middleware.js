@@ -92,6 +92,13 @@ export const uploadBisModelPhoto = multer({
   limits: { fileSize: UPLOAD_CONFIGS.bisModelPhoto.maxSize },
 });
 
+// BOM Sheet / CRF: kept in memory so the controller can check the file's
+// real type (PDF/XLSX/XLS bytes) before anything is written to disk.
+export const uploadAuditTemplateDoc = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: UPLOAD_CONFIGS.auditTemplateDoc.maxSize, files: 1 },
+});
+
 /* ===================== ERROR HANDLER ===================== */
 
 export const handleMulterError = (err, _req, res, next) => {

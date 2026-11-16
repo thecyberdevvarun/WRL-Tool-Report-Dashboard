@@ -1,14 +1,16 @@
-// Self-check for the audit module's security rules. Run: node scripts/checkAuditSecurity.js
+// Self-check for the audit module's security rules. Run: node scripts/check-audit-security.js
 // No DB needed — every rule checked here rejects the request before any query.
 import assert from "node:assert/strict";
-import { saveImageFromBase64, deleteImage, imageExists } from "../utils/storage/imageStorage.js";
-import { extractImageFilenames, processAuditImages } from "../utils/auditImageProcessor.js";
-import { actorOf } from "../utils/requestActor.js";
+import { saveImageFromBase64, deleteImage, imageExists } from "../utils/storage/image-storage.js";
+import { extractImageFilenames, processAuditImages, cleanupUnreferencedAuditImages } from "../utils/audit-image-processor.js";
+import { actorOf } from "../utils/request-actor.js";
 import {
   createAudit, updateAudit, approveAudit, rejectAudit,
-  assertCompleteForSubmit, assertCanEditAudit, assertCanDeleteAudit,
-} from "../controllers/auditReport/audit.controller.js";
-import { createTemplate, createTemplateVersion, updateTemplate } from "../controllers/auditReport/template.controller.js";
+  assertCompleteForSubmit, assertCanEditAudit, assertCanDeleteAudit, assertTemplateCheckpointsPresent,
+} from "../controllers/audit-report/audit.controller.js";
+import {
+  createTemplate, createTemplateVersion, updateTemplate, deleteTemplate, duplicateTemplate,
+} from "../controllers/audit-report/template.controller.js";
 
 const PNG_1PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -86,8 +88,38 @@ assert.equal((await errorOf(approveAudit, { user: user("quality auditor"), param
 assert.equal((await errorOf(rejectAudit, { user: user("quality auditor"), params: { id: "1" }, body: { comments: "x" } }))?.statusCode, 403);
 
 // ── Templates can't be created/versioned as approved, nor set to unknown statuses ──
-assert.equal((await errorOf(createTemplate, { user: user("quality engineer"), body: { name: "t", approvalStatus: "approved" } }))?.statusCode, 400);
-assert.equal((await errorOf(createTemplateVersion, { user: user("quality engineer"), params: { id: "1" }, body: { approvalStatus: "approved" } }))?.statusCode, 400);
-assert.equal((await errorOf(updateTemplate, { user: user("quality engineer"), params: { id: "1" }, body: { approvalStatus: "whatever" } }))?.statusCode, 400);
+assert.equal((await errorOf(createTemplate, { user: user("quality manager"), body: { name: "t", approvalStatus: "approved" } }))?.statusCode, 400);
+assert.equal((await errorOf(createTemplateVersion, { user: user("quality manager"), params: { id: "1" }, body: { approvalStatus: "approved" } }))?.statusCode, 400);
+assert.equal((await errorOf(updateTemplate, { user: user("quality manager"), params: { id: "1" }, body: { approvalStatus: "whatever" } }))?.statusCode, 400);
+
+// ── Only template authors (SA / QM / LQE) may change templates at all ──
+for (const [h, req] of [
+  [createTemplate, { body: { name: "t" } }],
+  [createTemplateVersion, { params: { id: "1" }, body: {} }],
+  [updateTemplate, { params: { id: "1" }, body: { isActive: false } }],
+  [deleteTemplate, { params: { id: "1" } }],
+  [duplicateTemplate, { params: { id: "1" }, body: { newName: "x" } }],
+]) {
+  assert.equal((await errorOf(h, { user: user("quality operator"), ...req }))?.statusCode, 403, h.name);
+}
+
+// ── Submitted audits must still hold every template checkpoint ──
+const tplSections = [{ stages: [{ checkPoints: [{ id: "t1", checkPoint: "Door gap" }, { id: "t2", checkPoint: "Label" }] }] }];
+assert.doesNotThrow(() => assertTemplateCheckpointsPresent(
+  [{ stages: [{ checkPoints: [{ id: "t1" }, { id: "t2" }, { id: "c9", custom: true }] }] }], tplSections));
+assert.throws(() => assertTemplateCheckpointsPresent([{ stages: [{ checkPoints: [{ id: "t1" }] }] }], tplSections),
+  /missing 1 checkpoint\(s\) from the template: "Label"/);
+assert.doesNotThrow(() => assertTemplateCheckpointsPresent([], null)); // no template content → no check
+
+// ── Submit-time cleanup: drops only this audit's unused photos ──
+const other = await saveImageFromBase64({ base64Data: PNG_1PX, fileName: "p.png", auditCode: "OTHERCHK" });
+const kept = await saveImageFromBase64({ base64Data: PNG_1PX, fileName: "p.png", auditCode: "SELFCHK" });
+const dupe = await saveImageFromBase64({ base64Data: PNG_1PX, fileName: "p.png", auditCode: "SELFCHK" });
+await cleanupUnreferencedAuditImages([{ stages: [{ checkPoints: [{ photo: kept.fileName, x: other.fileName }] }] }], "SELFCHK");
+assert.equal(imageExists(kept.fileName), true, "photo the audit uses stays");
+assert.equal(imageExists(dupe.fileName), false, "re-uploaded duplicate the audit no longer uses is removed");
+assert.equal(imageExists(other.fileName), true, "another audit's photo is never touched");
+await deleteImage(kept.fileName);
+await deleteImage(other.fileName);
 
 console.log("audit security checks passed");

@@ -51,7 +51,7 @@ export const serveImage = tryCatch(async (req, res) => {
   // Set headers
   res.setHeader("Content-Type", contentType);
   res.setHeader("Content-Length", imageInfo.size);
-  res.setHeader("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+  res.setHeader("Cache-Control", "private, max-age=31536000"); // browser-only cache: images need login
   res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
 
   // Stream the file

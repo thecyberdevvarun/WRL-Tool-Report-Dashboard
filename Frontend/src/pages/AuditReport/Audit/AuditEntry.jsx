@@ -54,6 +54,7 @@ import { getCurrentShift } from "../../../utils/shiftUtils.js";
 import { formatDateForDisplay, formatDateTimeForDisplay, formatDuration } from "../../../utils/dateUtils.js";
 import { canUseGetUserMedia } from "../../../utils/mediaCapture.js";
 import { redrawAsJpeg } from "../../../utils/auditImageResolver.js";
+import ReferenceDocs from "../components/common/ReferenceDocs";
 import { DEFAULT_IMAGE_CAPTURE_ITEMS } from "../constants/imageCapture.js";
 import { baseURL } from "../../../assets/assets.js";
 import { ROLES } from "../../../config/routes.config";
@@ -462,6 +463,7 @@ const AuditEntry = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState("idle");
   const [initialLoading, setInitialLoading] = useState(true);
   const autosaveTimerRef = useRef(null);
+  const autosavePendingRef = useRef(false);
   const hasAutosaveStartedRef = useRef(false);
   // Tracks the created/loaded audit id synchronously (unlike React state,
   // which wouldn't be visible yet to a persistAudit call that starts before
@@ -472,6 +474,7 @@ const AuditEntry = () => {
   const persistedIdRef = useRef(id || null);
   const saveQueueRef = useRef(Promise.resolve());
   const [template, setTemplate] = useState(null);
+  const [refDocs, setRefDocs] = useState(null); // BOM Sheet / CRF to show the auditor
   const [showPreview, setShowPreview] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -567,6 +570,13 @@ const AuditEntry = () => {
   });
   const [infoData, setInfoData] = useState({});
   const [sections, setSections] = useState([]);
+  // Latest sections, readable synchronously. Saves are queued, so a save that
+  // starts late must send what is current *then* — not the copy captured when
+  // it was queued. Sending a stale copy re-uploaded photos the server had
+  // already stored (as new files) while this screen kept the old filename,
+  // which is how submitted audits ended up pointing at deleted photos.
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
   const [signatures, setSignatures] = useState({
     auditor: { name: "", date: "" },
     reviewer: { name: "", date: "" },
@@ -639,7 +649,7 @@ const AuditEntry = () => {
       // the setSections updater) so we have a fresh, non-stale copy we can
       // hand straight to persistAudit below — the `sections` state won't
       // reflect this change until the next render, so we can't rely on it.
-      const updatedSections = sections.map((section) =>
+      const updatedSections = sectionsRef.current.map((section) =>
         section.id === sectionId
           ? {
               ...section,
@@ -666,6 +676,7 @@ const AuditEntry = () => {
           : section,
       );
 
+      sectionsRef.current = updatedSections;
       setSections(updatedSections);
       toast.success("Image uploaded!");
 
@@ -682,7 +693,6 @@ const AuditEntry = () => {
           silent: true,
           showToast: false,
           showBusyUi: false,
-          overrideSections: updatedSections,
         });
       }
     } catch (err) {
@@ -693,7 +703,7 @@ const AuditEntry = () => {
   };
 
   const handleImageRemove = (sectionId, stageId, checkpointId, columnId) => {
-    const updatedSections = sections.map((section) =>
+    const updatedSections = sectionsRef.current.map((section) =>
       section.id === sectionId
         ? {
             ...section,
@@ -717,6 +727,7 @@ const AuditEntry = () => {
         : section,
     );
 
+    sectionsRef.current = updatedSections;
     setSections(updatedSections);
     toast.success("Image removed.");
 
@@ -728,7 +739,6 @@ const AuditEntry = () => {
         silent: true,
         showToast: false,
         showBusyUi: false,
-        overrideSections: updatedSections,
       });
     }
   };
@@ -828,6 +838,21 @@ const AuditEntry = () => {
     });
   }, []);
 
+  // Every not-yet-saved photo object ({ data: base64 }) in a sections tree.
+  const collectImageObjects = (secs) => {
+    const found = new Set();
+    for (const section of secs || []) {
+      for (const stage of section?.stages || []) {
+        for (const cp of stage?.checkPoints || []) {
+          for (const v of Object.values(cp || {})) {
+            if (v !== null && typeof v === "object" && typeof v.data === "string") found.add(v);
+          }
+        }
+      }
+    }
+    return found;
+  };
+
   // After a save, the server has replaced any freshly-uploaded base64 image
   // objects with saved filenames. Merge those filenames back into local
   // state — otherwise the same base64 blob lingers in `sections` and gets
@@ -835,7 +860,10 @@ const AuditEntry = () => {
   // previous file deleted out from under it by cleanupRemovedImages.
   // Returns the original `localSections` reference untouched when nothing
   // needed merging, so callers can skip a state update.
-  const mergeSavedImageFilenames = useCallback((localSections, savedSections) => {
+  // `sentImages` holds the photo objects that save actually sent: only those
+  // are swapped for the server's filename, so a photo retaken while the save
+  // was in flight is kept (and goes out with the next save).
+  const mergeSavedImageFilenames = useCallback((localSections, savedSections, sentImages) => {
     if (!Array.isArray(localSections) || !Array.isArray(savedSections)) return localSections;
     const savedSectionById = new Map(savedSections.map((s) => [s.id, s]));
     let changed = false;
@@ -862,7 +890,7 @@ const AuditEntry = () => {
             const isUnsavedImage = value !== null && typeof value === "object" && typeof value.data === "string";
             // string = saved filename; null = server rejected the photo, so drop
             // the local copy too (otherwise it looks saved and is re-sent forever).
-            if (isUnsavedImage && (typeof savedCp[key] === "string" || savedCp[key] === null)) {
+            if (isUnsavedImage && sentImages?.has(value) && (typeof savedCp[key] === "string" || savedCp[key] === null)) {
               mergedCp[key] = savedCp[key];
               cpChanged = true;
             }
@@ -892,6 +920,8 @@ const AuditEntry = () => {
         if (id) {
           const audit = await getAuditById(id);
           if (audit) {
+            // The BOM Sheet / CRF this audit was started with (not the template's latest).
+            setRefDocs(audit);
             setAuditData({
               templateId: audit.templateId || "",
               templateName: audit.templateName || "",
@@ -936,6 +966,7 @@ const AuditEntry = () => {
               return;
             }
             setTemplate(tmpl);
+            setRefDocs(tmpl); // what this new audit will be saved with
             const todayDate = getCurrentDate();
             const shift = getCurrentShift();
             setAuditData({
@@ -1310,12 +1341,16 @@ const AuditEntry = () => {
       showToast = false,
       navigateAfterSave = false,
       showBusyUi = false,
-      overrideSections = null,
     } = {}) => {
       if (!auditData.templateId) {
         if (!silent) toast.error("Template is required");
         return null;
       }
+
+      // This save carries the latest state, so a waiting autosave is redundant
+      // (and after a submit it would only be refused by the server).
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      autosavePendingRef.current = false;
 
       // Chain onto the previous save instead of firing in parallel — image
       // upload/remove trigger an immediate save on top of the debounced
@@ -1325,8 +1360,11 @@ const AuditEntry = () => {
         if (showBusyUi) setSaving(true);
         setAutoSaveStatus("saving");
         try {
-          const currentSections = overrideSections || sections;
+          // Built when this save actually runs, from the latest sections.
+          // (Image upload/remove put their new tree in sectionsRef before queueing.)
+          const currentSections = sectionsRef.current;
           const payload = buildAuditPayload(status, currentSections);
+          const sentImages = collectImageObjects(currentSections);
           const targetId = id || persistedIdRef.current;
           const savedAudit = targetId
             ? await updateAudit(targetId, payload)
@@ -1340,7 +1378,9 @@ const AuditEntry = () => {
           // Replace any just-uploaded base64 image data in local state with
           // the filenames the server actually persisted to disk.
           if (Array.isArray(savedAudit?.sections)) {
-            setSections((prev) => mergeSavedImageFilenames(prev, savedAudit.sections));
+            // Update the ref now too: the next queued save may start before React re-renders.
+            sectionsRef.current = mergeSavedImageFilenames(sectionsRef.current, savedAudit.sections, sentImages);
+            setSections((prev) => mergeSavedImageFilenames(prev, savedAudit.sections, sentImages));
           }
 
           // Shown even on silent autosave — a lost evidence photo must not go unnoticed.
@@ -1376,7 +1416,7 @@ const AuditEntry = () => {
       );
       return result;
     },
-    [auditData.templateId, buildAuditPayload, createAudit, id, mergeSavedImageFilenames, navigate, sections, setAuditData, updateAudit],
+    [auditData.templateId, buildAuditPayload, createAudit, id, mergeSavedImageFilenames, navigate, setAuditData, updateAudit],
   );
 
   // ── Autosave (debounced) — MUST be declared after persistAudit so the
@@ -1397,7 +1437,9 @@ const AuditEntry = () => {
       clearTimeout(autosaveTimerRef.current);
     }
 
+    autosavePendingRef.current = true;
     autosaveTimerRef.current = setTimeout(() => {
+      autosavePendingRef.current = false;
       persistAudit({ status: "draft", silent: true, showToast: false, showBusyUi: false });
     }, 1200);
 
@@ -1425,11 +1467,24 @@ const AuditEntry = () => {
     persistAudit,
   ]);
 
-  // Clear any pending autosave timer on unmount
+  // Leaving the page with an autosave still waiting used to drop those last
+  // edits. Flush it on unmount (in-app navigation) instead, and ask the
+  // browser to confirm a tab close/reload while one is pending.
+  const persistAuditRef = useRef(persistAudit);
+  persistAuditRef.current = persistAudit;
   useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!autosavePendingRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      if (autosavePendingRef.current) {
+        autosavePendingRef.current = false;
+        persistAuditRef.current({ status: "draft", silent: true }).catch(() => {});
       }
     };
   }, []);
@@ -1987,6 +2042,7 @@ const AuditEntry = () => {
                   End: {new Date(auditData.submittedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                 </span>
               )}
+              <ReferenceDocs docs={refDocs} compact />
             </div>
 
             <AutoSaveIndicator status={autoSaveStatus} />

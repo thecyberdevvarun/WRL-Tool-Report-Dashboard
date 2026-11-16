@@ -242,6 +242,7 @@ const AuditView = lazy(() => import("../pages/AuditReport/Audit/AuditView"));
 const AuditApproval = lazy(
   () => import("../pages/AuditReport/Audit/AuditApproval"),
 );
+const AuditMIS = lazy(() => import("../pages/AuditReport/AuditMIS"));
 const AuditDashboard = lazy(
   () => import("../pages/AuditReport/Auditdashboard"),
 );
@@ -997,6 +998,12 @@ export const ROUTE_CONFIG = [
         path: "/auditreport/dashboard",
         label: "Dashboard",
         component: AuditDashboard,
+        group: "audits",
+      },
+      {
+        path: "/auditreport/mis",
+        label: "Audit MIS",
+        component: AuditMIS,
         group: "audits",
       },
       {

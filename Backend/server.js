@@ -35,7 +35,24 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
-app.use("/uploads", express.static(path.resolve("uploads"))); // Static files
+// Audit photos, template files and BOM/CRF documents are only served through the logged-in
+// /api/v1/audit-report routes — never from the public static folder.
+// Checked on the decoded, normalised path so "%49", "//" or "\" can't slip by.
+const PRIVATE_UPLOADS = /^\/(auditimages|audittemplates|audittemplatedocs)(\/|$)/i;
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    let p;
+    try {
+      p = path.posix.normalize(decodeURIComponent(req.path).replace(/\\/g, "/"));
+    } catch {
+      return res.sendStatus(400);
+    }
+    if (PRIVATE_UPLOADS.test(p)) return res.sendStatus(404);
+    next();
+  },
+  express.static(path.resolve("uploads")),
+); // Static files
 
 // <------------------------------------------------------------- Connect to DB Servers ------------------------------------------------------------->
 (async () => {
