@@ -4,7 +4,17 @@ import { baseURL } from "../../assets/assets.js";
 export const masterConfigApi = createApi({
   reducerPath: "masterConfigApi",
   baseQuery: fetchBaseQuery({ baseUrl: baseURL, credentials: "include" }),
-  tagTypes: ["Material", "Shift", "MachineShiftAllocation", "DowntimeReason", "Department", "QualityDefect", "MailSubscriber", "Machine", "Plan", "CheckpointLibrary"],
+  tagTypes: [
+    "Material",
+    "Shift",
+    "MachineShiftAllocation",
+    "DowntimeReason",
+    "Department",
+    "QualityDefect",
+    "Machine",
+    "Plan",
+    "CheckpointLibrary",
+  ],
   endpoints: (builder) => ({
     // ── Materials ────────────────────────────────────────────────────────────
     getMaterials: builder.query({
@@ -13,23 +23,41 @@ export const masterConfigApi = createApi({
       providesTags: ["Material"],
     }),
     addMaterial: builder.mutation({
-      query: (body) => ({ url: "master-config/materials", method: "POST", body }),
+      query: (body) => ({
+        url: "master-config/materials",
+        method: "POST",
+        body,
+      }),
       invalidatesTags: ["Material"],
     }),
     updateMaterial: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/materials/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/materials/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["Material"],
     }),
     deleteMaterial: builder.mutation({
-      query: (id) => ({ url: `master-config/materials/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/materials/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["Material"],
     }),
     bulkAddMaterials: builder.mutation({
-      query: (materials) => ({ url: "master-config/materials/bulk", method: "POST", body: { materials } }),
+      query: (materials) => ({
+        url: "master-config/materials/bulk",
+        method: "POST",
+        body: { materials },
+      }),
       invalidatesTags: ["Material"],
     }),
     recalculateActualCycleTime: builder.mutation({
-      query: () => ({ url: "master-config/materials/recalculate-actual-ct", method: "POST" }),
+      query: () => ({
+        url: "master-config/materials/recalculate-actual-ct",
+        method: "POST",
+      }),
       invalidatesTags: ["Material"],
     }),
 
@@ -52,7 +80,11 @@ export const masterConfigApi = createApi({
       invalidatesTags: ["Shift"],
     }),
     updateShift: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/shifts/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/shifts/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["Shift"],
     }),
     deleteShift: builder.mutation({
@@ -75,7 +107,11 @@ export const masterConfigApi = createApi({
       providesTags: ["MachineShiftAllocation"],
     }),
     setMachineShiftAllocations: builder.mutation({
-      query: (body) => ({ url: "master-config/machine-shift-allocations", method: "PUT", body }),
+      query: (body) => ({
+        url: "master-config/machine-shift-allocations",
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["MachineShiftAllocation"],
     }),
 
@@ -86,15 +122,26 @@ export const masterConfigApi = createApi({
       providesTags: ["DowntimeReason"],
     }),
     addDowntimeReason: builder.mutation({
-      query: (body) => ({ url: "master-config/downtime-reasons", method: "POST", body }),
+      query: (body) => ({
+        url: "master-config/downtime-reasons",
+        method: "POST",
+        body,
+      }),
       invalidatesTags: ["DowntimeReason"],
     }),
     updateDowntimeReason: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/downtime-reasons/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/downtime-reasons/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["DowntimeReason"],
     }),
     deleteDowntimeReason: builder.mutation({
-      query: (id) => ({ url: `master-config/downtime-reasons/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/downtime-reasons/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["DowntimeReason"],
     }),
 
@@ -105,15 +152,26 @@ export const masterConfigApi = createApi({
       providesTags: ["Department"],
     }),
     addDepartment: builder.mutation({
-      query: (body) => ({ url: "master-config/departments", method: "POST", body }),
+      query: (body) => ({
+        url: "master-config/departments",
+        method: "POST",
+        body,
+      }),
       invalidatesTags: ["Department"],
     }),
     updateDepartment: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/departments/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/departments/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["Department"],
     }),
     deleteDepartment: builder.mutation({
-      query: (id) => ({ url: `master-config/departments/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/departments/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["Department"],
     }),
 
@@ -124,38 +182,27 @@ export const masterConfigApi = createApi({
       providesTags: ["QualityDefect"],
     }),
     addQualityDefect: builder.mutation({
-      query: (body) => ({ url: "master-config/quality-defects", method: "POST", body }),
+      query: (body) => ({
+        url: "master-config/quality-defects",
+        method: "POST",
+        body,
+      }),
       invalidatesTags: ["QualityDefect"],
     }),
     updateQualityDefect: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/quality-defects/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/quality-defects/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["QualityDefect"],
     }),
     deleteQualityDefect: builder.mutation({
-      query: (id) => ({ url: `master-config/quality-defects/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/quality-defects/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["QualityDefect"],
-    }),
-
-    // ── Mail Subscribers ─────────────────────────────────────────────────────
-    getMailSubscribers: builder.query({
-      query: () => "master-config/mail-subscribers",
-      transformResponse: (res) => res.data ?? [],
-      providesTags: ["MailSubscriber"],
-    }),
-    addMailSubscriber: builder.mutation({
-      query: (body) => ({ url: "master-config/mail-subscribers", method: "POST", body }),
-      invalidatesTags: ["MailSubscriber"],
-    }),
-    updateMailSubscriber: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/mail-subscribers/${id}`, method: "PUT", body }),
-      invalidatesTags: ["MailSubscriber"],
-    }),
-    deleteMailSubscriber: builder.mutation({
-      query: (id) => ({ url: `master-config/mail-subscribers/${id}`, method: "DELETE" }),
-      invalidatesTags: ["MailSubscriber"],
-    }),
-    testMailSubscriber: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/mail-subscribers/${id}/test`, method: "POST", body }),
     }),
 
     // ── Machines ──────────────────────────────────────────────────────────────
@@ -165,22 +212,37 @@ export const masterConfigApi = createApi({
       providesTags: ["Machine"],
     }),
     addMachine: builder.mutation({
-      query: (body) => ({ url: "master-config/machines", method: "POST", body }),
+      query: (body) => ({
+        url: "master-config/machines",
+        method: "POST",
+        body,
+      }),
       invalidatesTags: ["Machine"],
     }),
     updateMachine: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/machines/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/machines/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["Machine"],
     }),
     deleteMachine: builder.mutation({
-      query: (id) => ({ url: `master-config/machines/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/machines/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["Machine"],
     }),
     uploadMachineImage: builder.mutation({
       query: ({ id, file }) => {
         const formData = new FormData();
         formData.append("image", file);
-        return { url: `master-config/machines/${id}/image`, method: "POST", body: formData };
+        return {
+          url: `master-config/machines/${id}/image`,
+          method: "POST",
+          body: formData,
+        };
       },
       invalidatesTags: ["Machine"],
     }),
@@ -190,12 +252,19 @@ export const masterConfigApi = createApi({
       query: ({ id, file }) => {
         const formData = new FormData();
         formData.append("drawing", file);
-        return { url: `master-config/materials/${id}/drawing`, method: "POST", body: formData };
+        return {
+          url: `master-config/materials/${id}/drawing`,
+          method: "POST",
+          body: formData,
+        };
       },
       invalidatesTags: ["Material"],
     }),
     deleteMaterialDrawing: builder.mutation({
-      query: (id) => ({ url: `master-config/materials/${id}/drawing`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/materials/${id}/drawing`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["Material"],
     }),
 
@@ -210,7 +279,11 @@ export const masterConfigApi = createApi({
       invalidatesTags: ["Plan"],
     }),
     updatePlan: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/plans/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/plans/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["Plan"],
     }),
     deletePlan: builder.mutation({
@@ -218,7 +291,11 @@ export const masterConfigApi = createApi({
       invalidatesTags: ["Plan"],
     }),
     bulkAddPlans: builder.mutation({
-      query: (plans) => ({ url: "master-config/plans/bulk", method: "POST", body: { plans } }),
+      query: (plans) => ({
+        url: "master-config/plans/bulk",
+        method: "POST",
+        body: { plans },
+      }),
       invalidatesTags: ["Plan"],
     }),
 
@@ -229,39 +306,82 @@ export const masterConfigApi = createApi({
       providesTags: ["CheckpointLibrary"],
     }),
     addCheckpointLibraryEntry: builder.mutation({
-      query: (body) => ({ url: "master-config/checkpoint-library", method: "POST", body }),
+      query: (body) => ({
+        url: "master-config/checkpoint-library",
+        method: "POST",
+        body,
+      }),
       invalidatesTags: ["CheckpointLibrary"],
     }),
     updateCheckpointLibraryEntry: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `master-config/checkpoint-library/${id}`, method: "PUT", body }),
+      query: ({ id, ...body }) => ({
+        url: `master-config/checkpoint-library/${id}`,
+        method: "PUT",
+        body,
+      }),
       invalidatesTags: ["CheckpointLibrary"],
     }),
     deleteCheckpointLibraryEntry: builder.mutation({
-      query: (id) => ({ url: `master-config/checkpoint-library/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `master-config/checkpoint-library/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["CheckpointLibrary"],
     }),
     incrementCheckpointUsage: builder.mutation({
       // No tag invalidation -- UsageCount is informational only, not worth a
       // full refetch of the list every time a checkpoint is inserted into a
       // template.
-      query: (id) => ({ url: `master-config/checkpoint-library/${id}/increment-usage`, method: "POST" }),
+      query: (id) => ({
+        url: `master-config/checkpoint-library/${id}/increment-usage`,
+        method: "POST",
+      }),
     }),
   }),
 });
 
 export const {
-  useGetMaterialsQuery, useAddMaterialMutation, useUpdateMaterialMutation, useDeleteMaterialMutation, useBulkAddMaterialsMutation,
+  useGetMaterialsQuery,
+  useAddMaterialMutation,
+  useUpdateMaterialMutation,
+  useDeleteMaterialMutation,
+  useBulkAddMaterialsMutation,
   useRecalculateActualCycleTimeMutation,
-  useUploadMaterialDrawingMutation, useDeleteMaterialDrawingMutation,
-  useGetShiftsQuery, useGetShiftHistoryQuery, useAddShiftMutation, useUpdateShiftMutation, useDeleteShiftMutation,
-  useGetMachineShiftAllocationsQuery, useGetMachineShiftAllocationHistoryQuery, useSetMachineShiftAllocationsMutation,
-  useGetDowntimeReasonsQuery, useAddDowntimeReasonMutation, useUpdateDowntimeReasonMutation, useDeleteDowntimeReasonMutation,
-  useGetDepartmentsQuery, useAddDepartmentMutation, useUpdateDepartmentMutation, useDeleteDepartmentMutation,
-  useGetQualityDefectsQuery, useAddQualityDefectMutation, useUpdateQualityDefectMutation, useDeleteQualityDefectMutation,
-  useGetMailSubscribersQuery, useAddMailSubscriberMutation, useUpdateMailSubscriberMutation, useDeleteMailSubscriberMutation,
-  useTestMailSubscriberMutation,
-  useGetMachinesQuery, useAddMachineMutation, useUpdateMachineMutation, useDeleteMachineMutation, useUploadMachineImageMutation,
-  useGetPlansQuery, useAddPlanMutation, useUpdatePlanMutation, useDeletePlanMutation, useBulkAddPlansMutation,
-  useGetCheckpointLibraryQuery, useAddCheckpointLibraryEntryMutation, useUpdateCheckpointLibraryEntryMutation,
-  useDeleteCheckpointLibraryEntryMutation, useIncrementCheckpointUsageMutation,
+  useUploadMaterialDrawingMutation,
+  useDeleteMaterialDrawingMutation,
+  useGetShiftsQuery,
+  useGetShiftHistoryQuery,
+  useAddShiftMutation,
+  useUpdateShiftMutation,
+  useDeleteShiftMutation,
+  useGetMachineShiftAllocationsQuery,
+  useGetMachineShiftAllocationHistoryQuery,
+  useSetMachineShiftAllocationsMutation,
+  useGetDowntimeReasonsQuery,
+  useAddDowntimeReasonMutation,
+  useUpdateDowntimeReasonMutation,
+  useDeleteDowntimeReasonMutation,
+  useGetDepartmentsQuery,
+  useAddDepartmentMutation,
+  useUpdateDepartmentMutation,
+  useDeleteDepartmentMutation,
+  useGetQualityDefectsQuery,
+  useAddQualityDefectMutation,
+  useUpdateQualityDefectMutation,
+  useDeleteQualityDefectMutation,
+  useGetMachinesQuery,
+  useAddMachineMutation,
+  useUpdateMachineMutation,
+  useDeleteMachineMutation,
+  useUploadMachineImageMutation,
+  useGetPlansQuery,
+  useAddPlanMutation,
+  useUpdatePlanMutation,
+  useDeletePlanMutation,
+  useBulkAddPlansMutation,
+  useGetCheckpointLibraryQuery,
+  useAddCheckpointLibraryEntryMutation,
+  useUpdateCheckpointLibraryEntryMutation,
+  useDeleteCheckpointLibraryEntryMutation,
+  useIncrementCheckpointUsageMutation,
 } = masterConfigApi;

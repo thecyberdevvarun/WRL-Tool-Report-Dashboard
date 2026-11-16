@@ -20,6 +20,7 @@ import { globalErrorHandler } from "./middlewares/error-handler.js";
 import { runMigrations } from "./config/migrations.js";
 import { runGarudaMigrations } from "./config/garuda-migrations.js";
 import { rebuildSmtpTransporter } from "./config/email.config.js";
+import { runMailManagementMigration } from "./config/mail-management-migration.js";
 // const _dirname = path.resolve();
 
 const app = express();
@@ -63,6 +64,7 @@ app.use(
 
     await runGarudaMigrations(global.pool1);
     await runMigrations(global.pool3);
+    await runMailManagementMigration(global.pool3);
 
     // Pick up any previously-saved Settings > Mail Server override now that
     // pool3 is up — the transporter built at module-load time (email.config.js)

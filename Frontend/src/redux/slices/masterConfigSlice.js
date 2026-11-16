@@ -16,7 +16,6 @@ const masterConfigSlice = createSlice({
     downtimeReasons:  [],
     departments:      INIT_DEPARTMENTS,
     qualityDefects:   [],
-    mailSubscribers:  [],
     machines:         [],
     plans:            [],
     checkpointLibrary: [],
@@ -66,9 +65,6 @@ const masterConfigSlice = createSlice({
     addQualityDefect:    (s, { payload }) => { s.qualityDefects.push(payload); },
     updateQualityDefect: (s, { payload }) => { s.qualityDefects = s.qualityDefects.map((q) => q.id === payload.id ? payload : q); },
     deleteQualityDefect: (s, { payload }) => { s.qualityDefects = s.qualityDefects.filter((q) => q.id !== payload); },
-
-    // ── Mail Subscribers ──────────────────────────────────────────────────────
-    setMailSubscribers: (s, { payload }) => { s.mailSubscribers = payload; },
 
     // ── Machines ──────────────────────────────────────────────────────────────
     setMachines: (s, { payload }) => { s.machines = payload; },
@@ -150,7 +146,6 @@ export const {
   setDowntimeReasons, addDowntimeReason, updateDowntimeReason, deleteDowntimeReason,
   setDepartments, addDepartment, updateDepartment, deleteDepartment,
   setQualityDefects, addQualityDefect, updateQualityDefect, deleteQualityDefect,
-  setMailSubscribers,
   setMachines,
   setPlans,
   setCheckpointLibrary,
@@ -167,7 +162,6 @@ export const selectMaterials       = (s) => s.masterConfig?.materials ?? [];
 export const selectDowntimeReasons = (s) => s.masterConfig?.downtimeReasons ?? [];
 export const selectDepartments      = (s) => s.masterConfig?.departments ?? [];
 export const selectQualityDefects  = (s) => s.masterConfig?.qualityDefects ?? [];
-export const selectMailSubscribers = (s) => s.masterConfig?.mailSubscribers ?? [];
 export const selectMachines        = (s) => s.masterConfig?.machines ?? [];
 export const selectPlans           = (s) => s.masterConfig?.plans ?? [];
 export const selectCheckpointLibrary = (s) => s.masterConfig?.checkpointLibrary ?? [];
