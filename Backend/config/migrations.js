@@ -1217,5 +1217,43 @@ export const runMigrations = async (pool3) => {
     END CATCH
   `);
 
+  // ── BOM Sheet / CRF reference files: current ones on the template, and the
+  //    ones in force when each audit was started (kept so old audits still
+  //    show the files they were checked against).
+  for (const table of ["AuditTemplates", "Audits"]) {
+    for (const col of ["BomFileName", "BomOriginalName", "CrfFileName", "CrfOriginalName"]) {
+      await pool3.request().query(`
+        IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '${table}')
+        AND NOT EXISTS (
+          SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${table}' AND COLUMN_NAME = '${col}'
+        )
+        BEGIN
+          ALTER TABLE ${table} ADD ${col} NVARCHAR(500) NULL;
+          PRINT 'Migration: Added ${col} column to ${table}';
+        END
+      `);
+    }
+  }
+
+  // ── Audit module lookup indexes. The live DB already has the Audits /
+  //    AuditHistory ones (same names) — this only makes a fresh database match.
+  for (const [table, name, cols] of [
+    ["Audits", "IX_Audits_CreatedAt", "CreatedAt"],
+    ["Audits", "IX_Audits_IsDeleted", "IsDeleted"],
+    ["Audits", "IX_Audits_Status", "Status"],
+    ["Audits", "IX_Audits_TemplateId", "TemplateId"],
+    ["AuditHistory", "IX_AuditHistory_AuditId", "AuditId"],
+    ["AuditTemplateHistory", "IX_AuditTemplateHistory_TemplateId", "TemplateId, ActionAt"],
+  ]) {
+    await pool3.request().query(`
+      IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '${table}')
+      AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '${name}' AND object_id = OBJECT_ID('${table}'))
+      BEGIN
+        CREATE INDEX ${name} ON ${table} (${cols});
+        PRINT 'Migration: Created ${name}';
+      END
+    `);
+  }
+
   console.log("Migrations completed.");
 };

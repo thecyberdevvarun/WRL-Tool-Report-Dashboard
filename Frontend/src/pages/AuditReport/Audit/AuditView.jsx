@@ -51,6 +51,7 @@ import {
 import { generateAuditPDF } from "../../../utils/generateAuditPDF.js";
 import { generateAuditExcel } from "../../../utils/generateAuditExcel.js";
 import { passRateOf, passRateLevel } from "../../../utils/auditPassRate.js";
+import ReferenceDocs from "../components/common/ReferenceDocs";
 
 // ==================== CONSTANTS ====================
 const STATUS_CONFIG = {
@@ -235,7 +236,8 @@ const AuditView = () => {
   const { getAuditById, approveAudit, rejectAudit } = useAuditData();
 
   const { user } = useSelector((store) => store.auth);
-  const isQualityAuditor = [user?.role, user?.roleName].includes(ROLES.QUALITY_AUDITOR);
+  // Approve/Reject mirror the server rule: Line Quality Engineer or Super Admin.
+  const isApprover = [ROLES.LINE_QUALITY_ENGINEER, ROLES.SUPER_ADMIN].includes(user?.roleName);
 
   const exportBtnRef = useRef(null);
 
@@ -945,8 +947,8 @@ const AuditView = () => {
               <FaPrint size={12} />
             </button>
 
-            {/* Export, Edit, Approve, Reject — hidden for Quality Auditor */}
-            {!isQualityAuditor && (
+            {/* Export and Edit for everyone; Approve/Reject for approvers only */}
+            {(
               <>
                 {/* Export dropdown */}
                 <div className="relative" ref={exportBtnRef}>
@@ -988,7 +990,7 @@ const AuditView = () => {
                   </button>
                 )}
 
-                {audit.status === "submitted" && (
+                {audit.status === "submitted" && isApprover && (
                   <>
                     <button
                       onClick={() => openApprovalModal("approve")}
@@ -1139,6 +1141,12 @@ const AuditView = () => {
                         >
                           <FaCopy size={11} />
                         </button>
+                      </div>
+                    )}
+                    {/* BOM Sheet / CRF this audit was carried out against */}
+                    {(audit.bomFileName || audit.crfFileName) && (
+                      <div className="mt-2 [&_span]:text-indigo-200">
+                        <ReferenceDocs docs={audit} compact />
                       </div>
                     )}
                     <div className="flex items-center gap-2 mt-3">

@@ -302,7 +302,8 @@ export const generateAuditPDF = async (audit) => {
 
   sections.forEach((section) => {
     if (!section) return;
-    const stages = section.stages || [];
+    // Older audits keep checkpoints directly on the section (no stages).
+    const stages = section.stages || (section.checkPoints ? [{ stageName: "", checkPoints: section.checkPoints }] : []);
     const allCPs = stages.flatMap((st) => (st.checkPoints || []).map((cp) => ({ ...cp, stageName: st.stageName })));
     if (allCPs.length === 0) return;
 

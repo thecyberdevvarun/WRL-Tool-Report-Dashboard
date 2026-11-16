@@ -191,6 +191,7 @@ const TemplateApproval = () => {
     try {
       await updateTemplate(template.id, {
         approvalStatus: "approved",
+        version: template.version,
         approvedBy: user?.name || user?.usercode || user?.roleName,
         approvedAt: new Date().toISOString(),
       });
@@ -217,6 +218,7 @@ const TemplateApproval = () => {
     try {
       await updateTemplate(selectedTemplate.id, {
         approvalStatus: "rejected",
+        version: selectedTemplate.version,
         rejectionReason: rejectReason.trim(),
       });
       toast.success(`"${selectedTemplate.name}" rejected`);

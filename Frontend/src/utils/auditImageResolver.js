@@ -70,7 +70,8 @@ export const resolveCheckpointImages = async (sections, imageColIds) => {
 
   const toFetch = new Map();
   (sections || []).forEach((section) => {
-    (section?.stages || []).forEach((st) => {
+    // Older audits keep checkpoints directly on the section (no stages).
+    (section?.stages || [{ checkPoints: section?.checkPoints }]).forEach((st) => {
       (st.checkPoints || []).forEach((cp) => {
         imageColIds.forEach((colId) => {
           const val = cp[colId];

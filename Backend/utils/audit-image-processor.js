@@ -1,3 +1,5 @@
+import fs from "fs";
+import { DIRS } from "./storage/config.js";
 import {
   saveImageFromBase64,
   deleteMultipleImages,
@@ -148,15 +150,34 @@ export const extractImageFilenames = (sections) => {
   return filenames;
 };
 
-/**
- * Compares old and new sections; deletes any images that were removed.
- */
-export const cleanupRemovedImages = async (oldSections, newSections) => {
-  const oldImages = new Set(extractImageFilenames(oldSections));
-  const newImages = new Set(extractImageFilenames(newSections));
-  const removed = [...oldImages].filter((img) => !newImages.has(img));
+// Same sanitising generateImageFileName applies to the audit code prefix.
+const imagePrefixFor = (auditCode) =>
+  `${String(auditCode || "").replace(/[^a-zA-Z0-9_-]/g, "").substring(0, 20)}_`;
 
-  if (!removed.length) return { success: true, deletedCount: 0 };
-  console.log(`Cleaning up ${removed.length} removed images`);
-  return deleteMultipleImages(removed);
+/**
+ * Deletes this audit's photo files that its final sections no longer use.
+ *
+ * Run only when the audit is submitted — never on draft autosaves. Autosaves
+ * overlap while photos are being taken; deleting on each save removed files
+ * that the entry screen (or a later save) still referenced, leaving submitted
+ * audits pointing at missing photos. Until submit, unused files just wait.
+ * Only files named "<auditCode>_…" are touched, so a filename planted from
+ * another audit can never get that audit's evidence deleted.
+ */
+export const cleanupUnreferencedAuditImages = async (sections, auditCode) => {
+  const prefix = imagePrefixFor(auditCode);
+  if (prefix === "_") return { success: true, deletedCount: 0 };
+  const referenced = new Set(extractImageFilenames(sections));
+  let files = [];
+  try {
+    files = await fs.promises.readdir(DIRS.auditImages);
+  } catch {
+    return { success: true, deletedCount: 0 };
+  }
+  const unused = files.filter(
+    (f) => f.startsWith(prefix) && SAVED_IMAGE_NAME.test(f) && !referenced.has(f),
+  );
+  if (!unused.length) return { success: true, deletedCount: 0 };
+  console.log(`Cleaning up ${unused.length} unused image(s) for ${auditCode}`);
+  return deleteMultipleImages(unused);
 };

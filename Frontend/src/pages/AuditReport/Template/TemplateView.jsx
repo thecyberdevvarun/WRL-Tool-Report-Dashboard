@@ -25,6 +25,7 @@ import { MdOutlineFactCheck } from "react-icons/md";
 import useAuditData from "../../../hooks/useAuditData";
 import toast from "react-hot-toast";
 import { ROLES } from "../../../config/routes.config";
+import ReferenceDocs from "../components/common/ReferenceDocs";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const APPROVAL_STATUS_CFG = {
@@ -315,10 +316,11 @@ const TemplateView = () => {
   const navigate = useNavigate();
   const { user } = useSelector((store) => store.auth);
 
-  const { getTemplateById, updateTemplate, deleteTemplate, duplicateTemplate } =
+  const { getTemplateById, updateTemplate, deleteTemplate, duplicateTemplate, uploadTemplateDocument, removeTemplateDocument } =
     useAuditData();
 
   const [template, setTemplate] = useState(null);
+  const [docBusy, setDocBusy] = useState(null); // "bom" | "crf" while saving
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -388,11 +390,44 @@ const TemplateView = () => {
     }
   };
 
+  const handleDocUpload = async (kind, file) => {
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("File is larger than 20 MB");
+      return;
+    }
+    setDocBusy(kind);
+    try {
+      const docs = await uploadTemplateDocument(id, kind, file);
+      setTemplate((t) => ({ ...t, ...docs }));
+      toast.success(`${kind === "bom" ? "BOM Sheet" : "CRF"} uploaded`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDocBusy(null);
+    }
+  };
+
+  const handleDocRemove = async (kind) => {
+    const label = kind === "bom" ? "BOM Sheet" : "CRF";
+    if (!window.confirm(`Remove the ${label} from this template? Audits already started keep their copy.`)) return;
+    setDocBusy(kind);
+    try {
+      const docs = await removeTemplateDocument(id, kind);
+      setTemplate((t) => ({ ...t, ...docs }));
+      toast.success(`${label} removed`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDocBusy(null);
+    }
+  };
+
   const handleApprove = async () => {
     setActing("approve");
     try {
       await updateTemplate(id, {
         approvalStatus: "approved",
+        version: template.version,
         approvedBy: user?.name || createdByUser(),
         approvedAt: new Date().toISOString(),
         createdByUser: createdByUser(),
@@ -415,6 +450,7 @@ const TemplateView = () => {
     try {
       await updateTemplate(id, {
         approvalStatus: "rejected",
+        version: template.version,
         rejectionReason: rejectionReason.trim(),
         approvedBy: user?.name || createdByUser(),
         approvedAt: new Date().toISOString(),
@@ -932,6 +968,14 @@ const TemplateView = () => {
             </div>
           </div>
         </div>
+
+        {/* ── BOM Sheet / CRF ───────────────────────────────────────────── */}
+        <ReferenceDocs
+          docs={template}
+          busyKind={docBusy}
+          onUpload={canCreateEdit ? handleDocUpload : undefined}
+          onRemove={canCreateEdit ? handleDocRemove : undefined}
+        />
 
         {/* ── Audit-format template table ─────────────────────────────────── */}
         {(() => {

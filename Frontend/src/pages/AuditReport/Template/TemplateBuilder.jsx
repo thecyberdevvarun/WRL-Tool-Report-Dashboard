@@ -45,6 +45,7 @@ import TemplateHistoryPanel from "./components/TemplateHistoryPanel";
 import { selectCheckpointLibrary } from "../../../redux/slices/masterConfigSlice";
 import { useAddCheckpointLibraryEntryMutation, useIncrementCheckpointUsageMutation } from "../../../redux/api/masterConfigApi";
 import { DEFAULT_IMAGE_CAPTURE_ITEMS } from "../constants/imageCapture.js";
+import ReferenceDocs from "../components/common/ReferenceDocs";
 
 // ── Highlight matching text in search results ─────────────────────────────────
 const Highlight = ({ text = "", query = "" }) => {
@@ -219,7 +220,35 @@ const TemplateBuilder = () => {
   const checkpointLibrary = useSelector(selectCheckpointLibrary);
   const [addCheckpointLibraryEntry] = useAddCheckpointLibraryEntryMutation();
   const [incrementCheckpointUsage] = useIncrementCheckpointUsageMutation();
-  const { createTemplate, createTemplateVersion, updateTemplate, getTemplateById } = useAuditData();
+  const { createTemplate, createTemplateVersion, updateTemplate, getTemplateById, uploadTemplateDocument, removeTemplateDocument } = useAuditData();
+  // BOM Sheet / CRF of a saved template (uploaded independently of versions).
+  const [refDocs, setRefDocs] = useState(null);
+  const [docBusy, setDocBusy] = useState(null);
+  const docLabel = (kind) => (kind === "bom" ? "BOM Sheet" : "CRF");
+  const handleDocUpload = async (kind, file) => {
+    if (file.size > 20 * 1024 * 1024) { toast.error("File is larger than 20 MB"); return; }
+    setDocBusy(kind);
+    try {
+      setRefDocs(await uploadTemplateDocument(id, kind, file));
+      toast.success(`${docLabel(kind)} uploaded`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDocBusy(null);
+    }
+  };
+  const handleDocRemove = async (kind) => {
+    if (!window.confirm(`Remove the ${docLabel(kind)} from this template? Audits already started keep their copy.`)) return;
+    setDocBusy(kind);
+    try {
+      setRefDocs(await removeTemplateDocument(id, kind));
+      toast.success(`${docLabel(kind)} removed`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDocBusy(null);
+    }
+  };
 
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [showInfoFieldManager, setShowInfoFieldManager] = useState(false);
@@ -342,6 +371,7 @@ const TemplateBuilder = () => {
       try {
         const tmpl = await getTemplateById(id);
         if (tmpl) {
+          setRefDocs(tmpl);
           setTemplateMeta({
             name: tmpl.name || "",
             description: tmpl.description || "",
@@ -1240,6 +1270,23 @@ const TemplateBuilder = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* BOM Sheet / CRF reference files — not part of the versioned content,
+          so they can be added or replaced even on an approved template. */}
+      <div className="mx-6 mt-4">
+        {id ? (
+          <ReferenceDocs
+            docs={refDocs}
+            busyKind={docBusy}
+            onUpload={canCreateEdit ? handleDocUpload : undefined}
+            onRemove={canCreateEdit ? handleDocRemove : undefined}
+          />
+        ) : (
+          <div className="bg-white rounded-xl border border-dashed border-gray-300 p-4 text-xs text-gray-500">
+            <b className="text-gray-700">BOM Sheet &amp; CRF:</b> save the template once, then upload them here (PDF or Excel).
+          </div>
+        )}
       </div>
 
       {/* Header config */}

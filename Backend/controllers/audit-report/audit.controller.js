@@ -5,7 +5,7 @@ import { convertToIST } from "../../utils/convert-to-ist.js";
 import { generateAuditCode } from "../../utils/generate-code.js";
 import {
   processAuditImages,
-  cleanupRemovedImages,
+  cleanupUnreferencedAuditImages,
 } from "../../utils/audit-image-processor.js";
 import { deleteMultipleImages } from "../../utils/storage/image-storage.js";
 import { readTemplateFile } from "../../utils/storage/template-storage.js";
@@ -64,6 +64,20 @@ const calculateSummary = (sections) => {
 
   const total = pass + fail + warning + pending + na;
   return { pass, fail, warning, pending, na, total };
+};
+
+// Query-string date/int filters: a bad value is the caller's mistake (400),
+// not a server error from the SQL driver.
+const parseDateParam = (value, name) => {
+  if (value === undefined || value === null || value === "") return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) throw new AppError(`Invalid ${name}`, 400);
+  return d;
+};
+const parseIntParam = (value, name) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (!/^\d{1,10}$/.test(String(value))) throw new AppError(`Invalid ${name}`, 400);
+  return Number(value);
 };
 
 const safeJsonParse = (str, defaultVal) => {
@@ -130,6 +144,61 @@ export const assertCompleteForSubmit = (sections, infoFields, infoData) => {
   }
 };
 
+// Template checkpoints (stage-structured, with ids) must all still be in a
+// submitted audit — the entry screen only lets auditors remove their own
+// custom checkpoints, so a missing one means a crafted/stale request.
+export const assertTemplateCheckpointsPresent = (sections, templateSections) => {
+  const submitted = new Set();
+  for (const section of sections || []) {
+    for (const stage of section?.stages || [{ checkPoints: section?.checkPoints }]) {
+      for (const cp of stage?.checkPoints || []) if (cp?.id) submitted.add(String(cp.id));
+    }
+  }
+  const missing = [];
+  for (const section of templateSections || []) {
+    for (const stage of section?.stages || []) {
+      for (const cp of stage?.checkPoints || []) {
+        if (cp?.id && !submitted.has(String(cp.id))) missing.push(cp.checkPoint || cp.id);
+      }
+    }
+  }
+  if (missing.length) {
+    const sample = missing.slice(0, 3).map((t) => `"${t}"`).join(", ");
+    throw new AppError(
+      `Audit is missing ${missing.length} checkpoint(s) from the template: ${sample}${missing.length > 3 ? ", …" : ""}. Please reload the audit.`,
+      400,
+    );
+  }
+};
+
+// Template content (columns/infoFields/headerConfig/defaultSections) as the
+// server holds it — for a given version when known, else the active one.
+// Returns null when no content can be found (legacy row with missing file).
+const loadTemplateContent = async (pool, templateId, version = null) => {
+  if (version) {
+    const r = await pool.request()
+      .input("templateId", sql.Int, templateId)
+      .input("version", sql.NVarChar(20), version)
+      .query("SELECT TOP 1 * FROM AuditTemplateContent WHERE TemplateId = @templateId AND Version = @version");
+    if (r.recordset.length) return assembleContent(r.recordset[0]);
+  }
+  const t = await pool.request()
+    .input("templateId", sql.Int, templateId)
+    .query("SELECT CurrentVersionContentId, TemplateFileName FROM AuditTemplates WHERE Id = @templateId");
+  const tmpl = t.recordset[0];
+  if (!tmpl) return null;
+  if (tmpl.CurrentVersionContentId && !version) {
+    const r = await pool.request()
+      .input("contentId", sql.Int, tmpl.CurrentVersionContentId)
+      .query("SELECT * FROM AuditTemplateContent WHERE Id = @contentId");
+    if (r.recordset.length) return assembleContent(r.recordset[0]);
+  }
+  if (tmpl.TemplateFileName && !version) {
+    return readTemplateFile(tmpl.TemplateFileName).catch(() => null);
+  }
+  return null;
+};
+
 // CreatedBy holds whichever identifier was current when the audit was made —
 // older rows a numeric usercode, newer ones the display name — so ownership
 // matches any of the caller's identifiers, as the list/entry screens do.
@@ -159,6 +228,15 @@ export const assertCanDeleteAudit = (req, audit) => {
 const assertAuditApprover = (req) => {
   if (!AUDIT_APPROVER_ROLES.includes(roleOf(req))) {
     throw new AppError("Only a Line Quality Engineer can approve or reject audits", 403);
+  }
+};
+
+// Four-eyes rule: whoever created or submitted the audit doesn't decide on it
+// (Super Admin excepted, as everywhere else in this module).
+const assertNotOwnAudit = (req, audit) => {
+  if (roleOf(req) === "super admin") return;
+  if (isAuditOwner(req, audit.CreatedBy) || isAuditOwner(req, audit.SubmittedBy)) {
+    throw new AppError("You cannot approve or reject an audit you created or submitted", 403);
   }
 };
 
@@ -208,7 +286,7 @@ export const getAllAudits = tryCatch(async (req, res) => {
   // Note: When no status specified, return all audits (frontend will filter)
 
   if (templateId) {
-    request.input("templateId", sql.Int, templateId);
+    request.input("templateId", sql.Int, parseIntParam(templateId, "templateId"));
     whereConditions.push("TemplateId = @templateId");
   }
   if (search) {
@@ -218,11 +296,11 @@ export const getAllAudits = tryCatch(async (req, res) => {
     );
   }
   if (startDate) {
-    request.input("startDate", sql.DateTime, new Date(startDate));
+    request.input("startDate", sql.DateTime, parseDateParam(startDate, "startDate"));
     whereConditions.push("CreatedAt >= @startDate");
   }
   if (endDate) {
-    request.input("endDate", sql.DateTime, new Date(endDate));
+    request.input("endDate", sql.DateTime, parseDateParam(endDate, "endDate"));
     whereConditions.push("CreatedAt <= @endDate");
   }
 
@@ -285,7 +363,8 @@ export const getAuditById = tryCatch(async (req, res) => {
       InfoData, Sections, Columns, InfoFields, HeaderConfig,
       Signatures, Summary,
       StartedAt, CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
-      SubmittedBy, SubmittedAt, ApprovedBy, ApprovedAt, ApprovalComments
+      SubmittedBy, SubmittedAt, ApprovedBy, ApprovedAt, ApprovalComments,
+      BomFileName, BomOriginalName, CrfFileName, CrfOriginalName
     FROM Audits
     WHERE Id = @id AND IsDeleted = 0
   `);
@@ -333,6 +412,9 @@ export const createAudit = tryCatch(async (req, res) => {
   if (!templateId || !reportName) {
     throw new AppError("Template ID and Report Name are required", 400);
   }
+  parseIntParam(templateId, "templateId");
+  if (startedAt) parseDateParam(startedAt, "startedAt");
+  if (revDate) parseDateParam(revDate, "revDate");
   assertEditableStatus(status);
 
   const auditCode = await generateAuditCode("AUD");
@@ -361,6 +443,7 @@ export const createAudit = tryCatch(async (req, res) => {
     let finalTemplateFileName = null;
     let finalTemplateHash = null;
     let finalTemplateSize = null;
+    let templateContent = null;
 
     // Columns/InfoFields/HeaderConfig live in the template's content (SQL-backed
     // AuditTemplateContent for migrated templates, or the legacy JSON config
@@ -371,7 +454,7 @@ export const createAudit = tryCatch(async (req, res) => {
       .request()
       .input("templateId", sql.Int, templateId)
       .query(
-        "SELECT Name, Version, TemplateFileName, TemplateHash, TemplateSize, CurrentVersionContentId, ApprovalStatus FROM AuditTemplates WHERE Id = @templateId AND IsDeleted = 0",
+        "SELECT Name, Version, TemplateFileName, TemplateHash, TemplateSize, CurrentVersionContentId, ApprovalStatus, BomFileName, BomOriginalName, CrfFileName, CrfOriginalName FROM AuditTemplates WHERE Id = @templateId AND IsDeleted = 0",
       );
 
     if (!templateResult.recordset.length) throw new AppError("Template not found", 404);
@@ -390,23 +473,19 @@ export const createAudit = tryCatch(async (req, res) => {
       finalTemplateHash = tmpl.TemplateHash;
       finalTemplateSize = tmpl.TemplateSize;
 
-      if (!columns || !infoFields || !headerConfig) {
-        let config = null;
-        if (tmpl.CurrentVersionContentId) {
-          const contentResult = await pool.request()
-            .input("contentId", sql.Int, tmpl.CurrentVersionContentId)
-            .query("SELECT * FROM AuditTemplateContent WHERE Id = @contentId");
-          if (contentResult.recordset.length) config = assembleContent(contentResult.recordset[0]);
-        } else if (tmpl.TemplateFileName) {
-          config = await readTemplateFile(tmpl.TemplateFileName).catch(() => null);
-        }
-        finalColumns = columns || config?.columns || [];
-        finalInfoFields = infoFields || config?.infoFields || [];
-        finalHeaderConfig = headerConfig || config?.headerConfig || {};
-      }
+      // Always the server's copy of the template — client-sent columns/
+      // infoFields could drop "required" flags and skip the submit checks.
+      // Client values are only a fallback for a legacy row whose file is gone.
+      templateContent = await loadTemplateContent(pool, templateId);
+      finalColumns = templateContent?.columns || columns || [];
+      finalInfoFields = templateContent?.infoFields || infoFields || [];
+      finalHeaderConfig = templateContent?.headerConfig || headerConfig || {};
     }
 
-    if (status === "submitted") assertCompleteForSubmit(processedSections, finalInfoFields, infoData);
+    if (status === "submitted") {
+      assertCompleteForSubmit(processedSections, finalInfoFields, infoData);
+      assertTemplateCheckpointsPresent(processedSections, templateContent?.defaultSections);
+    }
 
     const audit = await inTransaction(pool, async (tx) => {
       const result = await tx
@@ -418,6 +497,11 @@ export const createAudit = tryCatch(async (req, res) => {
         .input("templateFileName", sql.NVarChar(500), finalTemplateFileName)
         .input("templateHash", sql.NVarChar(64), finalTemplateHash)
         .input("templateSize", sql.Int, finalTemplateSize)
+        // BOM Sheet / CRF in force right now — this audit keeps showing these.
+        .input("bomFileName", sql.NVarChar(500), templateResult.recordset[0].BomFileName)
+        .input("bomOriginalName", sql.NVarChar(500), templateResult.recordset[0].BomOriginalName)
+        .input("crfFileName", sql.NVarChar(500), templateResult.recordset[0].CrfFileName)
+        .input("crfOriginalName", sql.NVarChar(500), templateResult.recordset[0].CrfOriginalName)
         .input("reportName", sql.NVarChar, reportName)
         .input("formatNo", sql.NVarChar(50), formatNo || null)
         .input("revNo", sql.NVarChar(50), revNo || null)
@@ -444,7 +528,8 @@ export const createAudit = tryCatch(async (req, res) => {
             ReportName, FormatNo, RevNo, RevDate,
             Notes, Status, InfoData, Sections, Columns, InfoFields, HeaderConfig,
             Signatures, Summary, StartedAt, SubmittedAt, SubmittedBy,
-            CreatedBy, CreatedAt, UpdatedBy, UpdatedAt
+            CreatedBy, CreatedAt, UpdatedBy, UpdatedAt,
+            BomFileName, BomOriginalName, CrfFileName, CrfOriginalName
           )
           OUTPUT INSERTED.*
           VALUES (
@@ -452,7 +537,8 @@ export const createAudit = tryCatch(async (req, res) => {
             @reportName, @formatNo, @revNo, @revDate,
             @notes, @status, @infoData, @sections, @columns, @infoFields, @headerConfig,
             @signatures, @summary, @startedAt, @submittedAt, @submittedBy,
-            @createdBy, GETDATE(), @createdBy, GETDATE()
+            @createdBy, GETDATE(), @createdBy, GETDATE(),
+            @bomFileName, @bomOriginalName, @crfFileName, @crfOriginalName
           );
         `);
 
@@ -557,11 +643,17 @@ export const updateAudit = tryCatch(async (req, res) => {
     }
 
     if (status === "submitted") {
+      const submittedSections = processedSections ?? safeJsonParse(currentAudit.Sections, []);
       assertCompleteForSubmit(
-        processedSections ?? safeJsonParse(currentAudit.Sections, []),
+        submittedSections,
         safeJsonParse(currentAudit.InfoFields, []),
         infoData ?? safeJsonParse(currentAudit.InfoData, {}),
       );
+      // Checked against the template version this audit was started on.
+      if (currentAudit.TemplateVersion) {
+        const content = await loadTemplateContent(pool, currentAudit.TemplateId, currentAudit.TemplateVersion);
+        assertTemplateCheckpointsPresent(submittedSections, content?.defaultSections);
+      }
     }
 
     const summary = processedSections
@@ -619,6 +711,9 @@ export const updateAudit = tryCatch(async (req, res) => {
         )
         .input("summary", sql.NVarChar(sql.MAX), JSON.stringify(summary))
         .input("prevStatus", sql.NVarChar(50), currentAudit.Status)
+        // Resubmitting after rework: the earlier rework decision no longer
+        // applies to this submission (it stays in AuditHistory).
+        .input("clearDecision", sql.Bit, nextStatus === "submitted" && currentAudit.Status === "rework" ? 1 : 0)
         .input("updatedBy", sql.NVarChar(200), updatedBy).query(`
           UPDATE Audits
           SET
@@ -626,6 +721,9 @@ export const updateAudit = tryCatch(async (req, res) => {
             RevDate = @revDate, Notes = @notes, Status = @status,
             InfoData = @infoData, Sections = @sections, Signatures = @signatures,
             Summary = @summary, SubmittedAt = @submittedAt, SubmittedBy = @submittedBy,
+            ApprovedBy = CASE WHEN @clearDecision = 1 THEN NULL ELSE ApprovedBy END,
+            ApprovedAt = CASE WHEN @clearDecision = 1 THEN NULL ELSE ApprovedAt END,
+            ApprovalComments = CASE WHEN @clearDecision = 1 THEN NULL ELSE ApprovalComments END,
             UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
           OUTPUT INSERTED.*
           WHERE Id = @id AND IsDeleted = 0 AND Status = @prevStatus;
@@ -658,8 +756,10 @@ export const updateAudit = tryCatch(async (req, res) => {
     // Only once the new sections are committed is it safe to remove files the
     // update dropped — doing it first left the DB pointing at deleted files
     // whenever the save failed.
-    if (sections) {
-      await cleanupRemovedImages(safeJsonParse(currentAudit.Sections, []), processedSections);
+    // Photo cleanup waits for submission (see cleanupUnreferencedAuditImages).
+    if (audit.Status === "submitted") {
+      await cleanupUnreferencedAuditImages(safeJsonParse(audit.Sections, []), audit.AuditCode)
+        .catch((err) => console.warn("Image cleanup failed:", err.message));
     }
 
     res.status(200).json({
@@ -713,14 +813,21 @@ export const deleteAudit = tryCatch(async (req, res) => {
 
   // Soft delete — images stay on disk so a restored audit keeps its evidence.
   await inTransaction(pool, async (tx) => {
-    await tx
+    // Status re-checked in the UPDATE: it may have been submitted/approved
+    // between the permission check above and this write.
+    const del = await tx
       .request()
       .input("id", sql.Int, id)
+      .input("prevStatus", sql.NVarChar(50), currentAudit.Status)
       .input("updatedBy", sql.NVarChar(200), updatedBy).query(`
         UPDATE Audits
         SET IsDeleted = 1, UpdatedBy = @updatedBy, UpdatedAt = GETDATE()
-        WHERE Id = @id;
+        OUTPUT INSERTED.Id
+        WHERE Id = @id AND IsDeleted = 0 AND Status = @prevStatus;
       `);
+    if (!del.recordset.length) {
+      throw new AppError("This audit was changed by someone else. Please refresh.", 409);
+    }
 
     await tx
       .request()
@@ -759,6 +866,7 @@ export const approveAudit = tryCatch(async (req, res) => {
     throw new AppError("Audit not found", 404);
 
   const currentAudit = checkResult.recordset[0];
+  assertNotOwnAudit(req, currentAudit);
   if (currentAudit.Status !== "submitted") {
     throw new AppError(
       `Cannot approve audit with status: ${currentAudit.Status}`,
@@ -830,13 +938,15 @@ export const rejectAudit = tryCatch(async (req, res) => {
   const { comments, isRework } = req.body;
 
   if (!id) throw new AppError("Audit ID is required", 400);
-  if (!comments) throw new AppError("Rejection reason is required", 400);
+  if (!String(comments || "").trim()) throw new AppError("Rejection reason is required", 400);
   assertAuditApprover(req);
 
   const approverName = actorOf(req);
   const rejectedBy = approverName;
-  const newStatus = isRework ? 'rework' : 'rejected';
-  const actionType = isRework ? 'rework' : 'rejected';
+  // Strict: a string like "false" must not send the audit to rework.
+  const rework = isRework === true || isRework === "true";
+  const newStatus = rework ? 'rework' : 'rejected';
+  const actionType = rework ? 'rework' : 'rejected';
 
   const pool = global.pool3;
   const checkResult = await pool
@@ -848,6 +958,7 @@ export const rejectAudit = tryCatch(async (req, res) => {
     throw new AppError("Audit not found", 404);
 
   const currentAudit = checkResult.recordset[0];
+  assertNotOwnAudit(req, currentAudit);
   if (currentAudit.Status !== "submitted") {
     throw new AppError(
       `Cannot reject audit with status: ${currentAudit.Status}`,
@@ -890,7 +1001,7 @@ export const rejectAudit = tryCatch(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: isRework ? "Audit sent for rework successfully" : "Audit rejected successfully",
+    message: rework ? "Audit sent for rework successfully" : "Audit rejected successfully",
     data: {
       ...audit,
       InfoData: safeJsonParse(audit.InfoData, {}),
@@ -934,15 +1045,15 @@ export const getAuditStats = tryCatch(async (req, res) => {
   const whereConditions = ["IsDeleted = 0"];
 
   if (startDate) {
-    request.input("startDate", sql.DateTime, new Date(startDate));
+    request.input("startDate", sql.DateTime, parseDateParam(startDate, "startDate"));
     whereConditions.push("CreatedAt >= @startDate");
   }
   if (endDate) {
-    request.input("endDate", sql.DateTime, new Date(endDate));
+    request.input("endDate", sql.DateTime, parseDateParam(endDate, "endDate"));
     whereConditions.push("CreatedAt <= @endDate");
   }
   if (templateId) {
-    request.input("templateId", sql.Int, templateId);
+    request.input("templateId", sql.Int, parseIntParam(templateId, "templateId"));
     whereConditions.push("TemplateId = @templateId");
   }
 
@@ -953,7 +1064,16 @@ export const getAuditStats = tryCatch(async (req, res) => {
       COUNT(*) AS TotalAudits,
       SUM(CASE WHEN Status = 'submitted' THEN 1 ELSE 0 END) AS SubmittedCount,
       SUM(CASE WHEN Status = 'approved' THEN 1 ELSE 0 END) AS ApprovedCount,
-      SUM(CASE WHEN Status = 'rejected' THEN 1 ELSE 0 END) AS RejectedCount
+      SUM(CASE WHEN Status = 'rejected' THEN 1 ELSE 0 END) AS RejectedCount,
+      SUM(CASE WHEN Status = 'rework' THEN 1 ELSE 0 END) AS ReworkCount,
+      SUM(CASE WHEN Status = 'draft' THEN 1 ELSE 0 END) AS DraftCount,
+      -- Checkpoint totals across every matching audit (Summary JSON written on save).
+      SUM(ISNULL(TRY_CAST(JSON_VALUE(Summary, '$.pass') AS INT), 0)) AS CpPass,
+      SUM(ISNULL(TRY_CAST(JSON_VALUE(Summary, '$.fail') AS INT), 0)) AS CpFail,
+      SUM(ISNULL(TRY_CAST(JSON_VALUE(Summary, '$.warning') AS INT), 0)) AS CpWarning,
+      SUM(ISNULL(TRY_CAST(JSON_VALUE(Summary, '$.na') AS INT), 0)) AS CpNa,
+      SUM(ISNULL(TRY_CAST(JSON_VALUE(Summary, '$.pending') AS INT), 0)) AS CpPending,
+      SUM(ISNULL(TRY_CAST(JSON_VALUE(Summary, '$.total') AS INT), 0)) AS CpTotal
     FROM Audits
     ${whereClause};
   `);
@@ -989,8 +1109,8 @@ export const getAuditModelSummary = tryCatch(async (req, res) => {
   const defaultStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0);
   const defaultEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 20, 0, 0);
 
-  const start = convertToIST(startDate ? new Date(startDate) : defaultStart);
-  const end   = convertToIST(endDate   ? new Date(endDate)   : defaultEnd);
+  const start = convertToIST(parseDateParam(startDate, "startDate") || defaultStart);
+  const end   = convertToIST(parseDateParam(endDate, "endDate") || defaultEnd);
 
   // ── Step 1: Production count + Audit Required per model (production DB) ──
   let prodRows = [];
@@ -1038,6 +1158,8 @@ export const getAuditModelSummary = tryCatch(async (req, res) => {
           COUNT(*)                            AS AuditDone
         FROM Audits
         WHERE  IsDeleted = 0
+          -- Drafts, rework and rejected audits are not a completed audit.
+          AND  Status IN ('submitted', 'approved')
           AND  CreatedAt BETWEEN @StartDate AND @EndDate
           AND  JSON_VALUE(InfoData, '$.modelName') IS NOT NULL
         GROUP BY JSON_VALUE(InfoData, '$.modelName');
