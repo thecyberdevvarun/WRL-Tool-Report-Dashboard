@@ -532,6 +532,12 @@ export const ROUTE_CONFIG = [
         component: BarcodeReprint,
         group: "general",
       },
+      {
+        path: "/quality/mass-flow-report",
+        label: "Mass Flow Report",
+        component: MassFlowReport,
+        group: "general",
+      },
       { path: "/quality/lpt", label: "LPT", component: LPT, group: "lpt" },
       {
         path: "/quality/lpt-report",
@@ -543,12 +549,6 @@ export const ROUTE_CONFIG = [
         path: "/quality/lpt-recipe",
         label: "LPT Recipe",
         component: LPTRecipe,
-        group: "lpt",
-      },
-      {
-        path: "/quality/mass-flow-report",
-        label: "Mass Flow Report",
-        component: MassFlowReport,
         group: "lpt",
       },
       { path: "/quality/fpa", label: "FPA", component: FPA, group: "fpa" },

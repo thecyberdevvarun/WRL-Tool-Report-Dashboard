@@ -15,18 +15,22 @@ async function getPool() {
 
   // Close stale pool if it exists
   if (_pool) {
-    try { await _pool.close(); } catch { /* ignore */ }
+    try {
+      await _pool.close();
+    } catch {
+      /* ignore */
+    }
     _pool = null;
   }
 
   try {
     _pool = await new sql.ConnectionPool({
       ...dbConfig1,
-      requestTimeout:    120_000,
-      connectionTimeout:  30_000,
+      requestTimeout: 120_000,
+      connectionTimeout: 30_000,
       pool: {
-        max:              10,
-        min:               2,
+        max: 10,
+        min: 2,
         idleTimeoutMillis: 30_000,
       },
     }).connect();
@@ -53,15 +57,22 @@ function extractParams(query) {
     throw new AppError("startTime and endTime are required", 400);
 
   const istStart = convertToIST(startTime);
-  const istEnd   = convertToIST(endTime);
+  const istEnd = convertToIST(endTime);
 
   if (istEnd <= istStart)
     throw new AppError("endTime must be after startTime", 400);
 
-  const parsedPage  = Math.max(1, parseInt(page,  10) || 1);
+  const parsedPage = Math.max(1, parseInt(page, 10) || 1);
   const parsedLimit = Math.min(500, Math.max(1, parseInt(limit, 10) || 100));
 
-  return { istStart, istEnd, model, compType, page: parsedPage, limit: parsedLimit };
+  return {
+    istStart,
+    istEnd,
+    model,
+    compType,
+    page: parsedPage,
+    limit: parsedLimit,
+  };
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -102,20 +113,45 @@ const BASE_CTE = `
 /* ─────────────────────────────────────────────────────────────
    SQL builder
    ───────────────────────────────────────────────────────────── */
+// compType may be one code ("12"), several ("12,15,18" or an array), or empty / "0" for all.
+// Returns a de-duplicated list of codes; an empty list means "no filter".
+function parseCodeList(raw) {
+  const text = Array.isArray(raw) ? raw.join(",") : String(raw ?? "");
+  const list = [
+    ...new Set(
+      text
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s && s !== "0"),
+    ),
+  ];
+  if (list.length > 100)
+    throw new AppError("Too many component types selected (max 100)", 400);
+  return list;
+}
+
 function buildRequest(pool, { istStart, istEnd, model, compType }) {
-  const request = pool.request()
+  const request = pool
+    .request()
     .input("startTime", sql.DateTime, istStart)
-    .input("endTime",   sql.DateTime, istEnd);
+    .input("endTime", sql.DateTime, istEnd);
 
-  const modelFilter    = model    && String(model)    !== "0";
-  const compTypeFilter = compType && String(compType) !== "0";
+  const modelFilter = model && String(model) !== "0";
+  const compTypes = parseCodeList(compType);
 
-  if (modelFilter)    request.input("model",    sql.VarChar, String(model));
-  if (compTypeFilter) request.input("compType", sql.VarChar, String(compType));
+  if (modelFilter) request.input("model", sql.VarChar, String(model));
+
+  // One bound parameter per selected code → "IN (@compType0, @compType1, ...)"
+  const compTypeParams = compTypes.map((code, i) => {
+    request.input(`compType${i}`, sql.VarChar, code);
+    return `@compType${i}`;
+  });
 
   const whereExtras = [
-    modelFilter    ? "AND MATBM.MatCode       = @model"    : "",
-    compTypeFilter ? "AND MatCat.CategoryCode = @compType" : "",
+    modelFilter ? "AND MATBM.MatCode       = @model" : "",
+    compTypeParams.length
+      ? `AND MatCat.CategoryCode IN (${compTypeParams.join(", ")})`
+      : "",
   ].join("\n");
 
   return { request, whereExtras };
@@ -164,12 +200,12 @@ function buildMainSelectBlock(whereExtras) {
    ───────────────────────────────────────────────────────────── */
 export const generateReport = tryCatch(async (req, res) => {
   const params = extractParams(req.query);
-  const pool   = await getPool();
+  const pool = await getPool();
   const { request, whereExtras } = buildRequest(pool, params);
 
   const offset = (params.page - 1) * params.limit;
   request.input("offset", sql.Int, offset);
-  request.input("limit",  sql.Int, params.limit);
+  request.input("limit", sql.Int, params.limit);
 
   const query = `
     ${BASE_CTE}
@@ -182,9 +218,9 @@ export const generateReport = tryCatch(async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Component Traceability Report generated successfully",
-      data:    result.recordset,
+      data: result.recordset,
       meta: {
-        page:  params.page,
+        page: params.page,
         limit: params.limit,
         count: result.recordset.length,
       },
@@ -199,7 +235,7 @@ export const generateReport = tryCatch(async (req, res) => {
    ───────────────────────────────────────────────────────────── */
 export const componentTraceabilityExportData = tryCatch(async (req, res) => {
   const params = extractParams(req.query);
-  const pool   = await getPool();
+  const pool = await getPool();
   const { request, whereExtras } = buildRequest(pool, params);
 
   const query = `
@@ -212,8 +248,8 @@ export const componentTraceabilityExportData = tryCatch(async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Export data fetched successfully",
-      data:    result.recordset,
-      meta:    { count: result.recordset.length },
+      data: result.recordset,
+      meta: { count: result.recordset.length },
     });
   } catch (err) {
     throw new AppError(`Failed to export data: ${err.message}`, 500);
@@ -227,7 +263,7 @@ export const componentTraceabilityExportData = tryCatch(async (req, res) => {
    ───────────────────────────────────────────────────────────── */
 export const getTraceabilitySummary = tryCatch(async (req, res) => {
   const params = extractParams(req.query);
-  const pool   = await getPool();
+  const pool = await getPool();
   const { request, whereExtras } = buildRequest(pool, params);
 
   const query = `
@@ -270,15 +306,15 @@ export const getTraceabilitySummary = tryCatch(async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        totalRecords:    row.Total_Records       ?? 0,
-        uniqueComponents:row.Unique_Components   ?? 0,
-        uniqueModels:    row.Unique_Models        ?? 0,
-        uniqueSuppliers: row.Unique_Suppliers     ?? 0,
-        uniqueCompTypes: row.Unique_Comp_Types    ?? 0,
-        daySpan:         row.Day_Span             ?? 1,
+        totalRecords: row.Total_Records ?? 0,
+        uniqueComponents: row.Unique_Components ?? 0,
+        uniqueModels: row.Unique_Models ?? 0,
+        uniqueSuppliers: row.Unique_Suppliers ?? 0,
+        uniqueCompTypes: row.Unique_Comp_Types ?? 0,
+        daySpan: row.Day_Span ?? 1,
         dateRange: {
           from: row.Earliest_FG_Date,
-          to:   row.Latest_FG_Date,
+          to: row.Latest_FG_Date,
         },
       },
     });
@@ -298,16 +334,16 @@ export const getTraceabilityGrouped = tryCatch(async (req, res) => {
   // Whitelist allowed group-by columns to prevent SQL injection
   const ALLOWED_GROUP_KEYS = {
     Component_Type: "MatCat.Name",
-    Supplier_Name:  "L.Name",
-    Model_Name:     "MATBM.Name",
-    SAP_Code:       "ISNULL(mat.AltName,'NA')",
+    Supplier_Name: "L.Name",
+    Model_Name: "MATBM.Name",
+    SAP_Code: "ISNULL(mat.AltName,'NA')",
   };
 
   if (!ALLOWED_GROUP_KEYS[groupBy])
     throw new AppError(`Invalid groupBy value: ${groupBy}`, 400);
 
   const params = extractParams(req.query);
-  const pool   = await getPool();
+  const pool = await getPool();
   const { request, whereExtras } = buildRequest(pool, params);
 
   const groupCol = ALLOWED_GROUP_KEYS[groupBy];
@@ -360,7 +396,7 @@ export const getTraceabilityGrouped = tryCatch(async (req, res) => {
    ───────────────────────────────────────────────────────────── */
 export const getTraceabilityTimeline = tryCatch(async (req, res) => {
   const params = extractParams(req.query);
-  const pool   = await getPool();
+  const pool = await getPool();
   const { request, whereExtras } = buildRequest(pool, params);
 
   const query = `

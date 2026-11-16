@@ -7,6 +7,7 @@ import {
   useGetComponentTypesQuery,
 } from "../../../redux/api/commonApi.js";
 import SelectField from "../../../components/ui/SelectField.jsx";
+import MultiSelectField from "../../../components/ui/MultiSelectField.jsx";
 import DateTimePicker from "../../../components/ui/DateTimePicker.jsx";
 import Loader from "../../../components/ui/Loader.jsx";
 import ExportButton from "../../../components/ui/ExportButton.jsx";
@@ -419,7 +420,7 @@ const GroupPanel = ({ rows, groupBy, onGroupByChange }) => {
 const ComponentTraceability = () => {
   /* filters */
   const [selectedModelVariant, setSelectedModelVariant] = useState(null);
-  const [selectedCompType, setSelectedCompType] = useState(null);
+  const [selectedCompTypes, setSelectedCompTypes] = useState([]); // array of CategoryCode strings
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
@@ -462,10 +463,11 @@ const ComponentTraceability = () => {
       model: selectedModelVariant
         ? parseInt(selectedModelVariant.value, 10)
         : 0,
-      compType: selectedCompType ? parseInt(selectedCompType.value, 10) : 0,
+      // comma-separated codes, e.g. "12,15,18" (0 = all types)
+      compType: selectedCompTypes.length ? selectedCompTypes.join(",") : 0,
       ...extra,
     }),
-    [startTime, endTime, selectedModelVariant, selectedCompType],
+    [startTime, endTime, selectedModelVariant, selectedCompTypes],
   );
 
   const fetchPage = useCallback(
@@ -666,15 +668,14 @@ const ComponentTraceability = () => {
               />
             </div>
             <div className="min-w-[190px] flex-1">
-              <SelectField
+              <MultiSelectField
                 label="Component Type"
-                options={[{ value: "", label: "All Types" }, ...compTypes]}
-                value={selectedCompType?.value || ""}
-                onChange={(e) =>
-                  handleFilterChange(setSelectedCompType)(
-                    compTypes.find((o) => o.value === e.target.value) || null,
-                  )
-                }
+                options={compTypes}
+                value={selectedCompTypes}
+                onChange={handleFilterChange(setSelectedCompTypes)}
+                allLabel="All Types"
+                searchPlaceholder="Search component types..."
+                icon={Layers}
               />
             </div>
             <div className="min-w-[185px] flex-1">
