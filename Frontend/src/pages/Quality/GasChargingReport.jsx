@@ -184,7 +184,11 @@ const GasChargingReport = () => {
   ];
   const modelOptions = [
     { label: "All Models", value: "" },
-    ...(modelsData?.data?.map((m) => ({ label: m, value: m })) || []),
+    // Show the model NAME; the value stays the model number, which is what the
+    // backend filters on. Falls back to the old shape if the API hasn't updated yet.
+    ...(modelsData?.models?.map((m) => ({ label: m.label, value: m.value })) ||
+      modelsData?.data?.map((m) => ({ label: m, value: m })) ||
+      []),
   ];
   const machineOptions = [
     { label: "All Machines", value: "" },
@@ -261,7 +265,6 @@ const GasChargingReport = () => {
   const isLoading = reportLoading || reportFetching;
 
   const COLUMNS = [
-    { label: "ID", icon: <Search className="w-3 h-3" /> },
     { label: "Date/Time", icon: <Calendar className="w-3 h-3" /> },
     { label: "Barcode", icon: <Barcode className="w-3 h-3" /> },
     { label: "Model", icon: <Layers className="w-3 h-3" /> },
@@ -290,7 +293,7 @@ const GasChargingReport = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
+          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-22.5">
             <span className="text-xl font-bold font-mono text-blue-700">
               {totalCount.toLocaleString()}
             </span>
@@ -299,7 +302,7 @@ const GasChargingReport = () => {
             </span>
           </div>
           {gasChargingData.length > 0 && (
-            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 min-w-[90px]">
+            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 min-w-22.5">
               <span className="text-xl font-bold font-mono text-emerald-700">
                 {gasChargingData.length}
               </span>
@@ -322,7 +325,7 @@ const GasChargingReport = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-3 items-end">
-            <div className="min-w-[150px] flex-1">
+            <div className="min-w-37.5 flex-1">
               <SelectField
                 label="Model"
                 options={modelOptions}
@@ -332,7 +335,7 @@ const GasChargingReport = () => {
                 }
               />
             </div>
-            <div className="min-w-[150px] flex-1">
+            <div className="min-w-37.5 flex-1">
               <SelectField
                 label="Machine"
                 options={machineOptions}
@@ -342,7 +345,7 @@ const GasChargingReport = () => {
                 }
               />
             </div>
-            <div className="min-w-[150px] flex-1">
+            <div className="min-w-37.5 flex-1">
               <SelectField
                 label="Result"
                 options={performanceOptions}
@@ -354,7 +357,7 @@ const GasChargingReport = () => {
                 }
               />
             </div>
-            <div className="min-w-[150px] flex-1">
+            <div className="min-w-37.5 flex-1">
               <SelectField
                 label="Refrigerant"
                 options={refrigerantOptions}
@@ -366,7 +369,7 @@ const GasChargingReport = () => {
                 }
               />
             </div>
-            <div className="min-w-[175px] flex-1">
+            <div className="min-w-43.75 flex-1">
               <DateTimePicker
                 label="Start Date/Time"
                 name="startTime"
@@ -374,7 +377,7 @@ const GasChargingReport = () => {
                 onChange={(e) => setStartTime(e.target.value)}
               />
             </div>
-            <div className="min-w-[175px] flex-1">
+            <div className="min-w-43.75 flex-1">
               <DateTimePicker
                 label="End Date/Time"
                 name="endTime"
@@ -588,9 +591,6 @@ const GasChargingReport = () => {
                         }
                         className="cursor-pointer hover:bg-blue-50/60 transition-colors even:bg-slate-50/40"
                       >
-                        <td className="px-3 py-2 border-b border-slate-100 font-mono font-semibold text-slate-700 whitespace-nowrap">
-                          {item.Result_ID}
-                        </td>
                         <td className="px-3 py-2 border-b border-slate-100 whitespace-nowrap">
                           <div className="flex flex-col">
                             <span className="font-medium text-slate-800">
@@ -607,13 +607,10 @@ const GasChargingReport = () => {
                         <td className="px-3 py-2 border-b border-slate-100 whitespace-nowrap">
                           <div className="flex flex-col">
                             <span className="font-semibold text-slate-800">
-                              {item.MODEL}
-                            </span>
-                            <span
-                              className="text-[10px] text-slate-400 truncate max-w-[150px]"
-                              title={item.MODELNAME}
-                            >
                               {item.MODELNAME}
+                            </span>
+                            <span className="text-[10px] text-slate-400 truncate max-w-37.5">
+                              Mode Code - {item.MODEL}
                             </span>
                           </div>
                         </td>

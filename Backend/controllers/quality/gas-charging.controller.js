@@ -217,23 +217,58 @@ export const getGasChargingReport = tryCatch(async (req, res) => {
  * @route   GET /api/v1/gas-charging/models
  */
 export const getDistinctModels = tryCatch(async (req, res) => {
+  // One row per model number, with its name. MAX() picks a single name if a model
+  // number has ever been saved with more than one spelling.
   const query = `
-    SELECT DISTINCT MODEL
+    SELECT MODEL, MAX(MODELNAME) AS MODELNAME
     FROM ${TABLE_NAME}
     WHERE MODEL IS NOT NULL AND MODEL != ''
-    ORDER BY MODEL
+    GROUP BY MODEL
   `;
 
   const pool = await new sql.ConnectionPool(dbConfig1).connect();
 
   try {
     const result = await pool.request().query(query);
-    const models = result.recordset.map((item) => item.MODEL);
+    const rows = result.recordset.map((item) => ({
+      value: item.MODEL,
+      name: (item.MODELNAME ?? "").toString().trim(),
+    }));
+
+    // Two model numbers can share one name → only then append the number, so the
+    // options stay distinguishable. No name saved → fall back to the number.
+    const nameCount = {};
+    rows.forEach((r) => {
+      if (r.name) {
+        const k = r.name.toLowerCase();
+        nameCount[k] = (nameCount[k] || 0) + 1;
+      }
+    });
+
+    const options = rows
+      .map((r) => ({
+        ...r,
+        label: !r.name
+          ? r.value
+          : nameCount[r.name.toLowerCase()] > 1
+            ? `${r.name} (${r.value})`
+            : r.name,
+      }))
+      // Named models first (A→Z); any model with no saved name goes to the end.
+      .sort(
+        (a, b) =>
+          Number(!a.name) - Number(!b.name) ||
+          a.label.localeCompare(b.label, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
+      );
 
     res.status(200).json({
       success: true,
       message: "Models retrieved successfully.",
-      data: models,
+      data: options.map((o) => o.value), // unchanged shape (model numbers), kept for compatibility
+      models: options, // [{ value: MODEL, name: MODELNAME, label }] — used by the dropdown
     });
   } catch (error) {
     throw new AppError(`Failed to fetch models: ${error.message}`, 500);
