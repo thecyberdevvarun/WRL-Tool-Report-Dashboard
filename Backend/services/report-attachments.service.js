@@ -11,8 +11,6 @@ import { buildSectionsExcel } from "./report-excel.service.js";
 import { buildProductionReportExcel } from "./production-excel.service.js";
 import { fetchShiftRawData, buildDowntimeReportBlocks } from "./report-data.service.js";
 
-export const REPORT_NAMES = ["Production Report", "Downtime Report"];
-
 const BLOCK_BUILDERS = {
   "Downtime Report": async (_pool, _shift, _dateStr, raw) => buildDowntimeReportBlocks(raw),
 };

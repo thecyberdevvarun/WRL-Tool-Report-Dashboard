@@ -22,6 +22,7 @@ import chemicalRoute from "./chemical.route.js";
 import settingsRoute from "./settings.route.js";
 import gatepassRoute from "./gatepass.route.js";
 import attendanceRoute from "./attendance.route.js";
+import mailManagementRoute from "./mail-management.route.js";
 
 const routers = Router();
 
@@ -58,5 +59,8 @@ routers.use("/energy-meters", energyMeterRoute);
 // Settings
 routers.use("/permission", permissionRoutes);
 routers.use("/settings", settingsRoute);
+
+// Mail Management 
+routers.use("/mail-management", mailManagementRoute);
 
 export default routers;

@@ -12,7 +12,7 @@ import {
   Gauge,
   Cog,
   Settings2,
-  ScanEye,
+  Mail,
   Droplets,
 } from "lucide-react";
 
@@ -22,11 +22,11 @@ import {
 const Management = lazy(() => import("../pages/Display/DisplayManagement"));
 const Monitoring = lazy(() => import("../pages/Display/ProductionDashboard"));
 
-// ---------> Production Planning Module
+// ---------> PPC Team Module
 const UploadPlan = lazy(() => import("../pages/ProductionPlaning/UploadPlan"));
 const Status = lazy(() => import("../pages/ProductionPlaning/Status"));
 
-// ---------> Production Module
+// ---------> Production Team Module
 const Overview = lazy(() => import("../pages/Production/Operations/Overview"));
 const WIPCapture = lazy(
   () => import("../pages/Production/Operations/WIPCapture"),
@@ -62,9 +62,66 @@ const ScrapDetails = lazy(
 );
 const ModelTrend = lazy(() => import("../pages/Production/Trend/ModelTrend"));
 
+// ---------> Quality Team Module
+const ReworkReport = lazy(() => import("../pages/Quality/ReworkReport"));
+const GasChargingReport = lazy(
+  () => import("../pages/Quality/GasChargingReport"),
+);
+const ESTReport = lazy(() => import("../pages/Quality/ESTReport"));
+const CPTReport = lazy(() => import("../pages/Quality/CPTReport"));
+const VacuumReport = lazy(() => import("../pages/Quality/VacuumReport"));
+const BrazingReport = lazy(() => import("../pages/Quality/BrazingReport"));
+const DispatchHold = lazy(() => import("../pages/Quality/DispatchHold"));
+const HoldCabinateDetails = lazy(
+  () => import("../pages/Quality/HoldCabinateDetails"),
+);
+const TagUpdate = lazy(() => import("../pages/Quality/TagUpdate"));
+const FGScrap = lazy(() => import("../pages/Quality/FGScrap"));
+const ModelTransfer = lazy(() => import("../pages/Quality/ModelTransfer"));
+const BarcodeReprint = lazy(() => import("../pages/Quality/BarcodeReprint"));
+const LPT = lazy(() => import("../pages/Quality/LPT"));
+const LPTReport = lazy(() => import("../pages/Quality/LPTReport"));
+const LPTRecipe = lazy(() => import("../pages/Quality/LPTRecipe"));
+const MassFlowReport = lazy(() => import("../pages/Quality/MassFlowReport"));
+const FPA = lazy(() => import("../pages/Quality/FPA"));
+const FPAReports = lazy(() => import("../pages/Quality/FPAReports"));
+const FPAHistory = lazy(() => import("../pages/Quality/FPAHistory"));
+const BISDashboard = lazy(() => import("../pages/Quality/BIS/BISDashboard"));
+const BISTestLabDashboard = lazy(
+  () => import("../pages/Quality/BIS/BISTestLabDashboard"),
+);
+const BEECalculation = lazy(() => import("../pages/Quality/BEECalculation"));
+
+// ---------> Logistics Team Module
+const DispatchPerformanceReport = lazy(
+  () => import("../pages/Logistic/Reports/DispatchPerformanceReport"),
+);
+const DispatchReport = lazy(
+  () => import("../pages/Logistic/Reports/DispatchReport"),
+);
+const FGDispatchReport = lazy(
+  () => import("../pages/Logistic/Reports/UnloadingStatus"),
+);
+const DispatchUnloading = lazy(
+  () => import("../pages/Logistic/Reports/FGUnloadingReport"),
+);
+const RemoveDispatchSerials = lazy(
+  () => import("../pages/Logistic/Scanning/RemoveDispatchSerials"),
+);
+const FGCasting = lazy(
+  () => import("../pages/Logistic/Reports/FGCastingReport"),
+);
+const GateEntry = lazy(() => import("../pages/Logistic/Scanning/GateEntry"));
+const ErrorLog = lazy(() => import("../pages/Logistic/Log/ErrorLog"));
+const FGUnloadingScan = lazy(
+  () => import("../pages/Logistic/Scanning/FGUnloadingScan"),
+);
+const FGDispatchScan = lazy(
+  () => import("../pages/Logistic/Scanning/FGDispatchScan"),
+);
+
 // ---------> IOT Module
 // ── Configuration ─────────────────────────────────────────────────────────────
-const MailConfig = lazy(() => import("../pages/IOT/MasterConfig/MailConfig"));
 const MaterialConfig = lazy(
   () => import("../pages/IOT/MasterConfig/MaterialConfig"),
 );
@@ -113,66 +170,9 @@ const PartProcessDashboard = lazy(
   () => import("../pages/IOT/PartProcess/Dashboard"),
 );
 
-// ---------> Quality Module
-const ReworkReport = lazy(() => import("../pages/Quality/ReworkReport"));
-const GasChargingReport = lazy(
-  () => import("../pages/Quality/GasChargingReport"),
-);
-const ESTReport = lazy(() => import("../pages/Quality/ESTReport"));
-const CPTReport = lazy(() => import("../pages/Quality/CPTReport"));
-const VacuumReport = lazy(() => import("../pages/Quality/VacuumReport"));
-const BrazingReport = lazy(() => import("../pages/Quality/BrazingReport"));
-const DispatchHold = lazy(() => import("../pages/Quality/DispatchHold"));
-const HoldCabinateDetails = lazy(
-  () => import("../pages/Quality/HoldCabinateDetails"),
-);
-const TagUpdate = lazy(() => import("../pages/Quality/TagUpdate"));
-const FGScrap = lazy(() => import("../pages/Quality/FGScrap"));
-const ModelTransfer = lazy(() => import("../pages/Quality/ModelTransfer"));
-const BarcodeReprint = lazy(() => import("../pages/Quality/BarcodeReprint"));
-const LPT = lazy(() => import("../pages/Quality/LPT"));
-const LPTReport = lazy(() => import("../pages/Quality/LPTReport"));
-const LPTRecipe = lazy(() => import("../pages/Quality/LPTRecipe"));
-const MassFlowReport = lazy(() => import("../pages/Quality/MassFlowReport"));
-const FPA = lazy(() => import("../pages/Quality/FPA"));
-const FPAReports = lazy(() => import("../pages/Quality/FPAReports"));
-const FPAHistory = lazy(() => import("../pages/Quality/FPAHistory"));
-const BISDashboard = lazy(() => import("../pages/Quality/BIS/BISDashboard"));
-const BISTestLabDashboard = lazy(
-  () => import("../pages/Quality/BIS/BISTestLabDashboard"),
-);
-const BEECalculation = lazy(() => import("../pages/Quality/BEECalculation"));
-
 // ---------> Vision Camera Module
 const VisionCameraReport = lazy(
   () => import("../pages/VisionCamera/VisionReport"),
-);
-
-const DispatchPerformanceReport = lazy(
-  () => import("../pages/Logistic/Reports/DispatchPerformanceReport"),
-);
-const DispatchReport = lazy(
-  () => import("../pages/Logistic/Reports/DispatchReport"),
-);
-const FGDispatchReport = lazy(
-  () => import("../pages/Logistic/Reports/UnloadingStatus"),
-);
-const DispatchUnloading = lazy(
-  () => import("../pages/Logistic/Reports/FGUnloadingReport"),
-);
-const RemoveDispatchSerials = lazy(
-  () => import("../pages/Logistic/Scanning/RemoveDispatchSerials"),
-);
-const FGCasting = lazy(
-  () => import("../pages/Logistic/Reports/FGCastingReport"),
-);
-const GateEntry = lazy(() => import("../pages/Logistic/Scanning/GateEntry"));
-const ErrorLog = lazy(() => import("../pages/Logistic/Log/ErrorLog"));
-const FGUnloadingScan = lazy(
-  () => import("../pages/Logistic/Scanning/FGUnloadingScan"),
-);
-const FGDispatchScan = lazy(
-  () => import("../pages/Logistic/Scanning/FGDispatchScan"),
 );
 
 const Dashboard = lazy(() => import("../pages/Visitor/Dashboard"));
@@ -258,8 +258,13 @@ const ChemBulkStorageReport = lazy(
   () => import("../pages/Chemical/ChemBulkStorageReport"),
 );
 const ChemTankData = lazy(() => import("../pages/Chemical/ChemTankData"));
-const ChemBulkStorageMailConfig = lazy(
-  () => import("../pages/Chemical/ChemBulkStorageMailConfig"),
+
+// ── Mail Management ─────────────────────────────────────────────────────────────
+const MailRecipients = lazy(
+  () => import("../pages/MailManagement/MailRecipients"),
+);
+const MailServerConfig = lazy(
+  () => import("../pages/Settings/MailServerConfig"),
 );
 
 // ─── Role Constants ───────────────────────────────────────────────────────────
@@ -326,11 +331,11 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Production Planning Module ─────────────────────────────────────────────────────────────
+  // ── PPC Team Module ─────────────────────────────────────────────────────────────
   {
     key: "planing",
     icon: CalendarRange,
-    label: "Production Planning",
+    label: "PPC",
     basePath: "/production-planing",
     items: [
       {
@@ -440,123 +445,6 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── IOT Module Configuration ────────────────────────────────────────────────────────
-  {
-    key: "masterConfig",
-    icon: Settings2,
-    label: "IOT Config",
-    basePath: "/master-config",
-    subgroupConfig: [
-      { key: "config", label: "Configuration" },
-      { key: "admin", label: "Admin" },
-    ],
-    items: [
-      {
-        path: "/master-config/mail",
-        label: "Mail & Notifications",
-        component: MailConfig,
-        group: "admin",
-      },
-      {
-        path: "/master-config/material",
-        label: "Material",
-        component: MaterialConfig,
-        group: "config",
-      },
-      {
-        path: "/master-config/shift",
-        label: "Shift",
-        component: ShiftConfig,
-        group: "config",
-      },
-      {
-        path: "/master-config/downtime",
-        label: "Downtime Reasons",
-        component: DowntimeConfig,
-        group: "config",
-      },
-      {
-        path: "/master-config/quality",
-        label: "Quality Rejection Reasons",
-        component: QualityConfig,
-        group: "config",
-      },
-      {
-        path: "/master-config/machine",
-        label: "Machines",
-        component: MachineConfig,
-        group: "config",
-      },
-      {
-        path: "/master-config/planning",
-        label: "Production Planning",
-        component: PlanningConfig,
-        group: "config",
-      },
-    ],
-  },
-
-  // ── Part Process ─────────────────────────────────────────────────────────
-  {
-    key: "partProcess",
-    icon: Cog,
-    label: "IOT",
-    basePath: "/part-process",
-    items: [
-      {
-        path: "/part-process/overview",
-        label: "Overview",
-        component: PartProcessOverview,
-      },
-      {
-        path: "/part-process/production-report",
-        label: "Production Report",
-        component: PartProcessProductionReport,
-      },
-      {
-        path: "/part-process/hourly-report",
-        label: "Hourly Report",
-        component: PartProcessHourlyReport,
-      },
-      {
-        path: "/part-process/quality-report",
-        label: "Quality Report",
-        component: PartProcessQualityReport,
-      },
-      {
-        path: "/part-process/downtime-report",
-        label: "Downtime Report",
-        component: PartProcessDowntimeReport,
-      },
-      {
-        path: "/part-process/oee-report",
-        label: "OEE Report",
-        component: PartProcessOEEReport,
-      },
-      {
-        path: "/part-process/energy-estimate",
-        label: "Energy",
-        component: PartProcessEnergyEstimate,
-      },
-      {
-        path: "/part-process/factory-monitor",
-        label: "Factory Monitor",
-        component: FactoryMonitor,
-      },
-      {
-        path: "/part-process/factoryos-sync-log",
-        label: "FactoryOS Sync Log",
-        component: FactoryOsSyncLog,
-      },
-    ],
-    hiddenItems: [
-      {
-        path: "/part-process/dashboard",
-        component: PartProcessDashboard,
-      },
-    ],
-  },
-
   // ── Quality Module ──────────────────────────────────────────────────────────────
   {
     key: "quality",
@@ -568,6 +456,7 @@ export const ROUTE_CONFIG = [
       { key: "lpt", label: "LPT" },
       { key: "fpa", label: "FPA" },
       { key: "bis", label: "BIS" },
+      { key: "vision_camera", label: "Vision Camera" },
     ],
     items: [
       {
@@ -734,29 +623,20 @@ export const ROUTE_CONFIG = [
         component: BEECalculation,
         group: "bis",
       },
-    ],
-  },
-
-  // ── Vision Camera Module ────────────────────────────────────────────────────────
-  {
-    key: "visionReport",
-    icon: ScanEye,
-    label: "Vision Camera",
-    basePath: "/vision-report",
-    items: [
       {
         path: "/vision-report",
         label: "Inspection Report",
         component: VisionCameraReport,
+        group: "vision_camera",
       },
     ],
   },
 
-  // ── Dispatch ─────────────────────────────────────────────────────────────
+  // ── Logistics ─────────────────────────────────────────────────────────────
   {
     key: "dispatch",
     icon: Truck,
-    label: "Logistic",
+    label: "Logistics",
     basePath: "/dispatch",
     subgroupConfig: [
       { key: "general", label: "General" },
@@ -828,6 +708,117 @@ export const ROUTE_CONFIG = [
     ],
   },
 
+  // ── IOT Module Configuration ────────────────────────────────────────────────────────
+  {
+    key: "masterConfig",
+    icon: Settings2,
+    label: "IOT Config",
+    basePath: "/master-config",
+    subgroupConfig: [
+      { key: "config", label: "Configuration" },
+      { key: "admin", label: "Admin" },
+    ],
+    items: [
+      {
+        path: "/master-config/material",
+        label: "Material",
+        component: MaterialConfig,
+        group: "config",
+      },
+      {
+        path: "/master-config/shift",
+        label: "Shift",
+        component: ShiftConfig,
+        group: "config",
+      },
+      {
+        path: "/master-config/downtime",
+        label: "Downtime Reasons",
+        component: DowntimeConfig,
+        group: "config",
+      },
+      {
+        path: "/master-config/quality",
+        label: "Quality Rejection Reasons",
+        component: QualityConfig,
+        group: "config",
+      },
+      {
+        path: "/master-config/machine",
+        label: "Machines",
+        component: MachineConfig,
+        group: "config",
+      },
+      {
+        path: "/master-config/planning",
+        label: "Production Planning",
+        component: PlanningConfig,
+        group: "config",
+      },
+    ],
+  },
+
+  // ── Part Process ─────────────────────────────────────────────────────────
+  {
+    key: "partProcess",
+    icon: Cog,
+    label: "IOT",
+    basePath: "/part-process",
+    items: [
+      {
+        path: "/part-process/overview",
+        label: "Overview",
+        component: PartProcessOverview,
+      },
+      {
+        path: "/part-process/production-report",
+        label: "Production Report",
+        component: PartProcessProductionReport,
+      },
+      {
+        path: "/part-process/hourly-report",
+        label: "Hourly Report",
+        component: PartProcessHourlyReport,
+      },
+      {
+        path: "/part-process/quality-report",
+        label: "Quality Report",
+        component: PartProcessQualityReport,
+      },
+      {
+        path: "/part-process/downtime-report",
+        label: "Downtime Report",
+        component: PartProcessDowntimeReport,
+      },
+      {
+        path: "/part-process/oee-report",
+        label: "OEE Report",
+        component: PartProcessOEEReport,
+      },
+      {
+        path: "/part-process/energy-estimate",
+        label: "Energy",
+        component: PartProcessEnergyEstimate,
+      },
+      {
+        path: "/part-process/factory-monitor",
+        label: "Factory Monitor",
+        component: FactoryMonitor,
+      },
+      {
+        path: "/part-process/factoryos-sync-log",
+        label: "FactoryOS Sync Log",
+        component: FactoryOsSyncLog,
+      },
+    ],
+    hiddenItems: [
+      {
+        path: "/part-process/dashboard",
+        component: PartProcessDashboard,
+      },
+    ],
+  },
+
   // ── Visitor Management ──────────────────────────────────────────────────────────────
   {
     key: "visitor",
@@ -874,11 +865,11 @@ export const ROUTE_CONFIG = [
     ],
   },
 
-  // ── Employee Management ──────────────────────────────────────────────────────────────
+  // ── HR Team Module ──────────────────────────────────────────────────────────────
   {
     key: "employee",
     icon: UserCheck,
-    label: "Employee Management",
+    label: "HR",
     basePath: "/employee",
     subgroupConfig: [
       { key: "gatepass", label: "Gatepass" },
@@ -1071,11 +1062,6 @@ export const ROUTE_CONFIG = [
         label: "Tank Data",
         component: ChemTankData,
       },
-      {
-        path: "/chemical/bulk-storage-mail-config",
-        label: "Bulk Storage Mail Config",
-        component: ChemBulkStorageMailConfig,
-      },
     ],
   },
 
@@ -1095,6 +1081,26 @@ export const ROUTE_CONFIG = [
         path: "/reading/energy-meters",
         label: "Energy Meters",
         component: EnergyMeterDashboard,
+      },
+    ],
+  },
+
+  // ── Mail Management ──────────────────────────────────────────────────────
+  {
+    key: "mailManagement",
+    icon: Mail,
+    label: "Mail Management",
+    basePath: "/mail-management",
+    items: [
+      {
+        path: "/mail-management/recipients",
+        label: "Recipients & Tasks",
+        component: MailRecipients,
+      },
+      {
+        path: "/mail-management/mail-server",
+        label: "Mail Server",
+        component: MailServerConfig,
       },
     ],
   },

@@ -1,4 +1,8 @@
-import { combineReducers, configureStore, isRejectedWithValue } from "@reduxjs/toolkit";
+import {
+  combineReducers,
+  configureStore,
+  isRejectedWithValue,
+} from "@reduxjs/toolkit";
 import { handleSessionExpired } from "../utils/authExpiry.js";
 import authSlice from "./slices/authSlice.js";
 import estReportSlice from "./slices/estReportSlice.js";
@@ -16,6 +20,7 @@ import { partProcessApi } from "./api/partProcessApi.js";
 import { masterConfigApi } from "./api/masterConfigApi.js";
 import { chemicalApi } from "./api/chemicalApi.js";
 import { settingsApi } from "./api/settingsApi.js";
+import { mailManagementApi } from "./api/mailManagementApi.js";
 
 import {
   persistReducer,
@@ -40,8 +45,10 @@ const migrations = {
       ...state.masterConfig,
       materials: (state.masterConfig?.materials ?? []).map((m) => ({
         ...m,
-        noOfSheet:              _hasValue(m.noOfSheet)              ? m.noOfSheet              : 1,
-        actualComponentsPerSheet: _hasValue(m.actualComponentsPerSheet) ? m.actualComponentsPerSheet : 1,
+        noOfSheet: _hasValue(m.noOfSheet) ? m.noOfSheet : 1,
+        actualComponentsPerSheet: _hasValue(m.actualComponentsPerSheet)
+          ? m.actualComponentsPerSheet
+          : 1,
       })),
     },
   }),
@@ -61,6 +68,7 @@ const persistConfig = {
     masterConfigApi.reducerPath,
     chemicalApi.reducerPath,
     settingsApi.reducerPath,
+    mailManagementApi.reducerPath,
   ],
 };
 
@@ -83,6 +91,7 @@ const rootReducer = combineReducers({
   [masterConfigApi.reducerPath]: masterConfigApi.reducer,
   [chemicalApi.reducerPath]: chemicalApi.reducer,
   [settingsApi.reducerPath]: settingsApi.reducer,
+  [mailManagementApi.reducerPath]: mailManagementApi.reducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -90,12 +99,15 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 // Catches a 401 from ANY RTK Query slice — the other fetch path (raw axios,
 // still used by many older pages) is covered by the equivalent interceptor
 // in main.jsx. Both funnel into the same handleSessionExpired.
-const authExpiryMiddleware = ({ dispatch }) => (next) => (action) => {
-  if (isRejectedWithValue(action) && action.payload?.status === 401) {
-    handleSessionExpired(dispatch, action.payload?.data);
-  }
-  return next(action);
-};
+const authExpiryMiddleware =
+  ({ dispatch }) =>
+  (next) =>
+  (action) => {
+    if (isRejectedWithValue(action) && action.payload?.status === 401) {
+      handleSessionExpired(dispatch, action.payload?.data);
+    }
+    return next(action);
+  };
 
 const store = configureStore({
   reducer: persistedReducer,
@@ -116,6 +128,7 @@ const store = configureStore({
       chemicalApi.middleware,
       settingsApi.middleware,
       authExpiryMiddleware,
+      mailManagementApi.middleware,
     ),
 });
 

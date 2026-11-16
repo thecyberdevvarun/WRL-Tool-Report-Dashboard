@@ -9,7 +9,6 @@ import {
   useGetDowntimeReasonsQuery,
   useGetDepartmentsQuery,
   useGetQualityDefectsQuery,
-  useGetMailSubscribersQuery,
   useGetMachinesQuery,
   useGetPlansQuery,
   useGetCheckpointLibraryQuery,
@@ -23,7 +22,6 @@ import {
   setDowntimeReasons,
   setDepartments,
   setQualityDefects,
-  setMailSubscribers,
   setMachines,
   setPlans,
   setCheckpointLibrary,
@@ -45,7 +43,6 @@ export const useSyncMasterConfig = () => {
   const { data: downtimeReasons } = useGetDowntimeReasonsQuery();
   const { data: departments }     = useGetDepartmentsQuery();
   const { data: qualityDefects }  = useGetQualityDefectsQuery();
-  const { data: mailSubscribers } = useGetMailSubscribersQuery();
   const { data: machines }        = useGetMachinesQuery();
   const { data: plans }           = useGetPlansQuery();
   const { data: checkpointLibrary } = useGetCheckpointLibraryQuery();
@@ -58,7 +55,6 @@ export const useSyncMasterConfig = () => {
   useEffect(() => { if (downtimeReasons) dispatch(setDowntimeReasons(downtimeReasons)); }, [downtimeReasons, dispatch]);
   useEffect(() => { if (departments)     dispatch(setDepartments(departments)); },         [departments, dispatch]);
   useEffect(() => { if (qualityDefects)  dispatch(setQualityDefects(qualityDefects)); },   [qualityDefects, dispatch]);
-  useEffect(() => { if (mailSubscribers) dispatch(setMailSubscribers(mailSubscribers)); }, [mailSubscribers, dispatch]);
   useEffect(() => { if (machines)        dispatch(setMachines(machines)); },               [machines, dispatch]);
   useEffect(() => { if (plans)           dispatch(setPlans(plans)); },                     [plans, dispatch]);
   useEffect(() => { if (checkpointLibrary) dispatch(setCheckpointLibrary(checkpointLibrary)); }, [checkpointLibrary, dispatch]);

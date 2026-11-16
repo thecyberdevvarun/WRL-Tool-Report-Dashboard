@@ -459,30 +459,6 @@ export const runMigrations = async (pool3) => {
     END
   `);
 
-  // ── MailSubscribers: Master Config > Mail Config ─────────────────────────
-  await pool3.request().query(`
-    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='MailSubscribers')
-    BEGIN
-      CREATE TABLE MailSubscribers (
-        Id            INT IDENTITY(1,1) PRIMARY KEY,
-        EmpName       NVARCHAR(200)  NOT NULL,
-        EmpId         NVARCHAR(50)   NULL,
-        Department    NVARCHAR(200)  NULL,
-        Designation   NVARCHAR(200)  NULL,
-        Email         NVARCHAR(200)  NOT NULL,
-        Mobile        NVARCHAR(20)   NULL,
-        Subscriptions NVARCHAR(MAX)  NULL,
-        Frequency     NVARCHAR(50)   NOT NULL DEFAULT 'Shift-wise',
-        Whatsapp      BIT            NOT NULL DEFAULT 0,
-        Sms           BIT            NOT NULL DEFAULT 0,
-        Status        BIT            NOT NULL DEFAULT 1,
-        CreatedAt     DATETIME       NOT NULL DEFAULT GETDATE(),
-        UpdatedAt     DATETIME       NOT NULL DEFAULT GETDATE()
-      );
-      PRINT 'Migration: Created MailSubscribers table';
-    END
-  `);
-
   // ── Machines: Master Config > Machine Config ─────────────────────────────
   await pool3.request().query(`
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Machines')
