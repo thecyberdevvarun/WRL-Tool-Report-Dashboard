@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import ExportButton from "../../components/ui/ExportButton";
 import Loader from "../../components/ui/Loader";
 import DateTimePicker from "../../components/ui/DateTimePicker";
+import SelectField from "../../components/ui/SelectField";
 import { baseURL } from "../../assets/assets";
 import {
   Zap,
@@ -48,9 +49,20 @@ import {
 
 const AREA_LABELS = { 5: "Other", 6: "SUS", 8: "Choc", 9: "VISI Cooler" };
 
+// Area dropdown options (order shown to the user; labels come from AREA_LABELS)
+const AREA_OPTIONS = [6, 8, 9, 5].map((id) => ({
+  value: String(id),
+  label: AREA_LABELS[id],
+}));
+
+const RESULT_OPTIONS = [
+  { value: "all", label: "All Results" },
+  { value: "pass", label: "PASS Only" },
+  { value: "fail", label: "FAIL Only" },
+];
+
 const TABLE_COLUMNS = [
-  { icon: Hash, label: "#" },
-  { icon: Database, label: "Result ID" },
+  { icon: Hash, label: "Sr. No." },
   { icon: Clock, label: "Date / Time" },
   { icon: Barcode, label: "Barcode" },
   { icon: Settings, label: "Model" },
@@ -162,6 +174,10 @@ const CPTReport = () => {
   const [endTime, setEndTime] = useState("");
   const [reportData, setReportData] = useState([]);
   const [activeFilter, setActiveFilter] = useState("");
+  const [area, setArea] = useState(""); // chosen in the dropdown — applied on Query
+  const [appliedArea, setAppliedArea] = useState(""); // area the table on screen was loaded with
+  const [resultType, setResultType] = useState("all"); // chosen in the dropdown
+  const [appliedResultType, setAppliedResultType] = useState("all"); // result filter currently applied
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -203,6 +219,8 @@ const CPTReport = () => {
     end,
     page = 1,
     pageLimit = limit,
+    ar = appliedArea, // paging / page-size changes keep the area already on screen
+    rt = appliedResultType, // paging / page-size changes keep the applied result filter
   ) => {
     if (!start || !end) {
       toast.error("Please select a date & time range.");
@@ -216,6 +234,8 @@ const CPTReport = () => {
           endDate: toAPIDateTime(end),
           page,
           limit: pageLimit,
+          ...(ar ? { area: ar } : {}),
+          resultType: rt,
         },
       });
       if (res?.data?.success) {
@@ -239,7 +259,9 @@ const CPTReport = () => {
     setStartTime(dates.start);
     setEndTime(dates.end);
     setActiveFilter(filterType);
-    fetchDataWithDates(dates.start, dates.end, 1, limit);
+    setAppliedArea(area);
+    setAppliedResultType(resultType);
+    fetchDataWithDates(dates.start, dates.end, 1, limit, area, resultType);
   };
 
   // Default to Today's data on first load instead of sitting empty until a
@@ -256,7 +278,9 @@ const CPTReport = () => {
     }
     setCurrentPage(1);
     setActiveFilter("custom");
-    fetchDataWithDates(startTime, endTime, 1, limit);
+    setAppliedArea(area);
+    setAppliedResultType(resultType);
+    fetchDataWithDates(startTime, endTime, 1, limit, area, resultType);
   };
 
   const handlePageChange = (page) => {
@@ -278,6 +302,10 @@ const CPTReport = () => {
     setTotalPages(0);
     setTotalRecords(0);
     setActiveFilter("");
+    setArea("");
+    setAppliedArea("");
+    setResultType("all");
+    setAppliedResultType("all");
   };
 
   const handleExportAll = async () => {
@@ -293,6 +321,8 @@ const CPTReport = () => {
           endDate: toAPIDateTime(endTime),
           page: 1,
           limit: 100000,
+          ...(appliedArea ? { area: appliedArea } : {}),
+          resultType: appliedResultType,
         },
       });
       return res?.data?.success && res?.data?.data?.length > 0
@@ -329,6 +359,23 @@ const CPTReport = () => {
             <span className="flex items-center gap-1.5 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
               <Filter className="w-3 h-3" />
               {FILTER_LABELS[activeFilter] || activeFilter}
+            </span>
+          )}
+          {appliedArea && (
+            <span className="flex items-center gap-1.5 text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full font-medium">
+              <MapPin className="w-3 h-3" />
+              Area: {AREA_LABELS[appliedArea] ?? appliedArea}
+            </span>
+          )}
+          {appliedResultType !== "all" && (
+            <span
+              className={`flex items-center gap-1.5 text-[11px] border px-2.5 py-1 rounded-full font-medium ${
+                appliedResultType === "pass"
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                  : "text-rose-700 bg-rose-50 border-rose-200"
+              }`}
+            >
+              {appliedResultType.toUpperCase()} Only
             </span>
           )}
 
@@ -375,6 +422,26 @@ const CPTReport = () => {
                   setEndTime(e.target.value);
                   setActiveFilter("custom");
                 }}
+              />
+            </div>
+
+            <div className="min-w-[160px] flex-1">
+              <SelectField
+                label="Area"
+                name="area"
+                value={area}
+                options={[{ value: "", label: "All Areas" }, ...AREA_OPTIONS]}
+                onChange={(e) => setArea(e.target.value)}
+              />
+            </div>
+
+            <div className="min-w-[160px] flex-1">
+              <SelectField
+                label="Result"
+                name="resultType"
+                value={resultType}
+                options={RESULT_OPTIONS}
+                onChange={(e) => setResultType(e.target.value)}
               />
             </div>
 
@@ -558,11 +625,6 @@ const CPTReport = () => {
                       <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-400">
                         {(currentPage - 1) * limit + index + 1}
                       </td>
-                      <td className="px-3 py-2 border-b border-slate-100">
-                        <span className="font-mono text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">
-                          #{item.Result_ID}
-                        </span>
-                      </td>
                       <td className="px-3 py-2 border-b border-slate-100 whitespace-nowrap">
                         <div className="text-slate-700 font-semibold flex items-center gap-1">
                           <Calendar className="w-2.5 h-2.5 text-slate-300" />
@@ -581,9 +643,11 @@ const CPTReport = () => {
                       </td>
                       <td className="px-3 py-2 border-b border-slate-100">
                         <div className="font-semibold text-slate-800">
-                          {item.MODEL}
+                          {item.MODELNAME}
                         </div>
-                        <div className="text-slate-400">{item.MODELNAME}</div>
+                        <div className="text-slate-400">
+                          Model Code - {item.MODEL}
+                        </div>
                       </td>
                       <td className="px-3 py-2 border-b border-slate-100 text-center">
                         <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold inline-flex items-center gap-1">

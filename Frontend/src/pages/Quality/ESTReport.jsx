@@ -108,7 +108,6 @@ const EmptyState = ({ colSpan }) => (
 
 // ─── Table Column Config ───────────────────────────────────────────────────────
 const TABLE_COLUMNS = [
-  { icon: FileText, label: "Ref No" },
   { icon: Boxes, label: "Model" },
   { icon: Barcode, label: "Serial" },
   { icon: Calendar, label: "Date / Time" },
@@ -596,9 +595,6 @@ const ESTReport = () => {
                         onClick={() => dispatch(setSelectedRecord(item))}
                         className="hover:bg-blue-50/60 cursor-pointer transition-colors even:bg-slate-50/40 group"
                       >
-                        <td className="px-3 py-2 border-b border-slate-100 font-mono text-slate-500 group-hover:text-blue-700 font-semibold">
-                          #{item.RefNo}
-                        </td>
                         <td className="px-3 py-2 border-b border-slate-100 font-semibold text-blue-600">
                           {item.model_no}
                         </td>
