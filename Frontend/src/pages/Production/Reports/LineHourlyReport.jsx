@@ -1,14 +1,4 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import {
-  Chart as ChartJS,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-  LineElement,
-  PointElement,
-} from "chart.js";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { baseURL } from "../../../assets/assets.js";
@@ -33,21 +23,23 @@ import {
   CalendarRange,
 } from "lucide-react";
 
-ChartJS.register(
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-  LineElement,
-  PointElement,
-);
-
 // -- Utilities ------------------------------------------------------------------
 const normaliseDateTime = (dt) => (dt ? dt.replace("T", " ") : "");
 const pad = (n) => String(n).padStart(2, "0");
 const formatDate = (d) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+// Calculate the exact selected duration, including partial hours.
+const getElapsedHours = (startTime, endTime) => {
+  if (!startTime || !endTime) return 0;
+
+  const start = new Date(String(startTime).replace(" ", "T")).getTime();
+  const end = new Date(String(endTime).replace(" ", "T")).getTime();
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+    return 0;
+  return (end - start) / (1000 * 60 * 60);
+};
 
 const mapCategory = (data, mappings = CATEGORY_MAPPINGS) => {
   if (!data?.length) return [];
@@ -159,6 +151,10 @@ const LineHourlyReport = () => {
 
   const API = `${baseURL}prod`;
   const isMultiDay = lineType === "multi_day";
+  const elapsedHours = getElapsedHours(
+    paramsRef.current.StartTime,
+    paramsRef.current.EndTime,
+  );
 
   // -- Fetch ------------------------------------------------------------------
   const fetchForType = useCallback(
@@ -568,28 +564,28 @@ const LineHourlyReport = () => {
     const configs = {
       final_line: [
         {
-          title: "Final Freezer",
+          title: "Freezer",
           data: d.finalFreezer,
           modelData: d.finalFreezerModel,
           datasets: [{ key: "COUNT", label: "Count", color: sky }],
         },
         {
-          title: "Final Choc",
+          title: "Chocolate",
           data: d.finalChoc,
           modelData: d.finalChocModel,
           datasets: [{ key: "COUNT", label: "Count", color: amber }],
         },
         {
-          title: "Final SUS",
-          data: d.finalSUS,
-          modelData: d.finalSUSModel,
-          datasets: [{ key: "COUNT", label: "Count", color: slate }],
-        },
-        {
-          title: "VISI Cooler",
+          title: "Visi Cooler",
           data: d.visiFinal,
           modelData: d.visiFinalModel,
           datasets: [{ key: "COUNT", label: "Count", color: teal }],
+        },
+        {
+          title: "SUS",
+          data: d.finalSUS,
+          modelData: d.finalSUSModel,
+          datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
           title: "Category Breakdown",
@@ -602,28 +598,28 @@ const LineHourlyReport = () => {
 
       final_loading: [
         {
-          title: "Freezer Loading",
+          title: "Freezer",
           data: d.finalFreezerLoading,
           modelData: d.finalFreezerLoadingModel,
           datasets: [{ key: "COUNT", label: "Count", color: sky }],
         },
         {
-          title: "Choc Loading",
+          title: "Chocolate",
           data: d.finalChocLoading,
           modelData: d.finalChocLoadingModel,
           datasets: [{ key: "COUNT", label: "Count", color: amber }],
         },
         {
-          title: "SUS Loading",
-          data: d.finalSUSLoading,
-          modelData: d.finalSUSLoadingModel,
-          datasets: [{ key: "COUNT", label: "Count", color: slate }],
-        },
-        {
-          title: "VISI Loading",
+          title: "Visi Cooler",
           data: d.visiLoading,
           modelData: d.visiLoadingModel,
           datasets: [{ key: "COUNT", label: "Count", color: teal }],
+        },
+        {
+          title: "SUS",
+          data: d.finalSUSLoading,
+          modelData: d.finalSUSLoadingModel,
+          datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
           title: "Category Breakdown",
@@ -653,7 +649,13 @@ const LineHourlyReport = () => {
           ],
         },
         {
-          title: "CHOC Post Foaming",
+          title: "FOW Post Foaming",
+          data: d.postFOW,
+          modelData: d.postFOWModel,
+          datasets: [{ key: "COUNT", label: "FOW Post Foaming", color: teal }],
+        },
+        {
+          title: "Chocolate Post Foaming",
           data: d.postChoc,
           modelData: d.postChocModel,
           datasets: [
@@ -661,22 +663,16 @@ const LineHourlyReport = () => {
           ],
         },
         {
-          title: "FOW Post Foaming",
-          data: d.postFOW,
-          modelData: d.postFOWModel,
-          datasets: [{ key: "COUNT", label: "FOW Post Foaming", color: teal }],
+          title: "Visi Cooler Post Foaming",
+          data: d.visiPost,
+          modelData: d.visiPostModel,
+          datasets: [{ key: "COUNT", label: "Count", color: teal }],
         },
         {
           title: "SUS Post Foaming",
           data: d.postSUS,
           modelData: d.postSUSModel,
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
-        },
-        {
-          title: "VISI Cooler Post Foaming",
-          data: d.visiPost,
-          modelData: d.visiPostModel,
-          datasets: [{ key: "COUNT", label: "Count", color: teal }],
         },
         {
           title: "Category Breakdown",
@@ -689,13 +685,13 @@ const LineHourlyReport = () => {
 
       Foaming: [
         {
-          title: "Station A",
+          title: "Freezer Station A",
           data: d.foamA,
           modelData: d.foamAModel,
           datasets: [{ key: "COUNT", label: "Count", color: sky }],
         },
         {
-          title: "Station B",
+          title: "Freezer Station B",
           data: d.foamB,
           modelData: d.foamBModel,
           datasets: [{ key: "COUNT", label: "Count", color: amber }],
@@ -782,7 +778,7 @@ const LineHourlyReport = () => {
             </span>
           )}
           {!isMultiDay && (
-            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
+            <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-22.5">
               <span className="text-xl font-bold font-mono text-blue-700">
                 {grandTotal.toLocaleString()}
               </span>
@@ -792,7 +788,7 @@ const LineHourlyReport = () => {
             </div>
           )}
           {lastFetched && !isMultiDay && (
-            <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 min-w-[80px]">
+            <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 min-w-20">
               <span className="text-[11px] font-mono text-slate-600 font-semibold">
                 {lastFetched.toLocaleTimeString()}
               </span>
@@ -933,7 +929,7 @@ const LineHourlyReport = () => {
                   card.highlight ? (
                     <div
                       key={i}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 min-w-[120px]"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 min-w-30"
                     >
                       <span className="text-slate-400 text-xs font-medium truncate">
                         {card.label}
@@ -1024,7 +1020,7 @@ const LineHourlyReport = () => {
                           datasets={wc.datasets}
                           isCategoryChart={!!wc.isCategoryChart}
                           icon={wc.icon}
-                          maxVisibleRows={MAX_VISIBLE_ROWS}
+                          elapsedHours={elapsedHours}
                         />
                       </div>
                     );

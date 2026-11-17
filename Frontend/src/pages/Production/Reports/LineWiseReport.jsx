@@ -12,11 +12,9 @@ import {
 import axios from "axios";
 import toast from "react-hot-toast";
 import { baseURL } from "../../../assets/assets.js";
-import { CATEGORY_MAPPINGS } from "../../../utils/mapCategories.js";
 import HourlyWidget from "../../../components/lineHourly/HourlyWidget.jsx";
 import {
   Factory,
-  Truck,
   Settings,
   Search,
   Download,
@@ -26,7 +24,6 @@ import {
   Loader2,
   RefreshCw,
   Zap,
-  Wind,
   Eye,
   Layers,
   Thermometer,
@@ -46,20 +43,6 @@ const normaliseDateTime = (dt) => (dt ? dt.replace("T", " ") : "");
 const pad = (n) => String(n).padStart(2, "0");
 const formatDate = (d) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-const mapCategory = (data) => {
-  if (!data?.length) return [];
-  const norm = (s) => s.replace(/\s+/g, " ").trim().toUpperCase();
-  const grouped = {};
-  for (const item of data) {
-    if (!item?.category) continue;
-    const key = CATEGORY_MAPPINGS[norm(item.category)] || item.category.trim();
-    grouped[key]
-      ? (grouped[key].TotalCount += item.TotalCount || 0)
-      : (grouped[key] = { category: key, TotalCount: item.TotalCount || 0 });
-  }
-  return Object.values(grouped).sort((a, b) => b.TotalCount - a.TotalCount);
-};
 
 const CHART = {
   sky: "rgba(14,165,233,0.72)",
@@ -112,15 +95,6 @@ const ENDPOINTS = {
     "post-Choc-model",
     "post-hp-cat",
   ],
-  sus: [
-    "final-hp-sus",
-    "final-hp-sus-model",
-    "final-loading-hp-sus",
-    "final-loading-hp-sus-model",
-    "post-hp-sus",
-    "post-hp-sus-model",
-    "post-hp-cat",
-  ],
   visi: [
     "visi-final-hp",
     "visi-final-hp-model",
@@ -128,6 +102,15 @@ const ENDPOINTS = {
     "final-loading-hp-visi-model",
     "visi-post-hp",
     "visi-post-hp-model",
+    "post-hp-cat",
+  ],
+  sus: [
+    "final-hp-sus",
+    "final-hp-sus-model",
+    "final-loading-hp-sus",
+    "final-loading-hp-sus-model",
+    "post-hp-sus",
+    "post-hp-sus-model",
     "post-hp-cat",
   ],
 };
@@ -152,40 +135,33 @@ function buildLineData(line, raw) {
       fowM,
       fomA,
       fomB,
-      fomCat,
       fomAM,
       fomBM,
     ] = raw;
     const widgets = [
       {
-        title: "Final Freezer",
+        title: "Freezer Final",
         data: frz,
         modelData: frzM,
         datasets: [{ key: "COUNT", label: "Count", color: sky }],
       },
       {
-        title: "Loading Freezer",
+        title: "Freezer Loading",
         data: frzL,
         modelData: frzLM,
         datasets: [{ key: "COUNT", label: "Count", color: sky }],
       },
       {
-        title: "Post Foam Group A",
+        title: "Post Foaming Group A",
         data: grpA,
         modelData: grpAM,
         datasets: [{ key: "COUNT", label: "Count", color: sky }],
       },
       {
-        title: "Post Foam Group B",
+        title: "Post Foaming Group B",
         data: grpB,
         modelData: grpBM,
         datasets: [{ key: "COUNT", label: "Count", color: slate }],
-      },
-      {
-        title: "FOW Post Foaming",
-        data: fow,
-        modelData: fowM,
-        datasets: [{ key: "COUNT", label: "Count", color: teal }],
       },
       {
         title: "Foaming Station A",
@@ -200,13 +176,13 @@ function buildLineData(line, raw) {
         datasets: [{ key: "COUNT", label: "Count", color: amber }],
       },
       {
-        title: "Category Breakdown",
-        data: mapCategory(fomCat),
-        modelData: [],
-        datasets: [{ key: "TotalCount", label: "Count", color: sky }],
-        isCategoryChart: true,
+        title: "FOW Post Foaming",
+        data: fow,
+        modelData: fowM,
+        datasets: [{ key: "COUNT", label: "Count", color: teal }],
       },
     ];
+
     const final = cnt(frz),
       loading = cnt(frzL);
     const postFoam = cnt(grpA) + cnt(grpB) + cnt(fow);
@@ -223,32 +199,25 @@ function buildLineData(line, raw) {
   }
 
   if (line === "choc") {
-    const [fin, finM, load, loadM, post, postM, cat] = raw;
+    const [fin, finM, load, loadM, post, postM] = raw;
     const widgets = [
       {
-        title: "Final Choc",
+        title: "Chocolate Final",
         data: fin,
         modelData: finM,
         datasets: [{ key: "COUNT", label: "Count", color: amber }],
       },
       {
-        title: "Loading Choc",
+        title: "Chocolate Loading",
         data: load,
         modelData: loadM,
         datasets: [{ key: "COUNT", label: "Count", color: amber }],
       },
       {
-        title: "CHOC Post Foaming",
+        title: "Chocolate Post Foaming",
         data: post,
         modelData: postM,
         datasets: [{ key: "COUNT", label: "Count", color: amber }],
-      },
-      {
-        title: "Category Breakdown",
-        data: mapCategory(cat),
-        modelData: [],
-        datasets: [{ key: "TotalCount", label: "Count", color: sky }],
-        isCategoryChart: true,
       },
     ];
     const final = cnt(fin),
@@ -265,16 +234,16 @@ function buildLineData(line, raw) {
   }
 
   if (line === "sus") {
-    const [fin, finM, load, loadM, post, postM, cat] = raw;
+    const [fin, finM, load, loadM, post, postM] = raw;
     const widgets = [
       {
-        title: "Final SUS",
+        title: "SUS Final",
         data: fin,
         modelData: finM,
         datasets: [{ key: "COUNT", label: "Count", color: violet }],
       },
       {
-        title: "Loading SUS",
+        title: "SUS Loading",
         data: load,
         modelData: loadM,
         datasets: [{ key: "COUNT", label: "Count", color: violet }],
@@ -284,13 +253,6 @@ function buildLineData(line, raw) {
         data: post,
         modelData: postM,
         datasets: [{ key: "COUNT", label: "Count", color: violet }],
-      },
-      {
-        title: "Category Breakdown",
-        data: mapCategory(cat),
-        modelData: [],
-        datasets: [{ key: "TotalCount", label: "Count", color: sky }],
-        isCategoryChart: true,
       },
     ];
     const final = cnt(fin),
@@ -307,32 +269,25 @@ function buildLineData(line, raw) {
   }
 
   if (line === "visi") {
-    const [fin, finM, load, loadM, post, postM, cat] = raw;
+    const [fin, finM, load, loadM, post, postM] = raw;
     const widgets = [
       {
-        title: "VISI Final",
+        title: "Visi Final",
         data: fin,
         modelData: finM,
         datasets: [{ key: "COUNT", label: "Count", color: teal }],
       },
       {
-        title: "VISI Loading",
+        title: "Visi Loading",
         data: load,
         modelData: loadM,
         datasets: [{ key: "COUNT", label: "Count", color: teal }],
       },
       {
-        title: "VISI Post Foaming",
+        title: "Visi Post Foaming",
         data: post,
         modelData: postM,
         datasets: [{ key: "COUNT", label: "Count", color: teal }],
-      },
-      {
-        title: "Category Breakdown",
-        data: mapCategory(cat),
-        modelData: [],
-        datasets: [{ key: "TotalCount", label: "Count", color: sky }],
-        isCategoryChart: true,
       },
     ];
     const final = cnt(fin),
@@ -489,14 +444,13 @@ const LineWiseReport = () => {
   const insights = useMemo(() => {
     if (!grandTotal) return null;
     const hourMap = {};
-    widgetConfig
-      .filter((w) => !w.isCategoryChart)
-      .forEach((w) => {
-        w.data.forEach((r) => {
-          const h = r.TIMEHOUR ?? -1;
-          if (h >= 0) hourMap[h] = (hourMap[h] || 0) + (r.COUNT || 0);
-        });
+    widgetConfig;
+    widgetConfig.forEach((w) => {
+      w.data.forEach((r) => {
+        const h = r.TIMEHOUR ?? -1;
+        if (h >= 0) hourMap[h] = (hourMap[h] || 0) + (r.COUNT || 0);
       });
+    });
     const hours = Object.entries(hourMap);
     if (!hours.length) return null;
     const avg = Math.round(grandTotal / hours.length);
@@ -509,19 +463,20 @@ const LineWiseReport = () => {
       toast.error("No data to export.");
       return;
     }
+
     const rows = widgetConfig.flatMap((wc) =>
-      wc.isCategoryChart
-        ? wc.data.map((r) => [wc.title, "—", r.category, r.TotalCount || 0])
-        : wc.data.map((r) => [
-            wc.title,
-            r.HOUR_NUMBER || "—",
-            `${r.TIMEHOUR ?? ""}:00`,
-            r.COUNT || 0,
-          ]),
+      wc.data.map((r) => [
+        wc.title,
+        r.HOUR_NUMBER || "—",
+        `${r.TIMEHOUR ?? ""}:00`,
+        r.COUNT || 0,
+      ]),
     );
-    const csv = [["Widget", "Hour#", "Time/Category", "Count"], ...rows]
+
+    const csv = [["Widget", "Hour#", "Time", "Count"], ...rows]
       .map((r) => r.join(","))
       .join("\n");
+
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `LineWise_${line}_${Date.now()}.csv`;
@@ -530,18 +485,11 @@ const LineWiseReport = () => {
   };
 
   const n = widgetConfig.length;
-  const nSkeleton = n === 8 ? 8 : n === 4 ? 4 : 3;
-  const getGridCol = (i) => {
-    if (n === 8 && i === 7) return "2 / span 2"; // Freezer: category spans last 2 cols
-    if (n === 4 && i === 3) return "1 / -1"; // Choc/SUS/VISI: category spans full row
-    return undefined;
-  };
-  const gridRows =
-    n === 8
-      ? `repeat(3, minmax(${WIDGET_MIN_H}px, auto))`
-      : n === 4
-        ? `repeat(2, minmax(${WIDGET_MIN_H}px, auto))`
-        : `minmax(${WIDGET_MIN_H}px, auto)`;
+  const nSkeleton = n === 7 ? 7 : n === 3 ? 3 : 3;
+
+  const getGridCol = () => undefined;
+
+  const gridRows = `repeat(${Math.ceil(n / 3)}, minmax(${WIDGET_MIN_H}px, auto))`;
 
   /* ── RENDER ── */
   return (
@@ -574,7 +522,7 @@ const LineWiseReport = () => {
               <RefreshCw className="w-3 h-3" /> {countdown}s
             </span>
           )}
-          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-[90px]">
+          <div className="flex flex-col items-center px-4 py-1.5 rounded-lg bg-blue-50 border border-blue-100 min-w-22.5">
             <span className="text-xl font-bold font-mono text-blue-700">
               {grandTotal.toLocaleString()}
             </span>
@@ -583,7 +531,7 @@ const LineWiseReport = () => {
             </span>
           </div>
           {lastFetched && (
-            <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 min-w-[80px]">
+            <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 min-w-20">
               <span className="text-[11px] font-mono text-slate-600 font-semibold">
                 {lastFetched.toLocaleTimeString()}
               </span>
@@ -708,7 +656,7 @@ const LineWiseReport = () => {
               card.highlight ? (
                 <div
                   key={i}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 min-w-[120px]"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 min-w-30"
                 >
                   <span className="text-slate-400 text-xs font-medium truncate">
                     {card.label}
@@ -749,15 +697,7 @@ const LineWiseReport = () => {
                 <div
                   key={i}
                   className="bg-white rounded-xl border border-slate-200 animate-pulse overflow-hidden"
-                  style={{
-                    gridColumn:
-                      nSkeleton === 8 && i === 7
-                        ? "2 / span 2"
-                        : nSkeleton === 4 && i === 3
-                          ? "1 / -1"
-                          : undefined,
-                    minHeight: WIDGET_MIN_H,
-                  }}
+                  style={{ minHeight: WIDGET_MIN_H }}
                 >
                   <div className="h-9 bg-slate-50 border-b border-slate-100" />
                   <div className="p-3 space-y-2">
