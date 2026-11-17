@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import ExportButton from "../../components/ui/ExportButton";
 import DateTimePicker from "../../components/ui/DateTimePicker";
+import SelectField from "../../components/ui/SelectField";
 import { baseURL } from "../../assets/assets";
 import {
   Gauge,
@@ -310,6 +311,7 @@ const VacuumReport = () => {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [lineName, setLineName] = useState("");
+  const [lineOptions, setLineOptions] = useState([]); // lines that have vacuum test data
   const [result, setResult] = useState("All");
   const [reportData, setReportData] = useState([]);
   const [activeFilter, setActiveFilter] = useState("");
@@ -393,6 +395,27 @@ const VacuumReport = () => {
   useEffect(() => {
     handleQuickFilter("today");
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load the lines that actually have vacuum test data (feeds the Line dropdown)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${baseURL}quality/vacuum-report/lines`);
+        if (!cancelled && res?.data?.success) {
+          setLineOptions(
+            (res.data.data ?? []).map((l) => ({ label: l, value: l })),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to fetch vacuum lines:", error);
+        if (!cancelled) toast.error("Failed to load lines.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleQuery = () => {
@@ -579,6 +602,15 @@ const VacuumReport = () => {
                   setEndTime(e.target.value);
                   setActiveFilter("custom");
                 }}
+              />
+            </div>
+            <div className="min-w-[160px] flex-1">
+              <SelectField
+                label="Line"
+                name="lineName"
+                value={lineName}
+                options={[{ value: "", label: "All Lines" }, ...lineOptions]}
+                onChange={(e) => setLineName(e.target.value)}
               />
             </div>
             <div className="min-w-[140px]">

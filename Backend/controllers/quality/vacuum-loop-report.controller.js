@@ -9,7 +9,10 @@ export const getVacuumReport = tryCatch(async (req, res) => {
   const { startDate, endDate, lineName, result } = req.query;
 
   if (!startDate || !endDate) {
-    throw new AppError("Missing required query parameters: startDate or endDate.", 400);
+    throw new AppError(
+      "Missing required query parameters: startDate or endDate.",
+      400,
+    );
   }
 
   const istStart = convertToIST(startDate);
@@ -65,6 +68,40 @@ export const getVacuumReport = tryCatch(async (req, res) => {
   }
 });
 
+// Distinct line names present in the vacuum test data — feeds the Line filter dropdown.
+// These are exactly the values getVacuumReport compares against (h.line_name = @lineName).
+export const getVacuumLines = tryCatch(async (req, res) => {
+  const pool = await new sql.ConnectionPool(dbConfig1).connect();
+
+  try {
+    const result = await pool.request().query(`
+      SELECT DISTINCT line_name AS LineName
+      FROM pirani_test_header
+      WHERE line_name IS NOT NULL AND LTRIM(RTRIM(line_name)) <> ''
+    `);
+
+    // "Line 2" before "Line 10"
+    const lines = result.recordset
+      .map((r) => r.LineName)
+      .sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+
+    res.status(200).json({
+      success: true,
+      message: "Vacuum lines retrieved successfully.",
+      data: lines,
+    });
+  } catch (error) {
+    throw new AppError(`Failed to fetch vacuum lines: ${error.message}`, 500);
+  } finally {
+    await pool.close();
+  }
+});
+
 // Per-test vacuum trend — same query shape as the original Pirani service's
 // /api/report/<test_id>/trend endpoint, ported onto this app's MSSQL pool.
 export const getVacuumTestTrend = tryCatch(async (req, res) => {
@@ -79,8 +116,7 @@ export const getVacuumTestTrend = tryCatch(async (req, res) => {
   try {
     const result = await pool
       .request()
-      .input("testId", sql.UniqueIdentifier, testId)
-      .query(`
+      .input("testId", sql.UniqueIdentifier, testId).query(`
         SELECT log_time AS LogTime, vacuum AS Vacuum, result AS Result
         FROM pirani_test_log
         WHERE test_id = @testId
@@ -93,7 +129,10 @@ export const getVacuumTestTrend = tryCatch(async (req, res) => {
       data: result.recordset,
     });
   } catch (error) {
-    throw new AppError(`Failed to fetch vacuum test trend: ${error.message}`, 500);
+    throw new AppError(
+      `Failed to fetch vacuum test trend: ${error.message}`,
+      500,
+    );
   } finally {
     await pool.close();
   }

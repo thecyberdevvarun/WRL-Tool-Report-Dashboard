@@ -3,62 +3,109 @@ import {
   getAssetTagDetails,
   newAssetTagUpdate,
   newCustomerQrUpdate,
-  getTagUpdateLogs,          // ← BUG FIX: was not imported or routed
+  getTagUpdateLogs, // ← BUG FIX: was not imported or routed
 } from "../controllers/quality/tag-update.controller.js";
 
 // … all your other imports remain unchanged …
 import express from "express";
 import { authenticate } from "../middlewares/auth.js";
 import {
-  addDefect, getAssetDetails, getDefectCategory, getFpaCount,
-  getFpaDefect, getFPQIDetails,
+  addDefect,
+  getAssetDetails,
+  getDefectCategory,
+  getFpaCount,
+  getFpaDefect,
+  getFPQIDetails,
 } from "../controllers/quality/fpa/fpa.controller.js";
 import {
-  downloadDefectImage, getFpaDailyReport, getFpaMonthlyReport,
-  getFpaReport, getFpaYearlyReport,
+  downloadDefectImage,
+  getFpaDailyReport,
+  getFpaMonthlyReport,
+  getFpaReport,
+  getFpaYearlyReport,
 } from "../controllers/quality/fpa/fpa-report.controller.js";
 import {
-  addLptDefect, getLptAssetDetails, getLptDefectCategory,
-  getLptDefectCount, getLptDefectReport,
+  addLptDefect,
+  getLptAssetDetails,
+  getLptDefectCategory,
+  getLptDefectCount,
+  getLptDefectReport,
 } from "../controllers/quality/lpt/lpt.controller.js";
-import { getLptReport, getLptModelSummary } from "../controllers/quality/lpt/lpt-report.controller.js";
+import {
+  getLptReport,
+  getLptModelSummary,
+} from "../controllers/quality/lpt/lpt-report.controller.js";
 import { getMassFlowReport } from "../controllers/quality/mass-flow-meter-report.controller.js";
 import {
-  deleteLptRecipe, getLptRecipe, insertLptRecipe, updateLptRecipe,
+  deleteLptRecipe,
+  getLptRecipe,
+  insertLptRecipe,
+  updateLptRecipe,
 } from "../controllers/quality/lpt/lpt-recipe.controller.js";
 import {
-  getModlelName, holdCabinet, releaseCabinet,
+  getModlelName,
+  holdCabinet,
+  releaseCabinet,
 } from "../controllers/quality/dispatch-hold.controller.js";
 import {
-  handleMulterError, uploadBISReportPDF, uploadFpaDefectImage, uploadBisSignature,
+  handleMulterError,
+  uploadBISReportPDF,
+  uploadFpaDefectImage,
+  uploadBisSignature,
   uploadBisModelPhoto,
 } from "../middlewares/upload-middleware.js";
 import {
-  uploadBisPdfFile, getBisPdfFiles, downloadBisPdfFile,
-  deleteBisPdfFile, updateBisPdfFile, getBisReportStatus,
-  updateBisEnergyData, fetchBisEnergyData,
+  uploadBisPdfFile,
+  getBisPdfFiles,
+  downloadBisPdfFile,
+  deleteBisPdfFile,
+  updateBisPdfFile,
+  getBisReportStatus,
+  updateBisEnergyData,
+  fetchBisEnergyData,
 } from "../controllers/quality/bis/upload-bis-report.controller.js";
 import {
-  getBisCategories, createBisCategory, updateBisCategory, deleteBisCategory,
-  getType100Materials, uploadBisCategoryPhoto,
-  getBisModelSpecs, saveBisModelSpecs,
+  getBisCategories,
+  createBisCategory,
+  updateBisCategory,
+  deleteBisCategory,
+  getType100Materials,
+  uploadBisCategoryPhoto,
+  getBisModelSpecs,
+  saveBisModelSpecs,
 } from "../controllers/quality/bis/bis-category.controller.js";
 import {
-  getTestStalls, getTestLabDashboard, startTestRun, endTestRun,
+  getTestStalls,
+  getTestLabDashboard,
+  startTestRun,
+  endTestRun,
 } from "../controllers/quality/bis/bis-test-lab.controller.js";
 import {
-  getBisTestFrequencyConfig, updateBisTestFrequencyConfig,
+  getBisTestFrequencyConfig,
+  updateBisTestFrequencyConfig,
 } from "../controllers/quality/bis/bis-test-config.controller.js";
 import {
-  getBisTestSchedule, createBisTestBaseline, updateBisTestBaseline,
+  getBisTestSchedule,
+  createBisTestBaseline,
+  updateBisTestBaseline,
 } from "../controllers/quality/bis/bis-test-schedule.controller.js";
 import {
-  createBisTestReport, getBisTestReports, getBisTestReportById,
-  updateBisTestReport, deleteBisTestReport, getBisTestReportHistory,
-  submitBisTestReportForReview, reviewBisTestReport, authorizeBisTestReport, getBisApprovalQueue,
+  createBisTestReport,
+  getBisTestReports,
+  getBisTestReportById,
+  updateBisTestReport,
+  deleteBisTestReport,
+  getBisTestReportHistory,
+  submitBisTestReportForReview,
+  reviewBisTestReport,
+  authorizeBisTestReport,
+  getBisApprovalQueue,
 } from "../controllers/quality/bis/bis-test-report.controller.js";
 import {
-  getBisApprovalFlow, updateBisApprovalFlow, uploadBisApprovalSignature, getBisApprovalUsers,
+  getBisApprovalFlow,
+  updateBisApprovalFlow,
+  uploadBisApprovalSignature,
+  getBisApprovalUsers,
 } from "../controllers/quality/bis/bis-approval-flow.controller.js";
 import { getDispatchHoldDetails } from "../controllers/quality/hold-cabinet-details.controller.js";
 import { getCPTReport } from "../controllers/quality/cpt-report.controller.js";
@@ -72,21 +119,41 @@ import {
   getProductionReport,
 } from "../controllers/quality/rework.controller.js";
 import {
-  deleteBeeModel, getBeeModels, saveBeeModels, saveBeeRating,
+  deleteBeeModel,
+  getBeeModels,
+  saveBeeModels,
+  saveBeeRating,
 } from "../controllers/quality/bis/bee-calculation.controller.js";
 import {
-  getFpaByModel, getFpaDefectDetails, getFpaHistory,
+  getFpaByModel,
+  getFpaDefectDetails,
+  getFpaHistory,
 } from "../controllers/quality/fpa/fpa-history.controller.js";
 import { getBrazingReport } from "../controllers/quality/brazing-report.controller.js";
-import { getVacuumReport, getVacuumTestTrend } from "../controllers/quality/vacuum-loop-report.controller.js";
 import {
-  getScrapCategories, getScrapUnit, scrapUnit, getScrapHistory,
+  getVacuumReport,
+  getVacuumLines,
+  getVacuumTestTrend,
+} from "../controllers/quality/vacuum-loop-report.controller.js";
+import {
+  getScrapCategories,
+  getScrapUnit,
+  scrapUnit,
+  getScrapHistory,
 } from "../controllers/quality/fg-scrap.controller.js";
 import {
-  getTransferOptions, checkTransfer, transferUnits, getTransferHistory,
+  getTransferOptions,
+  checkTransfer,
+  transferUnits,
+  getTransferHistory,
 } from "../controllers/quality/model-transfer.controller.js";
 import {
-  getReprintPrinters, findReprintLabel, checkReprintLabels, reprintLabel, reprintLabels, getReprintHistory,
+  getReprintPrinters,
+  findReprintLabel,
+  checkReprintLabels,
+  reprintLabel,
+  reprintLabels,
+  getReprintHistory,
 } from "../controllers/quality/barcode-reprint.controller.js";
 import { requirePageAccess } from "../middlewares/role-guard.js";
 
@@ -101,6 +168,7 @@ router.get("/brazing-report", authenticate, getBrazingReport);
 
 // Vacuum (Pirani gauge leak test)
 router.get("/vacuum-report", authenticate, getVacuumReport);
+router.get("/vacuum-report/lines", authenticate, getVacuumLines);
 router.get("/vacuum-report/:testId/trend", authenticate, getVacuumTestTrend);
 
 // FPA
@@ -109,8 +177,18 @@ router.get("/asset-details", authenticate, getAssetDetails);
 router.get("/fpqi-details", authenticate, getFPQIDetails);
 router.get("/fpa-defect", authenticate, getFpaDefect);
 router.get("/fpa-defect-category", authenticate, getDefectCategory);
-router.post("/add-fpa-defect", authenticate, uploadFpaDefectImage.single("image"), handleMulterError, addDefect);
-router.get("/download-fpa-defect-image/:fgSrNo", authenticate, downloadDefectImage);
+router.post(
+  "/add-fpa-defect",
+  authenticate,
+  uploadFpaDefectImage.single("image"),
+  handleMulterError,
+  addDefect,
+);
+router.get(
+  "/download-fpa-defect-image/:fgSrNo",
+  authenticate,
+  downloadDefectImage,
+);
 router.get("/history", authenticate, getFpaHistory);
 router.get("/model/:model", authenticate, getFpaByModel);
 router.get("/defects/:fgsrNo", authenticate, getFpaDefectDetails);
@@ -158,14 +236,26 @@ router.post("/release", authenticate, releaseCabinet);
 router.get("/asset-tag-details", authenticate, getAssetTagDetails);
 router.put("/new-asset-tag", authenticate, newAssetTagUpdate);
 router.put("/new-customer-qr", authenticate, newCustomerQrUpdate);
-router.get("/tag-update-logs", authenticate, getTagUpdateLogs);   // ← BUG FIX: route was missing entirely
+router.get("/tag-update-logs", authenticate, getTagUpdateLogs); // ← BUG FIX: route was missing entirely
 
 // BIS
-router.post("/upload-bis-pdf", authenticate, uploadBISReportPDF.single("file"), handleMulterError, uploadBisPdfFile);
+router.post(
+  "/upload-bis-pdf",
+  authenticate,
+  uploadBISReportPDF.single("file"),
+  handleMulterError,
+  uploadBisPdfFile,
+);
 router.get("/bis-files", authenticate, getBisPdfFiles);
 router.get("/download-bis-file/:srNo", authenticate, downloadBisPdfFile);
 router.delete("/delete-bis-file/:srNo", authenticate, deleteBisPdfFile);
-router.put("/update-bis-file/:srNo", authenticate, uploadBISReportPDF.single("file"), handleMulterError, updateBisPdfFile);
+router.put(
+  "/update-bis-file/:srNo",
+  authenticate,
+  uploadBISReportPDF.single("file"),
+  handleMulterError,
+  updateBisPdfFile,
+);
 router.get("/bis-status", authenticate, getBisReportStatus);
 router.put("/bis-energy-data/:srNo", authenticate, updateBisEnergyData);
 router.post("/bis-fetch-energy-data/:srNo", authenticate, fetchBisEnergyData);
@@ -176,7 +266,13 @@ router.post("/bis-category", authenticate, createBisCategory);
 router.put("/bis-category/:id", authenticate, updateBisCategory);
 router.delete("/bis-category/:id", authenticate, deleteBisCategory);
 router.get("/type100-materials", authenticate, getType100Materials);
-router.post("/bis-category/:id/photo", authenticate, uploadBisModelPhoto.single("photo"), handleMulterError, uploadBisCategoryPhoto);
+router.post(
+  "/bis-category/:id/photo",
+  authenticate,
+  uploadBisModelPhoto.single("photo"),
+  handleMulterError,
+  uploadBisCategoryPhoto,
+);
 
 // BIS Model Specs — config-time spec sheet shown on the Test Lab Dashboard
 router.get("/bis-model-specs/:materialCode", authenticate, getBisModelSpecs);
@@ -203,18 +299,36 @@ router.post("/bis-test-reports", authenticate, createBisTestReport);
 router.get("/bis-test-reports/:id", authenticate, getBisTestReportById);
 router.put("/bis-test-reports/:id", authenticate, updateBisTestReport);
 router.delete("/bis-test-reports/:id", authenticate, deleteBisTestReport);
-router.get("/bis-test-reports/:id/history", authenticate, getBisTestReportHistory);
+router.get(
+  "/bis-test-reports/:id/history",
+  authenticate,
+  getBisTestReportHistory,
+);
 
 // BIS Approval Workflow — Draft → PendingReview → PendingApproval → Final
-router.post("/bis-test-reports/:id/submit-for-review", authenticate, submitBisTestReportForReview);
+router.post(
+  "/bis-test-reports/:id/submit-for-review",
+  authenticate,
+  submitBisTestReportForReview,
+);
 router.post("/bis-test-reports/:id/review", authenticate, reviewBisTestReport);
-router.post("/bis-test-reports/:id/authorize", authenticate, authorizeBisTestReport);
+router.post(
+  "/bis-test-reports/:id/authorize",
+  authenticate,
+  authorizeBisTestReport,
+);
 router.get("/bis-approval-queue", authenticate, getBisApprovalQueue);
 
 // BIS Approval Flow config — who holds each role + their signature image
 router.get("/bis-approval-flow", authenticate, getBisApprovalFlow);
 router.put("/bis-approval-flow", authenticate, updateBisApprovalFlow);
-router.post("/bis-approval-flow/signature/:role", authenticate, uploadBisSignature.single("signature"), handleMulterError, uploadBisApprovalSignature);
+router.post(
+  "/bis-approval-flow/signature/:role",
+  authenticate,
+  uploadBisSignature.single("signature"),
+  handleMulterError,
+  uploadBisApprovalSignature,
+);
 router.get("/bis-approval-users", authenticate, getBisApprovalUsers);
 
 // BEE Calculation
@@ -228,19 +342,28 @@ router.get("/hold-cabinet-details", authenticate, getDispatchHoldDetails);
 
 // FG Scrap, Model To Model Transfer, Material Barcode reprint (copied from Garuda; they write to the Garuda database,
 // so each checks the page's permission on the server too)
-const fgScrapPage = [authenticate, requirePageAccess("quality", "/quality/fg-scrap")];
+const fgScrapPage = [
+  authenticate,
+  requirePageAccess("quality", "/quality/fg-scrap"),
+];
 router.get("/fg-scrap/categories", ...fgScrapPage, getScrapCategories);
 router.get("/fg-scrap/history", ...fgScrapPage, getScrapHistory);
 router.get("/fg-scrap/units/:serial", ...fgScrapPage, getScrapUnit);
 router.post("/fg-scrap", ...fgScrapPage, scrapUnit);
 
-const modelTransferPage = [authenticate, requirePageAccess("quality", "/quality/model-transfer")];
+const modelTransferPage = [
+  authenticate,
+  requirePageAccess("quality", "/quality/model-transfer"),
+];
 router.get("/model-transfer/options", ...modelTransferPage, getTransferOptions);
 router.get("/model-transfer/history", ...modelTransferPage, getTransferHistory);
 router.post("/model-transfer/check", ...modelTransferPage, checkTransfer);
 router.post("/model-transfer", ...modelTransferPage, transferUnits);
 
-const reprintPage = [authenticate, requirePageAccess("quality", "/quality/barcode-reprint")];
+const reprintPage = [
+  authenticate,
+  requirePageAccess("quality", "/quality/barcode-reprint"),
+];
 router.get("/barcode-reprint/printers", ...reprintPage, getReprintPrinters);
 router.get("/barcode-reprint/history", ...reprintPage, getReprintHistory);
 router.post("/barcode-reprint/check", ...reprintPage, checkReprintLabels);
