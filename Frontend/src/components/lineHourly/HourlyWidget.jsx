@@ -17,7 +17,6 @@ import { Bar, Line } from "react-chartjs-2";
 import {
   FiDownload,
   FiX,
-  FiSearch,
   FiUsers,
   FiBarChart2,
   FiTrendingUp,
@@ -28,15 +27,11 @@ import {
   FiZap,
   FiActivity,
   FiClock,
-  FiCheckCircle,
-  FiLogOut,
 } from "react-icons/fi";
 import {
   MdSchedule,
   MdLeaderboard,
   MdPeople,
-  MdBusiness,
-  MdAccessTime,
   MdBarChart,
   MdShowChart,
   MdFunctions,
@@ -80,6 +75,17 @@ const MODEL_COLORS = [
   "#6366f1",
   "#84cc16",
 ];
+
+const CATEGORY_TARGET_UPH = {
+  Freezer: 80,
+  "Choc Cooler": 52,
+  "VISI COOLER": 80,
+  UC: 12,
+  SWC: 20,
+  FOW: 80,
+  Compact: 15,
+  "Reach-In": 13,
+};
 
 // Day shift: check-in 07:00–18:59 → day; Night shift: 19:00–06:59 → night
 const DAY_START = 7;
@@ -916,475 +922,6 @@ const CombinedReportPanel = ({
   );
 };
 
-// ─── Manpower Panel ───────────────────────────────────────────────────────────
-const ManpowerPanel = ({ workers, onClose }) => {
-  const [search, setSearch] = useState("");
-
-  const { dayWorkers, nightWorkers, inside } = useMemo(() => {
-    const day = workers.filter((w) => classifyWorkerShift(w.CheckIn) === "day");
-    const night = workers.filter(
-      (w) => classifyWorkerShift(w.CheckIn) === "night",
-    );
-    const ins = workers.filter((w) => !w.CheckOut);
-    return {
-      dayWorkers: day.length,
-      nightWorkers: night.length,
-      inside: ins.length,
-    };
-  }, [workers]);
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return workers;
-    const s = search.toLowerCase();
-    return workers.filter((w) =>
-      [
-        w.WorkmenName || w["Workmen Name"] || w.Name || "",
-        w.Contractor || "",
-        w.Department || "",
-      ].some((v) => v.toLowerCase().includes(s)),
-    );
-  }, [workers, search]);
-
-  const exportCSV = () => {
-    const csv = [
-      ["#", "Name", "Contractor", "Department", "Shift", "Check-In", "Status"],
-      ...filtered.map((w, i) => [
-        i + 1,
-        w.WorkmenName || w["Workmen Name"] || "—",
-        w.Contractor || "—",
-        w.Department || "—",
-        classifyWorkerShift(w.CheckIn),
-        fmtDisplay(w.CheckIn),
-        w.CheckOut ? "Checked Out" : "Inside",
-      ]),
-    ]
-      .map((r) => r.join(","))
-      .join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `manpower_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        fontWeight: 400,
-        zIndex: 20,
-        background: "#fff",
-        borderRadius: 12,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        border: "2px solid #fed7aa",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          flexShrink: 0,
-          height: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 12px",
-          borderBottom: "1px solid #fed7aa",
-          background: "linear-gradient(90deg,#fff7ed,#fff)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <MdPeople size={14} color="#ea580c" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#7c2d12" }}>
-            Manpower on Line
-          </span>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              background: "#e0f2fe",
-              color: "#0369a1",
-              border: "1px solid #bae6fd",
-              borderRadius: 20,
-              padding: "2px 7px",
-              display: "flex",
-              alignItems: "center",
-              gap: 3,
-            }}
-          >
-            <FiSun size={8} /> {dayWorkers} day
-          </span>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              background: "#f5f3ff",
-              color: "#6d28d9",
-              border: "1px solid #e0e7ff",
-              borderRadius: 20,
-              padding: "2px 7px",
-              display: "flex",
-              alignItems: "center",
-              gap: 3,
-            }}
-          >
-            <FiMoon size={8} /> {nightWorkers} night
-          </span>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              background: "#ecfdf5",
-              color: "#15803d",
-              border: "1px solid #bbf7d0",
-              borderRadius: 20,
-              padding: "2px 7px",
-            }}
-          >
-            ● {inside} inside
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button
-            onClick={exportCSV}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "3px 8px",
-              border: "1px solid #e2e8f0",
-              borderRadius: 6,
-              background: "#f8fafc",
-              color: "#475569",
-              cursor: "pointer",
-              fontSize: 10,
-              fontWeight: 600,
-            }}
-          >
-            <FiDownload size={11} /> CSV
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              border: "1px solid #e2e8f0",
-              background: "#f8fafc",
-              color: "#64748b",
-              cursor: "pointer",
-            }}
-          >
-            <FiX size={13} />
-          </button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div
-        style={{
-          flexShrink: 0,
-          padding: "7px 12px",
-          borderBottom: "1px solid #f1f5f9",
-          background: "#fffbf7",
-        }}
-      >
-        <div style={{ position: "relative" }}>
-          <FiSearch
-            size={12}
-            style={{
-              position: "absolute",
-              left: 8,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "#94a3b8",
-              pointerEvents: "none",
-            }}
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, contractor, department…"
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              paddingLeft: 28,
-              paddingRight: 8,
-              padding: "5px 8px 5px 28px",
-              border: "1px solid #e2e8f0",
-              borderRadius: 7,
-              fontSize: 11,
-              color: "#334155",
-              background: "#fff",
-              outline: "none",
-            }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              style={{
-                position: "absolute",
-                right: 6,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#94a3b8",
-              }}
-            >
-              <FiX />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {filtered.length === 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-              gap: 6,
-              color: "#cbd5e1",
-            }}
-          >
-            <FiUsers size={28} />
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>
-              {search ? "No workers match your search" : "No manpower data"}
-            </span>
-          </div>
-        ) : (
-          <table
-            style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}
-          >
-            <thead>
-              <tr
-                style={{
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 2,
-                  background: "#fafafa",
-                }}
-              >
-                {[
-                  { l: "#", w: 28 },
-                  { l: "Name" },
-                  { l: "Contractor" },
-                  { l: "Shift", w: 80 },
-                  { l: "Check-In", w: 112 },
-                  { l: "Status", w: 88 },
-                ].map((h) => (
-                  <th
-                    key={h.l}
-                    style={{
-                      padding: "6px 8px",
-                      textAlign: "left",
-                      color: "#94a3b8",
-                      fontWeight: 700,
-                      borderBottom: "1px solid #f1f5f9",
-                      width: h.w,
-                      fontSize: 10,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    {h.l}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row, i) => {
-                const name =
-                  row.WorkmenName || row["Workmen Name"] || row.Name || "—";
-                const shift = classifyWorkerShift(row.CheckIn);
-                const inTime = fmtDisplay(row.CheckIn);
-                const isInside = !row.CheckOut;
-                return (
-                  <tr
-                    key={i}
-                    style={{
-                      borderBottom: "1px solid #f8fafc",
-                      background: i % 2 === 0 ? "#fff" : "#fafcff",
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        textAlign: "center",
-                        color: "#cbd5e1",
-                        fontFamily: "monospace",
-                        fontSize: 10,
-                      }}
-                    >
-                      {i + 1}
-                    </td>
-                    <td style={{ padding: "5px 8px" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            flexShrink: 0,
-                            background: isInside ? "#22c55e" : "#94a3b8",
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "#1e293b",
-                          }}
-                        >
-                          {name}
-                        </span>
-                      </div>
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        color: "#475569",
-                        fontSize: 10,
-                        maxWidth: 130,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={row.Contractor || "—"}
-                    >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <MdBusiness size={9} color="#94a3b8" />
-                        {row.Contractor || "—"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "5px 8px" }}>
-                      <span
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 700,
-                          borderRadius: 4,
-                          padding: "1px 6px",
-                          background: shift === "day" ? "#e0f2fe" : "#f5f3ff",
-                          color: shift === "day" ? "#0369a1" : "#6d28d9",
-                          border: `1px solid ${shift === "day" ? "#bae6fd" : "#e0e7ff"}`,
-                        }}
-                      >
-                        {shift === "day" ? "☀ Day" : "☾ Night"}
-                      </span>
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        color: "#64748b",
-                        fontFamily: "monospace",
-                        fontSize: 10,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <MdAccessTime size={9} color="#94a3b8" />
-                        {inTime}
-                      </span>
-                    </td>
-                    <td style={{ padding: "5px 8px", textAlign: "center" }}>
-                      {isInside ? (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 3,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            background: "#ecfdf5",
-                            color: "#15803d",
-                            border: "1px solid #bbf7d0",
-                            borderRadius: 20,
-                            padding: "2px 7px",
-                          }}
-                        >
-                          <FiCheckCircle size={9} /> Inside
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 3,
-                            fontSize: 10,
-                            background: "#f8fafc",
-                            color: "#64748b",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: 20,
-                            padding: "2px 7px",
-                          }}
-                        >
-                          <FiLogOut size={9} /> Out
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div
-        style={{
-          flexShrink: 0,
-          height: 30,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 12px",
-          borderTop: "1px solid #fed7aa",
-          background: "#fff7ed",
-        }}
-      >
-        <span style={{ fontSize: 10, color: "#9a3412", fontWeight: 700 }}>
-          {filtered.length} of {workers.length} workers
-          {search ? " (filtered)" : ""}
-        </span>
-        <span style={{ fontSize: 10, color: "#64748b" }}>
-          {inside} inside · {workers.length - inside} out
-        </span>
-      </div>
-    </div>
-  );
-};
-
 // ─── HourlyModelPanel ─────────────────────────────────────────────────────────
 const HourlyModelPanel = ({ modelData, onClose }) => {
   const flatRows = useMemo(
@@ -2036,18 +1573,26 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
     1,
   );
 
+  // One place that works out every number for a row, so the table and the CSV
+  // always show the same values in the same order.
+  //   Difference = Actual UPH − Target UPH
+  //   (negative = short of target, shown red; positive = above target, shown green)
+  //   Green only when Actual UPH is greater than Target UPH, else red.
+  const getRowMetrics = (row) => {
+    const count = Number(row.TotalCount) || 0;
+    const targetUPH = CATEGORY_TARGET_UPH[row.category] ?? 0;
+    const actualUPH =
+      safeElapsedHours > 0 ? Math.round(count / safeElapsedHours) : 0;
+    return { count, targetUPH, actualUPH, difference: actualUPH - targetUPH };
+  };
+
   const exportCSV = () => {
     if (!data.length) return;
     const csv = [
-      ["#", "Category", "Count", "Actual UPH", "Share"],
+      ["#", "Category", "Count", "Target UPH", "Actual UPH", "UPH Difference"],
       ...data.map((r, i) => {
-        const count = Number(r.TotalCount) || 0;
-
-        const actualUPH =
-          safeElapsedHours > 0 ? Math.round(count / safeElapsedHours) : "—";
-        const share =
-          total > 0 ? ((count / total) * 100).toFixed(1) + "%" : "0%";
-        return [i + 1, r.category, count, actualUPH, share];
+        const { count, targetUPH, actualUPH, difference } = getRowMetrics(r);
+        return [i + 1, r.category, count, targetUPH, actualUPH, difference];
       }),
     ]
       .map((r) => r.join(","))
@@ -2179,34 +1724,33 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
                     zIndex: 1,
                   }}
                 >
-                  {["#", "Category", "Count", "Actual UPH", "Share"].map(
-                    (h, i) => (
-                      <th
-                        key={i}
-                        style={{
-                          padding: "6px 8px",
-                          textAlign: i >= 2 ? "center" : "left",
-                          color: "#94a3b8",
-                          fontWeight: 700,
-                          borderBottom: "1px solid #f1f5f9",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    "#",
+                    "Category",
+                    "Count",
+                    "Target UPH",
+                    "Actual UPH",
+                    "Difference",
+                  ].map((h, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        padding: "6px 8px",
+                        textAlign: i >= 2 ? "center" : "left",
+                        color: "#94a3b8",
+                        fontWeight: 700,
+                        borderBottom: "1px solid #f1f5f9",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {data.map((row, i) => {
-                  const count = Number(row.TotalCount) || 0;
-                  const pct =
-                    total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
-
-                  const actualUPH =
-                    safeElapsedHours > 0
-                      ? Math.round(count / safeElapsedHours)
-                      : "—";
+                  const { count, targetUPH, actualUPH, difference } =
+                    getRowMetrics(row);
                   const frac = count / maxCount;
                   return (
                     <tr
@@ -2255,49 +1799,33 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
                           textAlign: "center",
                           fontFamily: "monospace",
                           fontWeight: 700,
+                          color: "#64748b",
+                        }}
+                      >
+                        {targetUPH}
+                      </td>
+                      <td
+                        style={{
+                          padding: "5px 8px",
+                          textAlign: "center",
+                          fontFamily: "monospace",
+                          fontWeight: 700,
                           color: "#0f766e",
                         }}
                       >
                         {actualUPH}
                       </td>
-                      <td style={{ padding: "5px 8px 5px 4px" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 40,
-                              height: 4,
-                              background: "#f1f5f9",
-                              borderRadius: 2,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: "100%",
-                                width: `${Math.round(frac * 100)}%`,
-                                background: `hsla(${200 - i * 8},70%,${55 - i * 1.2}%,0.85)`,
-                                borderRadius: 2,
-                              }}
-                            />
-                          </div>
-                          <span
-                            style={{
-                              fontFamily: "monospace",
-                              color: "#94a3b8",
-                              width: 62,
-                              textAlign: "right",
-                            }}
-                          >
-                            {pct}%
-                          </span>
-                        </div>
+                      <td
+                        style={{
+                          padding: "5px 8px",
+                          textAlign: "center",
+                          fontFamily: "monospace",
+                          fontWeight: 700,
+                          color: actualUPH > targetUPH ? "#16a34a" : "#dc2626",
+                        }}
+                      >
+                        {difference > 0 ? "+" : ""}
+                        {difference}
                       </td>
                     </tr>
                   );
@@ -2526,12 +2054,6 @@ const HourlyWidget = ({
       {activePanel === "total" && hasModelData && (
         <TotalModelPanel
           modelData={modelData}
-          onClose={() => setActivePanel(null)}
-        />
-      )}
-      {activePanel === "manpower" && (
-        <ManpowerPanel
-          workers={manpowerWorkers}
           onClose={() => setActivePanel(null)}
         />
       )}

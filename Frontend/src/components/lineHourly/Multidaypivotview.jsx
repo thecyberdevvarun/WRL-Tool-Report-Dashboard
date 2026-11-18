@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useMemo, useCallback } from "react";
 import {
   BarChart,
@@ -6,7 +7,6 @@ import {
   Line,
   AreaChart,
   Area,
-  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -92,50 +92,6 @@ const LINE_STAGE_MAPPING = {
     "Post Foaming": { stationCodes: [1230012], linecodes: [12304] },
   },
 };
-
-// ---------------------------------------------------------------------------
-//  Production line + stage → Department name(s) in manpower report
-//  Used to filter the raw manpower data fetched for each day.
-//  Each entry is an array of substrings matched with .includes() (case-insensitive).
-// ---------------------------------------------------------------------------
-const LINE_DEPT_MAPPING = {
-  "Freezer Line": {
-    "FG Label": ["MAIN ASSEMBLY FZR"],
-    MFT: ["MAIN ASSEMBLY FZR"],
-    EST: ["MAIN ASSEMBLY FZR"],
-    "Gas Charging": ["MAIN ASSEMBLY FZR"],
-    "Comp Scan": ["MAIN ASSEMBLY FZR"],
-    "Post Foaming": ["FOAMING FZR"],
-    Foaming: ["FOAMING FZR"],
-  },
-  "Chocolate Line": {
-    "FG Label": ["FINAL LINE CHOC"],
-    "Comp Scan": ["FINAL LINE CHOC"],
-    "Post Foaming": ["FOAMING CHO"],
-  },
-  "VISI Cooler Line": {
-    "FG Label": ["FINAL LINE VC + CHOC", "VISI COOLER"],
-    "Comp Scan": ["FINAL LINE VC + CHOC", "VISI COOLER"],
-    "Post Foaming": ["VISI COOLER - Pre Assembly", "VISI COOLER"],
-  },
-  "SUS Line": {
-    "FG Label": ["FINAL LINE SUS"],
-    "Comp Scan 1": ["FINAL LINE SUS"],
-    "Post Foaming": ["FOAMING SUS"],
-  },
-};
-
-// Helper: filter worker rows by department substrings
-function filterWorkersByDept(workers, deptSubstrings) {
-  if (!deptSubstrings?.length || !workers?.length) return workers || [];
-  return workers.filter((r) =>
-    deptSubstrings.some((d) =>
-      (r.Department || r.department || "")
-        .toUpperCase()
-        .includes(d.toUpperCase()),
-    ),
-  );
-}
 
 // ---------------------------------------------------------------------------
 //  Shift constants
@@ -239,12 +195,6 @@ function perfBadge(score) {
       border: "#fcd34d",
     };
   return { label: "Low", color: "#dc2626", bg: "#fee2e2", border: "#fca5a5" };
-}
-
-function classifyShift(checkInStr) {
-  if (!checkInStr) return "unknown";
-  const hr = new Date(checkInStr).getHours();
-  return hr >= DAY_SHIFT_START && hr < DAY_SHIFT_END ? "day" : "night";
 }
 
 const S = {
@@ -597,122 +547,6 @@ const HourDrillPanel = ({ hour, dates, data, maxColVal, onClose }) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-//  Manpower summary inline card — shown in Trend / Compare / Insights / Report
-// ---------------------------------------------------------------------------
-const ManpowerSummaryBar = ({
-  workersPerDay,
-  upwPerDay,
-  avgWorkers,
-  avgUPW,
-  dates,
-  rowTotals,
-  hasData,
-  line,
-  stage,
-}) => {
-  if (!hasData) return null;
-  const depts = LINE_DEPT_MAPPING[line]?.[stage];
-
-  return (
-    <div
-      style={{
-        ...S.card,
-        padding: "12px 18px",
-        background: "linear-gradient(90deg,#fff7ed,#f0f9ff)",
-        border: "1px solid #fed7aa",
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 16,
-        alignItems: "center",
-        marginBottom: 12,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <MdPeople size={14} color="#ea580c" />
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#9a3412" }}>
-          Manpower Context
-        </span>
-        {depts && (
-          <span
-            style={{
-              fontSize: 10,
-              background: "#eef2ff",
-              color: "#4338ca",
-              border: "1px solid #c7d2fe",
-              borderRadius: 5,
-              padding: "1px 7px",
-              fontWeight: 700,
-            }}
-          >
-            {depts.join(" · ")}
-          </span>
-        )}
-      </div>
-      <div style={{ width: 1, height: 28, background: "#fed7aa" }} />
-      {[
-        {
-          label: "Avg Day Workers",
-          value: avgWorkers ? `${avgWorkers}/day` : "—",
-          color: MP_COLORS.day,
-        },
-        {
-          label: "Avg UPW",
-          value: avgUPW ? `${avgUPW} u/w` : "—",
-          color: "#ea580c",
-        },
-        {
-          label: "Best Day",
-          value: (() => {
-            const best = dates.reduce(
-              (b, d) => ((upwPerDay[d] ?? -1) > (upwPerDay[b] ?? -1) ? d : b),
-              dates[0],
-            );
-            return best && upwPerDay[best] != null
-              ? `${best.slice(0, 5)} (${upwPerDay[best]})`
-              : "—";
-          })(),
-          color: "#059669",
-        },
-        {
-          label: "Total Worker Records",
-          value: fmtN(
-            dates.reduce((s, d) => s + (workersPerDay[d]?.total || 0), 0),
-          ),
-          color: "#334155",
-        },
-      ].map((s) => (
-        <div
-          key={s.label}
-          style={{ display: "flex", flexDirection: "column", gap: 2 }}
-        >
-          <span
-            style={{
-              fontSize: 9,
-              color: "#94a3b8",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            {s.label}
-          </span>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 800,
-              color: s.color,
-              fontFamily: "'JetBrains Mono',monospace",
-            }}
-          >
-            {s.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 // ===========================================================================
 //  Main Component
 // ===========================================================================
@@ -732,13 +566,6 @@ export default function MultiDayPivotView() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({});
   const [error, setError] = useState(null);
-
-  // -- Manpower state ---------------------------------------------------------
-  const [manpowerByDate, setManpowerByDate] = useState({});
-  const [manpowerLoading, setManpowerLoading] = useState(false);
-  const [mpDeptFilter, setMpDeptFilter] = useState("");
-  const [showManpowerCols, setShowManpowerCols] = useState(true);
-  const [fetchManpower, setFetchManpower] = useState(true);
 
   // -- UI state ---------------------------------------------------------------
   const [view, setView] = useState("pivot");
@@ -760,12 +587,6 @@ export default function MultiDayPivotView() {
   );
   const fixedTarget = useMemo(() => getFixedTarget(line, stage), [line, stage]);
   const effectiveTarget = fixedTarget ?? target;
-
-  // Dept substrings for current line+stage selection
-  const activeDeptSubstrings = useMemo(
-    () => LINE_DEPT_MAPPING[line]?.[stage] || [],
-    [line, stage],
-  );
 
   // ===========================================================================
   //  Production derived
@@ -929,110 +750,6 @@ export default function MultiDayPivotView() {
   }, []);
 
   // ===========================================================================
-  //  Manpower derived
-  //  workersPerDay applies:
-  //    1. the manual mpDeptFilter text (if set by user)
-  //    2. the LINE_DEPT_MAPPING for the current line+stage (automatic)
-  // ===========================================================================
-  const workersPerDay = useMemo(() => {
-    const w = {};
-    dates.forEach((d) => {
-      const mp = manpowerByDate[d];
-      if (!mp) return;
-
-      // Step 1: filter by active department mapping
-      let workers = activeDeptSubstrings.length
-        ? filterWorkersByDept(mp.workers, activeDeptSubstrings)
-        : mp.workers;
-
-      // Step 2: apply optional free-text filter on top
-      if (mpDeptFilter.trim()) {
-        const kw = mpDeptFilter.trim().toLowerCase();
-        workers = workers.filter(
-          (r) =>
-            (r.Department || "").toLowerCase().includes(kw) ||
-            (r.Contractor || "").toLowerCase().includes(kw),
-        );
-      }
-
-      const day = workers.filter((r) => classifyShift(r.CheckIn) === "day");
-      const night = workers.filter((r) => classifyShift(r.CheckIn) === "night");
-      w[d] = {
-        day: day.length,
-        night: night.length,
-        total: workers.length,
-        all: workers,
-      };
-    });
-    return w;
-  }, [manpowerByDate, dates, mpDeptFilter, activeDeptSubstrings]);
-
-  const upwPerDay = useMemo(() => {
-    const u = {};
-    dates.forEach((d) => {
-      const workers = workersPerDay[d]?.day || 0;
-      u[d] = workers > 0 ? Math.round(rowTotals[d] / workers) : null;
-    });
-    return u;
-  }, [workersPerDay, dates, rowTotals]);
-
-  const avgWorkers = useMemo(() => {
-    const vals = dates
-      .map((d) => workersPerDay[d]?.day || 0)
-      .filter((v) => v > 0);
-    return vals.length
-      ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length)
-      : 0;
-  }, [workersPerDay, dates]);
-
-  const avgUPW = useMemo(() => {
-    const vals = Object.values(upwPerDay).filter((v) => v !== null);
-    return vals.length
-      ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length)
-      : 0;
-  }, [upwPerDay]);
-
-  const bestUPWDay = useMemo(() => {
-    return dates.reduce((b, d) => {
-      const u = upwPerDay[d];
-      if (u === null) return b;
-      if (!b || u > (upwPerDay[b] ?? -Infinity)) return d;
-      return b;
-    }, null);
-  }, [dates, upwPerDay]);
-
-  const contractorBreakdown = useMemo(() => {
-    const map = {};
-    dates.forEach((d) => {
-      (workersPerDay[d]?.all || []).forEach((w) => {
-        const ctr = w.Contractor || "Unknown";
-        if (!map[ctr])
-          map[ctr] = { total: 0, day: 0, night: 0, days: new Set() };
-        map[ctr].total++;
-        map[ctr].days.add(d);
-        if (classifyShift(w.CheckIn) === "day") map[ctr].day++;
-        else map[ctr].night++;
-      });
-    });
-    return Object.entries(map)
-      .map(([name, v]) => ({
-        name,
-        total: v.total,
-        day: v.day,
-        night: v.night,
-        days: v.days.size,
-      }))
-      .sort((a, b) => b.total - a.total);
-  }, [workersPerDay, dates]);
-
-  const totalMPCount = useMemo(
-    () => dates.reduce((s, d) => s + (workersPerDay[d]?.total || 0), 0),
-    [workersPerDay, dates],
-  );
-
-  const hasManpowerData = Object.keys(manpowerByDate).length > 0;
-
-  // ===========================================================================
   //  Chart payloads
   // ===========================================================================
   const dailyCD = useMemo(
@@ -1076,19 +793,6 @@ export default function MultiDayPivotView() {
     [sortedDates, rowTotals],
   );
 
-  const mpDailyCD = useMemo(
-    () =>
-      sortedDates.map((d) => ({
-        date: d.slice(0, 5),
-        dayWorkers: workersPerDay[d]?.day || 0,
-        nightWorkers: workersPerDay[d]?.night || 0,
-        total: workersPerDay[d]?.total || 0,
-        production: rowTotals[d] || 0,
-        upw: upwPerDay[d] || 0,
-      })),
-    [sortedDates, workersPerDay, upwPerDay, rowTotals],
-  );
-
   // ===========================================================================
   //  Fetch
   // ===========================================================================
@@ -1097,32 +801,34 @@ export default function MultiDayPivotView() {
     if (!mapping || !from || !to) return;
 
     setLoading(true);
-    setManpowerLoading(fetchManpower);
     setError(null);
     setData({});
-    setManpowerByDate({});
     setExpandedDay(null);
     setExpandedHour(null);
 
     try {
-      const start = new Date(from),
-        end = new Date(to),
-        list = [];
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1))
+      const start = new Date(from);
+      const end = new Date(to);
+      const list = [];
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         list.push(
           `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`,
         );
+      }
 
       const nextDayStr = (ds) => {
         const nd = new Date(ds);
         nd.setDate(nd.getDate() + 1);
+
         return `${nd.getFullYear()}-${pad2(nd.getMonth() + 1)}-${pad2(nd.getDate())}`;
       };
 
-      // ── Production fetch ──────────────────────────────────────────────────
-      const prodPromise = Promise.allSettled(
+      // Production API fetch only
+      const prodResults = await Promise.allSettled(
         list.map(async (ds) => {
           const ns = nextDayStr(ds);
+
           const res = await axios.get(`${baseURL}prod/hourly-summary`, {
             params: {
               startDate: `${ds} 08:00`,
@@ -1131,83 +837,52 @@ export default function MultiDayPivotView() {
               linecode: mapping.linecodes.join(","),
             },
           });
+
           const pivot = {};
+
           (res.data?.data || []).forEach((row) => {
             const h = row.TIMEHOUR ?? row.timehour ?? row.hour;
             const c = row.COUNT ?? row.count ?? row.Loading_Count ?? 0;
-            if (h != null) pivot[Number(h)] = (pivot[Number(h)] || 0) + c;
+
+            if (h != null) {
+              pivot[Number(h)] = (pivot[Number(h)] || 0) + c;
+            }
           });
+
           return { ds, pivot };
         }),
       );
 
-      // ── Manpower fetch ────────────────────────────────────────────────────
-      // Window covers BOTH shifts:
-      //   Day shift  : check-in from 07:00 on ds
-      //   Night shift: check-in from 19:00 on ds, checkout by 08:20 on ns
-      // → single window ds 07:00:00 → ns 08:20:00 captures all punches
-      const mpPromise = fetchManpower
-        ? Promise.allSettled(
-            list.map(async (ds) => {
-              const ns = nextDayStr(ds);
-              const res = await axios.get(`${baseURL}prod/manpower`, {
-                params: {
-                  StartTime: `${ds} 07:00:00`,
-                  EndTime: `${ns} 08:20:00`,
-                },
-              });
-              return { ds, workers: res.data?.data || [] };
-            }),
-          )
-        : Promise.resolve([]);
-
-      const [prodResults, mpResults] = await Promise.all([
-        prodPromise,
-        mpPromise,
-      ]);
-
-      // ── Merge production ──────────────────────────────────────────────────
+      // Merge production data
       const merged = {};
+
       prodResults.forEach((r) => {
         if (r.status === "fulfilled") {
           const { ds, pivot } = r.value;
           const [y, m, d] = ds.split("-");
           const key = `${d}-${m}-${y}`;
-          if (Object.keys(pivot).length > 0) merged[key] = pivot;
+
+          if (Object.keys(pivot).length > 0) {
+            merged[key] = pivot;
+          }
         }
       });
-      setData(merged);
 
-      // ── Merge manpower ────────────────────────────────────────────────────
-      if (fetchManpower && Array.isArray(mpResults)) {
-        const mergedMp = {};
-        mpResults.forEach((r) => {
-          if (r.status === "fulfilled") {
-            const { ds, workers } = r.value;
-            const [y, m, d] = ds.split("-");
-            const key = `${d}-${m}-${y}`;
-            mergedMp[key] = { workers };
-          }
-        });
-        setManpowerByDate(mergedMp);
-      }
+      setData(merged);
     } catch (e) {
+      console.error("Production fetch error:", e);
       setError("Failed to fetch data. Please check your API connection.");
     } finally {
       setLoading(false);
-      setManpowerLoading(false);
     }
-  }, [line, stage, from, to, fetchManpower]);
+  }, [line, stage, from, to]);
 
   // ---------------------------------------------------------------------------
   //  Export CSV
   // ---------------------------------------------------------------------------
   const exportCSV = useCallback(() => {
     if (!dates.length) return;
-    const mpHeaders =
-      showManpowerCols && hasManpowerData
-        ? ["Day Workers", "Night Workers", "UPW", "UPW vs Avg%"]
-        : [];
+
     const rows = [
       [
         "Date",
@@ -1217,20 +892,10 @@ export default function MultiDayPivotView() {
         "Avg UPH",
         "Perf Score",
         "vs Target%",
-        ...mpHeaders,
       ],
     ];
 
     sortedDates.forEach((d) => {
-      const mpRow =
-        showManpowerCols && hasManpowerData
-          ? [
-              workersPerDay[d]?.day || 0,
-              workersPerDay[d]?.night || 0,
-              upwPerDay[d] ?? "—",
-              avgUPW ? pct(upwPerDay[d] ?? 0, avgUPW) : "—",
-            ]
-          : [];
       rows.push([
         d,
         getWeekKey(d),
@@ -1239,15 +904,16 @@ export default function MultiDayPivotView() {
         avgUPH[d],
         perfScore(d),
         pct(avgUPH[d], effectiveTarget),
-        ...mpRow,
       ]);
     });
 
     const csv = rows.map((r) => r.join(",")).join("\n");
+
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `Production_${line}_${stage}_${from}_to_${to}.csv`;
     a.click();
+
     URL.revokeObjectURL(a.href);
   }, [
     dates,
@@ -1263,11 +929,6 @@ export default function MultiDayPivotView() {
     getWeekKey,
     perfScore,
     effectiveTarget,
-    workersPerDay,
-    upwPerDay,
-    avgUPW,
-    showManpowerCols,
-    hasManpowerData,
   ]);
 
   const isEmpty = dates.length === 0 && !loading;
@@ -1340,6 +1001,7 @@ export default function MultiDayPivotView() {
           >
             <TbLayoutDashboard size={18} color="#fff" />
           </div>
+
           <div>
             <div
               style={{
@@ -1351,30 +1013,15 @@ export default function MultiDayPivotView() {
             >
               Production Analytics
             </div>
+
             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
               {line} › {stage}
               {dates.length > 0 &&
                 ` · ${dates.length} days · ${fmtN(grandTotal)} units`}
-              {hasManpowerData && ` · ${fmtN(totalMPCount)} worker records`}
-              {activeDeptSubstrings.length > 0 && (
-                <span
-                  style={{
-                    marginLeft: 6,
-                    fontSize: 10,
-                    background: "#eef2ff",
-                    color: "#4338ca",
-                    border: "1px solid #c7d2fe",
-                    borderRadius: 4,
-                    padding: "1px 5px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {activeDeptSubstrings.join(" · ")}
-                </span>
-              )}
             </div>
           </div>
         </div>
+
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={() => setFilterOpen((v) => !v)}
@@ -1394,6 +1041,7 @@ export default function MultiDayPivotView() {
           >
             <FiFilter size={12} /> {filterOpen ? "Hide" : "Filters"}
           </button>
+
           {dates.length > 0 && (
             <button
               onClick={exportCSV}
@@ -1467,6 +1115,7 @@ export default function MultiDayPivotView() {
                 >
                   {f.lbl}
                 </label>
+
                 <select
                   value={f.val}
                   onChange={f.onChange}
@@ -1509,6 +1158,7 @@ export default function MultiDayPivotView() {
                 >
                   {f.lbl}
                 </label>
+
                 <input
                   type="date"
                   value={f.val}
@@ -1540,6 +1190,7 @@ export default function MultiDayPivotView() {
               >
                 Target UPH
               </label>
+
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {fixedTarget != null ? (
                   <span
@@ -1578,6 +1229,7 @@ export default function MultiDayPivotView() {
                     }}
                   />
                 )}
+
                 <button
                   onClick={() => setShowTgt((v) => !v)}
                   className="tgt-btn"
@@ -1597,87 +1249,6 @@ export default function MultiDayPivotView() {
               </div>
             </div>
 
-            {/* Manpower */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Manpower
-              </label>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <button
-                  onClick={() => setFetchManpower((v) => !v)}
-                  style={{
-                    fontSize: 11,
-                    padding: "7px 11px",
-                    border: `1px solid ${fetchManpower ? "#ea580c" : "#e4e7ec"}`,
-                    borderRadius: 9,
-                    background: fetchManpower ? "#fff7ed" : "#f8fafc",
-                    color: fetchManpower ? "#ea580c" : "#64748b",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <MdPeople size={12} /> {fetchManpower ? "ON" : "OFF"}
-                </button>
-                {fetchManpower && (
-                  <input
-                    type="text"
-                    placeholder="Extra dept/contractor filter…"
-                    value={mpDeptFilter}
-                    onChange={(e) => setMpDeptFilter(e.target.value)}
-                    style={{
-                      fontSize: 11,
-                      padding: "7px 10px",
-                      border: "1px solid #e4e7ec",
-                      borderRadius: 9,
-                      background: "#f8fafc",
-                      color: "#0f172a",
-                      width: 180,
-                      fontFamily: "inherit",
-                    }}
-                  />
-                )}
-              </div>
-              {/* Show active dept mapping */}
-              {fetchManpower && activeDeptSubstrings.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    flexWrap: "wrap",
-                    marginTop: 2,
-                  }}
-                >
-                  {activeDeptSubstrings.map((d) => (
-                    <span
-                      key={d}
-                      style={{
-                        fontSize: 9,
-                        background: "#f0fdf4",
-                        color: "#15803d",
-                        border: "1px solid #bbf7d0",
-                        borderRadius: 4,
-                        padding: "1px 6px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Options */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               <label
@@ -1691,6 +1262,7 @@ export default function MultiDayPivotView() {
               >
                 Options
               </label>
+
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => setSortAsc((v) => !v)}
@@ -1715,6 +1287,7 @@ export default function MultiDayPivotView() {
                   )}{" "}
                   Date
                 </button>
+
                 <button
                   onClick={() => setGroupByWeek((v) => !v)}
                   style={{
@@ -1733,6 +1306,7 @@ export default function MultiDayPivotView() {
                 >
                   <FiCalendar size={12} /> Week
                 </button>
+
                 <button
                   onClick={() => setHighlightBest((v) => !v)}
                   style={{
@@ -1751,29 +1325,10 @@ export default function MultiDayPivotView() {
                 >
                   <FiStar size={12} /> Best
                 </button>
-                {fetchManpower && hasManpowerData && (
-                  <button
-                    onClick={() => setShowManpowerCols((v) => !v)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: "7px 10px",
-                      borderRadius: 9,
-                      background: showManpowerCols ? "#fff7ed" : "#f8fafc",
-                      color: showManpowerCols ? "#ea580c" : "#64748b",
-                      border: `1px solid ${showManpowerCols ? "#fed7aa" : "#e4e7ec"}`,
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <MdPeople size={12} /> MP Cols
-                  </button>
-                )}
               </div>
             </div>
 
+            {/* Query Button */}
             <div style={{ marginLeft: "auto" }}>
               <button
                 onClick={handleQuery}
@@ -1830,6 +1385,7 @@ export default function MultiDayPivotView() {
             sub={`across ${dates.length} days`}
             color="#4f46e5"
           />
+
           <KPICard
             icon={MdOutlineSpeed}
             label="Overall Avg"
@@ -1838,6 +1394,7 @@ export default function MultiDayPivotView() {
             color="#059669"
             trend={overallAvg >= effectiveTarget ? "up" : "down"}
           />
+
           <KPICard
             icon={HiOutlineFire}
             label="Best Day"
@@ -1845,6 +1402,7 @@ export default function MultiDayPivotView() {
             sub={bestDay ? `${fmtN(rowTotals[bestDay])} units` : ""}
             color="#d97706"
           />
+
           <KPICard
             icon={FiClock}
             label="Peak Hour"
@@ -1852,25 +1410,7 @@ export default function MultiDayPivotView() {
             sub={bestHour != null ? `${fmtN(colTotals[bestHour])} total` : ""}
             color="#7c3aed"
           />
-          {hasManpowerData && (
-            <>
-              <KPICard
-                icon={MdPeople}
-                label="Avg Workers"
-                value={avgWorkers || "—"}
-                sub="day shift / day"
-                color="#0ea5e9"
-              />
-              <KPICard
-                icon={FiUsers}
-                label="Avg UPW"
-                value={avgUPW || "—"}
-                sub={`units per worker · best: ${bestUPWDay?.slice(0, 5) || "—"}`}
-                color="#ea580c"
-                trend={avgUPW > 0 ? "up" : undefined}
-              />
-            </>
-          )}
+
           <KPICard
             icon={FiAlertTriangle}
             label="Below Target"
@@ -1878,6 +1418,7 @@ export default function MultiDayPivotView() {
             sub={`slots < ${effectiveTarget} UPH`}
             color={belowTarget.length > 0 ? "#dc2626" : "#059669"}
           />
+
           {trend && (
             <KPICard
               icon={trend.up ? FiTrendingUp : FiTrendingDown}
@@ -1959,51 +1500,33 @@ export default function MultiDayPivotView() {
             gap: 2,
           }}
         >
-          {VIEWS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => setView(id)}
-              className="view-tab"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "7px 15px",
-                borderRadius: 9,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 600,
-                background: view === id ? "#fff" : "transparent",
-                color:
-                  view === id
-                    ? id === "manpower"
-                      ? "#ea580c"
-                      : "#4f46e5"
-                    : "#64748b",
-                boxShadow: view === id ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                transition: "all 0.15s",
-              }}
-            >
-              <Icon size={13} /> {label}
-              {id === "manpower" && hasManpowerData && (
-                <span
-                  style={{
-                    marginLeft: 3,
-                    fontSize: 9,
-                    fontWeight: 800,
-                    background: "#fff7ed",
-                    color: "#ea580c",
-                    border: "1px solid #fed7aa",
-                    borderRadius: 20,
-                    padding: "1px 5px",
-                  }}
-                >
-                  {fmtN(totalMPCount)}
-                </span>
-              )}
-            </button>
-          ))}
+          {VIEWS.filter(({ id }) => id !== "manpower").map(
+            ({ id, label, Icon }) => (
+              <button
+                key={id}
+                onClick={() => setView(id)}
+                className="view-tab"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 15px",
+                  borderRadius: 9,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: view === id ? "#fff" : "transparent",
+                  color: view === id ? "#4f46e5" : "#64748b",
+                  boxShadow:
+                    view === id ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                <Icon size={13} /> {label}
+              </button>
+            ),
+          )}
         </div>
       )}
 
@@ -2030,21 +1553,6 @@ export default function MultiDayPivotView() {
               <span style={{ fontSize: 11, color: "#94a3b8" }}>
                 · {dates.length} days × {activeHours.length} hours
               </span>
-              {showManpowerCols && hasManpowerData && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    background: "#fff7ed",
-                    color: "#ea580c",
-                    border: "1px solid #fed7aa",
-                    borderRadius: 5,
-                    padding: "2px 7px",
-                    fontWeight: 700,
-                  }}
-                >
-                  + Manpower
-                </span>
-              )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button
@@ -2240,50 +1748,16 @@ export default function MultiDayPivotView() {
                     >
                       Performance
                     </th>
-                    {showManpowerCols && hasManpowerData && (
-                      <>
-                        <th
-                          style={{
-                            padding: "11px 12px",
-                            textAlign: "center",
-                            fontWeight: 800,
-                            color: "#0ea5e9",
-                            borderBottom: "2px solid #e4e7ec",
-                            background: "#f0f9ff",
-                            minWidth: 70,
-                            borderLeft: "2px solid #bae6fd",
-                          }}
-                        >
-                          Workers
-                        </th>
-                        <th
-                          style={{
-                            padding: "11px 12px",
-                            textAlign: "center",
-                            fontWeight: 800,
-                            color: "#ea580c",
-                            borderBottom: "2px solid #e4e7ec",
-                            background: "#fff7ed",
-                            minWidth: 70,
-                          }}
-                        >
-                          UPW
-                        </th>
-                      </>
-                    )}
                   </tr>
                 </thead>
+
                 <tbody>
                   {groupedDates.map(({ week, dates: grpDates }) => (
-                    <>
+                    <React.Fragment key={week || grpDates[0]}>
                       {week && (
-                        <tr key={`week-${week}`}>
+                        <tr>
                           <td
-                            colSpan={
-                              activeHours.length +
-                              5 +
-                              (showManpowerCols && hasManpowerData ? 2 : 0)
-                            }
+                            colSpan={activeHours.length + 5}
                             style={{
                               padding: "7px 18px",
                               background:
@@ -2300,6 +1774,7 @@ export default function MultiDayPivotView() {
                           </td>
                         </tr>
                       )}
+
                       {grpDates.map((date, di) => {
                         const dd = data[date] || {};
                         const tot = rowTotals[date];
@@ -2311,13 +1786,10 @@ export default function MultiDayPivotView() {
                         const tgtPct = pct(uph, effectiveTarget);
                         const score = perfScore(date);
                         const badge = perfBadge(score);
-                        const mpDay = workersPerDay[date]?.day || 0;
-                        const upw = upwPerDay[date];
 
                         return (
-                          <>
+                          <React.Fragment key={date}>
                             <tr
-                              key={date}
                               className={`prow${isExp ? " expanded" : ""}`}
                               onClick={() =>
                                 setExpandedDay(isExp ? null : date)
@@ -2359,6 +1831,7 @@ export default function MultiDayPivotView() {
                                       transition: "transform 0.2s",
                                     }}
                                   />
+
                                   {isBest && (
                                     <span
                                       style={{
@@ -2374,6 +1847,7 @@ export default function MultiDayPivotView() {
                                       BEST
                                     </span>
                                   )}
+
                                   {isWorst && (
                                     <span
                                       style={{
@@ -2389,6 +1863,7 @@ export default function MultiDayPivotView() {
                                       LOW
                                     </span>
                                   )}
+
                                   {!isBest &&
                                     !isWorst &&
                                     isTop3 &&
@@ -2407,6 +1882,7 @@ export default function MultiDayPivotView() {
                                         TOP3
                                       </span>
                                     )}
+
                                   <span
                                     className="mono"
                                     style={{
@@ -2419,11 +1895,13 @@ export default function MultiDayPivotView() {
                                   </span>
                                 </div>
                               </td>
+
                               {activeHours.map((h) => {
                                 const v = dd[h] || 0;
                                 const hs = getHeatStyle(v, maxVal);
                                 const belowTgt =
                                   showTgt && v > 0 && v < effectiveTarget;
+
                                 return (
                                   <td
                                     key={h}
@@ -2467,6 +1945,7 @@ export default function MultiDayPivotView() {
                                   </td>
                                 );
                               })}
+
                               <td
                                 style={{
                                   padding: "8px 14px",
@@ -2483,6 +1962,7 @@ export default function MultiDayPivotView() {
                                   {fmtN(tot)}
                                 </span>
                               </td>
+
                               <td
                                 style={{
                                   padding: "8px 12px",
@@ -2510,6 +1990,7 @@ export default function MultiDayPivotView() {
                                   <span className="mono">{uph}</span>
                                 </span>
                               </td>
+
                               <td
                                 style={{
                                   padding: "8px 12px",
@@ -2534,6 +2015,7 @@ export default function MultiDayPivotView() {
                                   {tgtPct}%
                                 </span>
                               </td>
+
                               <td
                                 style={{
                                   padding: "8px 12px",
@@ -2556,88 +2038,12 @@ export default function MultiDayPivotView() {
                                   {badge.label}
                                 </span>
                               </td>
-                              {showManpowerCols && hasManpowerData && (
-                                <>
-                                  <td
-                                    style={{
-                                      padding: "8px 12px",
-                                      textAlign: "center",
-                                      borderBottom: "1px solid #f1f5f9",
-                                      background: "#f0f9ff",
-                                      borderLeft: "2px solid #bae6fd",
-                                    }}
-                                  >
-                                    {mpDay > 0 ? (
-                                      <span
-                                        style={{
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: 4,
-                                          fontSize: 11,
-                                          fontWeight: 700,
-                                          color: "#0369a1",
-                                        }}
-                                      >
-                                        <MdPeople size={10} />{" "}
-                                        <span className="mono">{mpDay}</span>
-                                      </span>
-                                    ) : (
-                                      <span
-                                        style={{
-                                          color: "#cbd5e1",
-                                          fontSize: 10,
-                                        }}
-                                      >
-                                        —
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td
-                                    style={{
-                                      padding: "8px 12px",
-                                      textAlign: "center",
-                                      borderBottom: "1px solid #f1f5f9",
-                                      background: "#fff7ed",
-                                    }}
-                                  >
-                                    {upw !== null ? (
-                                      <span
-                                        className="mono"
-                                        style={{
-                                          fontSize: 11,
-                                          fontWeight: 700,
-                                          color:
-                                            upw >= avgUPW
-                                              ? "#9a3412"
-                                              : "#c2410c",
-                                        }}
-                                      >
-                                        {upw}
-                                      </span>
-                                    ) : (
-                                      <span
-                                        style={{
-                                          color: "#cbd5e1",
-                                          fontSize: 10,
-                                        }}
-                                      >
-                                        —
-                                      </span>
-                                    )}
-                                  </td>
-                                </>
-                              )}
                             </tr>
+
                             {isExp && (
-                              <tr key={`exp-${date}`}>
+                              <tr>
                                 <td
-                                  colSpan={
-                                    activeHours.length +
-                                    5 +
-                                    (showManpowerCols && hasManpowerData
-                                      ? 2
-                                      : 0)
-                                  }
+                                  colSpan={activeHours.length + 5}
                                   style={{
                                     padding: 0,
                                     borderBottom: "2px solid #c7d2fe",
@@ -2658,6 +2064,7 @@ export default function MultiDayPivotView() {
                                       }}
                                     >
                                       <FiBarChart2 size={12} color="#4f46e5" />
+
                                       <span
                                         style={{
                                           fontSize: 11,
@@ -2667,24 +2074,7 @@ export default function MultiDayPivotView() {
                                       >
                                         Hourly breakdown — {date}
                                       </span>
-                                      {showManpowerCols &&
-                                        hasManpowerData &&
-                                        mpDay > 0 && (
-                                          <span
-                                            style={{
-                                              fontSize: 10,
-                                              background: "#fff7ed",
-                                              color: "#ea580c",
-                                              border: "1px solid #fed7aa",
-                                              borderRadius: 5,
-                                              padding: "1px 7px",
-                                              fontWeight: 700,
-                                            }}
-                                          >
-                                            👷 {mpDay} workers · {upw ?? "—"}{" "}
-                                            UPW
-                                          </span>
-                                        )}
+
                                       <div
                                         style={{
                                           marginLeft: "auto",
@@ -2700,12 +2090,14 @@ export default function MultiDayPivotView() {
                                             {fmtN(tot)}
                                           </strong>
                                         </span>
+
                                         <span>
                                           Avg:{" "}
                                           <strong style={{ color: "#059669" }}>
                                             {uph}/hr
                                           </strong>
                                         </span>
+
                                         <span>
                                           Score:{" "}
                                           <strong
@@ -2716,6 +2108,7 @@ export default function MultiDayPivotView() {
                                         </span>
                                       </div>
                                     </div>
+
                                     <MiniHourChart
                                       hours={activeHours}
                                       data={dd}
@@ -2728,12 +2121,13 @@ export default function MultiDayPivotView() {
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </React.Fragment>
                         );
                       })}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
+
                 <tfoot>
                   <tr style={{ background: "#eef2ff" }}>
                     <td
@@ -2802,49 +2196,6 @@ export default function MultiDayPivotView() {
                       </strong>{" "}
                       · Target: <strong>{effectiveTarget}/hr</strong>
                     </td>
-                    {showManpowerCols && hasManpowerData && (
-                      <>
-                        <td
-                          style={{
-                            borderTop: "2px solid #c7d2fe",
-                            padding: "10px 12px",
-                            textAlign: "center",
-                            background: "#f0f9ff",
-                            borderLeft: "2px solid #bae6fd",
-                          }}
-                        >
-                          <span
-                            className="mono"
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 800,
-                              color: "#0369a1",
-                            }}
-                          >
-                            {avgWorkers > 0 ? `~${avgWorkers}` : "—"}
-                          </span>
-                        </td>
-                        <td
-                          style={{
-                            borderTop: "2px solid #c7d2fe",
-                            padding: "10px 12px",
-                            textAlign: "center",
-                            background: "#fff7ed",
-                          }}
-                        >
-                          <span
-                            className="mono"
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 800,
-                              color: "#9a3412",
-                            }}
-                          >
-                            {avgUPW > 0 ? avgUPW : "—"}
-                          </span>
-                        </td>
-                      </>
-                    )}
                   </tr>
                   {showAvgRow && (
                     <tr style={{ background: "#f8fafc" }}>
@@ -2890,9 +2241,7 @@ export default function MultiDayPivotView() {
                         </td>
                       ))}
                       <td
-                        colSpan={
-                          4 + (showManpowerCols && hasManpowerData ? 2 : 0)
-                        }
+                        colSpan={4}
                         style={{ borderTop: "1px solid #e4e7ec" }}
                       />
                     </tr>
@@ -2916,18 +2265,6 @@ export default function MultiDayPivotView() {
             animation: "fadeIn 0.2s ease",
           }}
         >
-          <ManpowerSummaryBar
-            workersPerDay={workersPerDay}
-            upwPerDay={upwPerDay}
-            avgWorkers={avgWorkers}
-            avgUPW={avgUPW}
-            dates={dates}
-            rowTotals={rowTotals}
-            hasData={hasManpowerData}
-            line={line}
-            stage={stage}
-          />
-
           <div
             style={{
               display: "grid",
@@ -2950,117 +2287,9 @@ export default function MultiDayPivotView() {
                 >
                   Daily Production Volume
                 </span>
-                {hasManpowerData && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      background: "#fff7ed",
-                      color: "#ea580c",
-                      border: "1px solid #fed7aa",
-                      borderRadius: 5,
-                      padding: "1px 6px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    +UPW overlay
-                  </span>
-                )}
               </div>
               <ResponsiveContainer width="100%" height={200}>
-                {hasManpowerData ? (
-                  <ComposedChart
-                    data={dailyCD.map((d, i) => ({
-                      ...d,
-                      upw: upwPerDay[sortedDates[i]] || 0,
-                    }))}
-                    margin={{ top: 8, right: 40, left: -10, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="5%"
-                          stopColor="#4f46e5"
-                          stopOpacity={0.3}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#4f46e5"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f1f5f9"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="prod"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="upw"
-                      orientation="right"
-                      tick={{ fontSize: 10, fill: "#ea580c" }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={30}
-                    />
-                    {showTgt && (
-                      <ReferenceLine
-                        yAxisId="prod"
-                        y={effectiveTarget}
-                        stroke="#f59e0b"
-                        strokeDasharray="4 3"
-                        label={{
-                          value: `Tgt ${effectiveTarget}`,
-                          position: "right",
-                          fontSize: 9,
-                          fill: "#d97706",
-                        }}
-                      />
-                    )}
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area
-                      yAxisId="prod"
-                      type="monotone"
-                      dataKey="total"
-                      name="Total Units"
-                      stroke="#4f46e5"
-                      strokeWidth={2.5}
-                      fill="url(#gTotal)"
-                      dot={{
-                        fill: "#4f46e5",
-                        r: 3,
-                        strokeWidth: 2,
-                        stroke: "#fff",
-                      }}
-                    />
-                    <Line
-                      yAxisId="upw"
-                      type="monotone"
-                      dataKey="upw"
-                      name="UPW"
-                      stroke={MP_COLORS.upw}
-                      strokeWidth={2}
-                      dot={{
-                        fill: MP_COLORS.upw,
-                        r: 3,
-                        stroke: "#fff",
-                        strokeWidth: 2,
-                      }}
-                      strokeDasharray="4 2"
-                    />
-                  </ComposedChart>
-                ) : (
+                {
                   <AreaChart
                     data={dailyCD}
                     margin={{ top: 8, right: 10, left: -10, bottom: 0 }}
@@ -3124,7 +2353,7 @@ export default function MultiDayPivotView() {
                       }}
                     />
                   </AreaChart>
-                )}
+                }
               </ResponsiveContainer>
             </div>
             <div style={{ ...S.card, padding: 18 }}>
@@ -3151,7 +2380,6 @@ export default function MultiDayPivotView() {
                       (rowTotals[d] / (rowTotals[bestDay] || 1)) * 100,
                     );
                     const badge = perfBadge(perfScore(d));
-                    const upw = upwPerDay[d];
                     return (
                       <div
                         key={d}
@@ -3217,20 +2445,7 @@ export default function MultiDayPivotView() {
                         >
                           {fmtN(rowTotals[d])}
                         </span>
-                        {hasManpowerData && upw != null && (
-                          <span
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 700,
-                              background: "#fff7ed",
-                              color: "#ea580c",
-                              borderRadius: 4,
-                              padding: "1px 5px",
-                            }}
-                          >
-                            {upw}U/W
-                          </span>
-                        )}
+
                         <span
                           style={{
                             fontSize: 9,
@@ -3332,104 +2547,7 @@ export default function MultiDayPivotView() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            {hasManpowerData ? (
-              <div style={{ ...S.card, padding: 18 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 14,
-                  }}
-                >
-                  <MdPeople size={13} color="#ea580c" />
-                  <span
-                    style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                  >
-                    Workers &amp; UPW per Day
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={175}>
-                  <ComposedChart
-                    data={mpDailyCD}
-                    margin={{ top: 8, right: 36, left: -10, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f1f5f9"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="w"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={24}
-                    />
-                    <YAxis
-                      yAxisId="u"
-                      orientation="right"
-                      tick={{ fontSize: 10, fill: "#ea580c" }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={28}
-                    />
-                    {avgWorkers > 0 && (
-                      <ReferenceLine
-                        yAxisId="w"
-                        y={avgWorkers}
-                        stroke="#0ea5e9"
-                        strokeDasharray="4 3"
-                        label={{
-                          value: `Avg ${avgWorkers}`,
-                          position: "right",
-                          fontSize: 9,
-                          fill: "#0ea5e9",
-                        }}
-                      />
-                    )}
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      yAxisId="w"
-                      dataKey="dayWorkers"
-                      name="Day Workers"
-                      fill={MP_COLORS.day}
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={28}
-                    />
-                    <Bar
-                      yAxisId="w"
-                      dataKey="nightWorkers"
-                      name="Night Workers"
-                      fill={MP_COLORS.night}
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={28}
-                    />
-                    <Line
-                      yAxisId="u"
-                      type="monotone"
-                      dataKey="upw"
-                      name="UPW"
-                      stroke={MP_COLORS.upw}
-                      strokeWidth={2.5}
-                      dot={{
-                        fill: MP_COLORS.upw,
-                        r: 3,
-                        stroke: "#fff",
-                        strokeWidth: 2,
-                      }}
-                      activeDot={{ r: 5 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
+            {
               <div style={{ ...S.card, padding: 18 }}>
                 <div
                   style={{
@@ -3481,7 +2599,7 @@ export default function MultiDayPivotView() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            )}
+            }
           </div>
         </div>
       )}
@@ -3498,18 +2616,6 @@ export default function MultiDayPivotView() {
             animation: "fadeIn 0.2s ease",
           }}
         >
-          <ManpowerSummaryBar
-            workersPerDay={workersPerDay}
-            upwPerDay={upwPerDay}
-            avgWorkers={avgWorkers}
-            avgUPW={avgUPW}
-            dates={dates}
-            rowTotals={rowTotals}
-            hasData={hasManpowerData}
-            line={line}
-            stage={stage}
-          />
-
           <div style={{ ...S.card, padding: 18 }}>
             <div
               style={{
@@ -3628,8 +2734,6 @@ export default function MultiDayPivotView() {
                     (vals.length || 1),
                 );
                 const cv = mean ? Math.round((std / mean) * 100) : 0;
-                const mpDay = workersPerDay[d]?.day || 0;
-                const upw = upwPerDay[d];
                 return (
                   <div
                     key={d}
@@ -3749,977 +2853,23 @@ export default function MultiDayPivotView() {
                           {cv}%
                         </div>
                       </div>
-                      {hasManpowerData && mpDay > 0 ? (
-                        <div
-                          style={{
-                            background: "#fff7ed",
-                            borderRadius: 6,
-                            padding: "5px 8px",
-                          }}
-                        >
-                          <div style={{ color: "#94a3b8" }}>UPW</div>
-                          <div style={{ fontWeight: 800, color: "#ea580c" }}>
-                            {upw ?? "—"}
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            background: "#f5f3ff",
-                            borderRadius: 6,
-                            padding: "5px 8px",
-                          }}
-                        >
-                          <div style={{ color: "#94a3b8" }}>Rank</div>
-                          <div style={{ fontWeight: 800, color: "#7c3aed" }}>
-                            #{i + 1}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {hasManpowerData && mpDay > 0 && (
                       <div
                         style={{
-                          marginTop: 8,
-                          display: "flex",
-                          gap: 6,
-                          fontSize: 10,
+                          background: "#f5f3ff",
+                          borderRadius: 6,
+                          padding: "5px 8px",
                         }}
                       >
-                        <span
-                          style={{
-                            background: "#f0f9ff",
-                            color: "#0369a1",
-                            borderRadius: 5,
-                            padding: "2px 7px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {mpDay}D
-                        </span>
-                        <span
-                          style={{
-                            background: "#f5f3ff",
-                            color: "#6d28d9",
-                            borderRadius: 5,
-                            padding: "2px 7px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {workersPerDay[d]?.night || 0}N
-                        </span>
+                        <div style={{ color: "#94a3b8" }}>Rank</div>
+                        <div style={{ fontWeight: 800, color: "#7c3aed" }}>
+                          #{i + 1}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
           </div>
-        </div>
-      )}
-
-      {/* =======================================================================
-           MANPOWER VIEW
-         ======================================================================= */}
-      {view === "manpower" && dates.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            animation: "fadeIn 0.2s ease",
-          }}
-        >
-          <div
-            style={{
-              ...S.card,
-              padding: "12px 18px",
-              background: "linear-gradient(90deg,#fff7ed,#f0f9ff)",
-              border: "1px solid #fed7aa",
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 16,
-              alignItems: "center",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <FiSunrise size={14} color="#ea580c" />
-              <div>
-                <div
-                  style={{ fontSize: 11, fontWeight: 700, color: "#9a3412" }}
-                >
-                  Day Shift
-                </div>
-                <div style={{ fontSize: 10, color: "#c2410c" }}>
-                  Check-in 07:00 → 14:59
-                </div>
-              </div>
-            </div>
-            <div style={{ width: 1, height: 32, background: "#fed7aa" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <FiSunset size={14} color="#7c3aed" />
-              <div>
-                <div
-                  style={{ fontSize: 11, fontWeight: 700, color: "#4c1d95" }}
-                >
-                  Night Shift
-                </div>
-                <div style={{ fontSize: 10, color: "#6d28d9" }}>
-                  Check-in 15:00 → 06:59 (+1)
-                </div>
-              </div>
-            </div>
-            <div style={{ width: 1, height: 32, background: "#fed7aa" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <MdBusiness size={14} color="#475569" />
-              <div>
-                <div
-                  style={{ fontSize: 11, fontWeight: 700, color: "#334155" }}
-                >
-                  {line} — {stage}
-                </div>
-                {activeDeptSubstrings.length > 0 && (
-                  <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
-                    {activeDeptSubstrings.map((d) => (
-                      <span
-                        key={d}
-                        style={{
-                          fontSize: 9,
-                          background: "#f0fdf4",
-                          color: "#15803d",
-                          border: "1px solid #bbf7d0",
-                          borderRadius: 4,
-                          padding: "1px 6px",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {d}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {mpDeptFilter && (
-              <>
-                <div style={{ width: 1, height: 32, background: "#fed7aa" }} />
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      background: "#eef2ff",
-                      color: "#4f46e5",
-                      border: "1px solid #c7d2fe",
-                      borderRadius: 5,
-                      padding: "3px 8px",
-                    }}
-                  >
-                    🔍 "{mpDeptFilter}"
-                  </span>
-                  <button
-                    onClick={() => setMpDeptFilter("")}
-                    style={{
-                      border: "none",
-                      background: "none",
-                      cursor: "pointer",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    <FiX size={11} />
-                  </button>
-                </div>
-              </>
-            )}
-            {!hasManpowerData && (
-              <div
-                style={{
-                  marginLeft: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 11,
-                  color: "#ea580c",
-                  fontWeight: 600,
-                }}
-              >
-                <FiAlertTriangle size={13} /> No manpower data — enable &amp;
-                query
-              </div>
-            )}
-          </div>
-
-          {hasManpowerData && (
-            <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.6fr 1fr",
-                  gap: 12,
-                }}
-              >
-                <div style={{ ...S.card, padding: 18 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <MdPeople size={13} color="#0ea5e9" />
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "#334155",
-                      }}
-                    >
-                      Workers per Day + UPW Trend
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      marginBottom: 12,
-                      fontSize: 10,
-                      color: "#94a3b8",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {[
-                      ["Day Workers", MP_COLORS.day, "bar"],
-                      ["Night Workers", MP_COLORS.night, "bar"],
-                      ["UPW", MP_COLORS.upw, "line"],
-                    ].map(([lbl, clr, type]) => (
-                      <span
-                        key={lbl}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        {type === "bar" ? (
-                          <span
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: 2,
-                              background: clr,
-                              display: "inline-block",
-                            }}
-                          />
-                        ) : (
-                          <span
-                            style={{
-                              width: 14,
-                              height: 2,
-                              background: clr,
-                              display: "inline-block",
-                              borderRadius: 1,
-                            }}
-                          />
-                        )}
-                        {lbl}
-                      </span>
-                    ))}
-                  </div>
-                  <ResponsiveContainer width="100%" height={210}>
-                    <ComposedChart
-                      data={mpDailyCD}
-                      margin={{ top: 8, right: 40, left: -10, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#f1f5f9"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        yAxisId="workers"
-                        tick={{ fontSize: 10, fill: "#94a3b8" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={28}
-                      />
-                      <YAxis
-                        yAxisId="upw"
-                        orientation="right"
-                        tick={{ fontSize: 10, fill: "#ea580c" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={32}
-                      />
-                      {avgWorkers > 0 && (
-                        <ReferenceLine
-                          yAxisId="workers"
-                          y={avgWorkers}
-                          stroke="#0ea5e9"
-                          strokeDasharray="4 3"
-                          label={{
-                            value: `Avg ${avgWorkers}`,
-                            position: "right",
-                            fontSize: 9,
-                            fill: "#0ea5e9",
-                          }}
-                        />
-                      )}
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar
-                        yAxisId="workers"
-                        dataKey="dayWorkers"
-                        name="Day Workers"
-                        fill={MP_COLORS.day}
-                        radius={[3, 3, 0, 0]}
-                        maxBarSize={32}
-                      />
-                      <Bar
-                        yAxisId="workers"
-                        dataKey="nightWorkers"
-                        name="Night Workers"
-                        fill={MP_COLORS.night}
-                        radius={[3, 3, 0, 0]}
-                        maxBarSize={32}
-                      />
-                      <Line
-                        yAxisId="upw"
-                        type="monotone"
-                        dataKey="upw"
-                        name="UPW"
-                        stroke={MP_COLORS.upw}
-                        strokeWidth={2.5}
-                        dot={{
-                          fill: MP_COLORS.upw,
-                          r: 3,
-                          stroke: "#fff",
-                          strokeWidth: 2,
-                        }}
-                        activeDot={{ r: 5 }}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div style={{ ...S.card, padding: 18 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 14,
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <MdBusiness size={13} color="#7c3aed" />
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#334155",
-                        }}
-                      >
-                        Contractor Breakdown
-                      </span>
-                    </div>
-                    <span style={{ fontSize: 10, color: "#94a3b8" }}>
-                      {contractorBreakdown.length} contractors
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      maxHeight: 230,
-                      overflowY: "auto",
-                    }}
-                  >
-                    {contractorBreakdown.length === 0 ? (
-                      <div
-                        style={{
-                          textAlign: "center",
-                          padding: "20px 0",
-                          color: "#94a3b8",
-                          fontSize: 12,
-                        }}
-                      >
-                        No contractor data
-                      </div>
-                    ) : (
-                      contractorBreakdown.map((c, i) => {
-                        const maxC = contractorBreakdown[0]?.total || 1;
-                        const w = Math.round((c.total / maxC) * 100);
-                        return (
-                          <div
-                            key={c.name}
-                            style={{
-                              padding: "8px 10px",
-                              borderRadius: 8,
-                              background: i === 0 ? "#f5f3ff" : "#f8fafc",
-                              border: `1px solid ${i === 0 ? "#e0e7ff" : "#f1f5f9"}`,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                marginBottom: 5,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  color: "#334155",
-                                  maxWidth: 160,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                                title={c.name}
-                              >
-                                {c.name}
-                              </span>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: 8,
-                                  fontSize: 10,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    color: MP_COLORS.day,
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  {c.day}D
-                                </span>
-                                <span
-                                  style={{
-                                    color: MP_COLORS.night,
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  {c.night}N
-                                </span>
-                                <span
-                                  className="mono"
-                                  style={{ fontWeight: 800, color: "#312e81" }}
-                                >
-                                  {c.total}
-                                </span>
-                              </div>
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  flex: 1,
-                                  height: 5,
-                                  background: "#f1f5f9",
-                                  borderRadius: 3,
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: `${w}%`,
-                                    height: "100%",
-                                    background: i === 0 ? "#7c3aed" : "#a5b4fc",
-                                    borderRadius: 3,
-                                  }}
-                                />
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: 9,
-                                  color: "#94a3b8",
-                                  minWidth: 44,
-                                  textAlign: "right",
-                                }}
-                              >
-                                {c.days} days
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Per-day manpower table */}
-              <div style={{ ...S.card, overflow: "hidden" }}>
-                <div
-                  style={{
-                    padding: "12px 20px 10px",
-                    borderBottom: "1px solid #f1f5f9",
-                    background: "#fafafa",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 6 }}
-                  >
-                    <BsTable size={13} color="#ea580c" />
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "#334155",
-                      }}
-                    >
-                      Day-wise Manpower &amp; Productivity
-                    </span>
-                    {activeDeptSubstrings.length > 0 && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: "#f0fdf4",
-                          color: "#15803d",
-                          border: "1px solid #bbf7d0",
-                          borderRadius: 5,
-                          padding: "1px 7px",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {activeDeptSubstrings.join(" · ")}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const csv = [
-                        [
-                          "Date",
-                          "Day Workers",
-                          "Night Workers",
-                          "Total Workers",
-                          "Production",
-                          "UPW",
-                          "UPW vs Avg%",
-                          "Avg UPH",
-                          "vs Target%",
-                          "Dept Filter",
-                        ],
-                        ...sortedDates.map((d) => [
-                          d,
-                          workersPerDay[d]?.day || 0,
-                          workersPerDay[d]?.night || 0,
-                          workersPerDay[d]?.total || 0,
-                          rowTotals[d],
-                          upwPerDay[d] ?? "—",
-                          avgUPW ? pct(upwPerDay[d] ?? 0, avgUPW) : "—",
-                          avgUPH[d],
-                          pct(avgUPH[d], effectiveTarget),
-                          activeDeptSubstrings.join("|"),
-                        ]),
-                      ]
-                        .map((r) => r.join(","))
-                        .join("\n");
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(
-                        new Blob([csv], { type: "text/csv" }),
-                      );
-                      a.download = `Manpower_${line}_${stage}.csv`;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      padding: "5px 10px",
-                      borderRadius: 7,
-                      border: "1px solid #e4e7ec",
-                      background: "#fff",
-                      color: "#475569",
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    <FiDownload size={11} /> Export MP CSV
-                  </button>
-                </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: 12,
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ background: "#f8fafc" }}>
-                        {[
-                          "#",
-                          "Date",
-                          "Week",
-                          "Day 👷",
-                          "Night 🌙",
-                          "Total MP",
-                          "Production",
-                          "UPW",
-                          "UPW vs Avg",
-                          "Avg UPH",
-                          "vs Target",
-                          "Productivity 🏭",
-                        ].map((h, i) => (
-                          <th
-                            key={i}
-                            style={{
-                              padding: "9px 14px",
-                              textAlign: i === 0 ? "center" : "left",
-                              fontWeight: 700,
-                              color: "#475569",
-                              borderBottom: "2px solid #e4e7ec",
-                              whiteSpace: "nowrap",
-                              fontSize: 11,
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedDates.map((d, i) => {
-                        const mpDay = workersPerDay[d]?.day || 0;
-                        const mpNight = workersPerDay[d]?.night || 0;
-                        const mpTotal = workersPerDay[d]?.total || 0;
-                        const prod = rowTotals[d] || 0;
-                        const upw = upwPerDay[d];
-                        const upwVsAvg =
-                          upw != null && avgUPW > 0 ? pct(upw, avgUPW) : null;
-                        const tgtPct = pct(avgUPH[d], effectiveTarget);
-                        const badge = perfBadge(perfScore(d));
-                        return (
-                          <tr
-                            key={d}
-                            style={{
-                              background: i % 2 === 0 ? "#fff" : "#fafcff",
-                              borderBottom: "1px solid #f1f5f9",
-                            }}
-                          >
-                            <td
-                              style={{
-                                padding: "9px 14px",
-                                textAlign: "center",
-                                color: "#94a3b8",
-                                fontFamily: "monospace",
-                              }}
-                            >
-                              {i + 1}
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              <span
-                                className="mono"
-                                style={{ fontWeight: 700, color: "#334155" }}
-                              >
-                                {d.slice(0, 5)}
-                              </span>
-                            </td>
-                            <td
-                              style={{
-                                padding: "9px 14px",
-                                fontSize: 11,
-                                color: "#94a3b8",
-                              }}
-                            >
-                              {getWeekKey(d)}
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              {mpDay > 0 ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 5,
-                                    fontWeight: 700,
-                                    color: MP_COLORS.day,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      width: 8,
-                                      height: 8,
-                                      borderRadius: 2,
-                                      background: MP_COLORS.day,
-                                      display: "inline-block",
-                                    }}
-                                  />
-                                  <span className="mono">{mpDay}</span>
-                                </span>
-                              ) : (
-                                <span style={{ color: "#e2e8f0" }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              {mpNight > 0 ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 5,
-                                    fontWeight: 700,
-                                    color: MP_COLORS.night,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      width: 8,
-                                      height: 8,
-                                      borderRadius: 2,
-                                      background: MP_COLORS.night,
-                                      display: "inline-block",
-                                    }}
-                                  />
-                                  <span className="mono">{mpNight}</span>
-                                </span>
-                              ) : (
-                                <span style={{ color: "#e2e8f0" }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              <span
-                                className="mono"
-                                style={{ fontWeight: 800, color: "#0f172a" }}
-                              >
-                                {mpTotal || "—"}
-                              </span>
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              <span
-                                className="mono"
-                                style={{ fontWeight: 800, color: "#312e81" }}
-                              >
-                                {fmtN(prod)}
-                              </span>
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              {upw != null ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                  }}
-                                >
-                                  {upw >= avgUPW ? (
-                                    <FiArrowUp size={10} color="#059669" />
-                                  ) : (
-                                    <FiArrowDown size={10} color="#dc2626" />
-                                  )}
-                                  <span
-                                    className="mono"
-                                    style={{
-                                      fontWeight: 800,
-                                      color:
-                                        upw >= avgUPW ? "#15803d" : "#dc2626",
-                                    }}
-                                  >
-                                    {upw}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span style={{ color: "#e2e8f0" }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              {upwVsAvg !== null ? (
-                                <span
-                                  className="mono"
-                                  style={{
-                                    fontWeight: 700,
-                                    fontSize: 11,
-                                    color:
-                                      upwVsAvg >= 100
-                                        ? "#059669"
-                                        : upwVsAvg >= 80
-                                          ? "#d97706"
-                                          : "#dc2626",
-                                  }}
-                                >
-                                  {upwVsAvg}%
-                                </span>
-                              ) : (
-                                <span style={{ color: "#e2e8f0" }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              <span
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 3,
-                                  fontWeight: 700,
-                                  color:
-                                    avgUPH[d] >= overallAvg
-                                      ? "#15803d"
-                                      : "#dc2626",
-                                }}
-                              >
-                                {avgUPH[d] >= overallAvg ? (
-                                  <FiArrowUp size={10} />
-                                ) : (
-                                  <FiArrowDown size={10} />
-                                )}
-                                <span className="mono">{avgUPH[d]}</span>
-                              </span>
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              <span
-                                className="mono"
-                                style={{
-                                  fontWeight: 700,
-                                  color:
-                                    tgtPct >= 100
-                                      ? "#059669"
-                                      : tgtPct >= 80
-                                        ? "#d97706"
-                                        : "#dc2626",
-                                }}
-                              >
-                                {tgtPct}%
-                              </span>
-                            </td>
-                            <td style={{ padding: "9px 14px" }}>
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  background: badge.bg,
-                                  color: badge.color,
-                                  borderRadius: 5,
-                                  padding: "2px 8px",
-                                  border: `1px solid ${badge.border}`,
-                                }}
-                              >
-                                {badge.label}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr
-                        style={{
-                          background: "#eef2ff",
-                          borderTop: "2px solid #c7d2fe",
-                        }}
-                      >
-                        <td />
-                        <td
-                          colSpan={2}
-                          style={{
-                            padding: "10px 14px",
-                            fontWeight: 800,
-                            color: "#312e81",
-                          }}
-                        >
-                          Averages / Totals
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 800, color: MP_COLORS.day }}
-                          >
-                            {avgWorkers || "—"}
-                          </span>
-                        </td>
-                        <td />
-                        <td />
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 900, color: "#312e81" }}
-                          >
-                            {fmtN(grandTotal)}
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 800, color: "#ea580c" }}
-                          >
-                            {avgUPW || "—"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 700, color: "#94a3b8" }}
-                          >
-                            —
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 800, color: "#059669" }}
-                          >
-                            {overallAvg}/hr
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{
-                              fontWeight: 800,
-                              color:
-                                pct(overallAvg, effectiveTarget) >= 100
-                                  ? "#059669"
-                                  : "#dc2626",
-                            }}
-                          >
-                            {pct(overallAvg, effectiveTarget)}%
-                          </span>
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-
-          {!hasManpowerData && !manpowerLoading && (
-            <div
-              style={{ ...S.card, padding: "48px 20px", textAlign: "center" }}
-            >
-              <MdPeople
-                size={36}
-                color="#c7d2fe"
-                style={{ display: "block", margin: "0 auto 12px" }}
-              />
-              <div style={{ fontWeight: 800, fontSize: 14, color: "#334155" }}>
-                Manpower data not loaded
-              </div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
-                Enable the Manpower toggle in filters and re-query.
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -4735,19 +2885,6 @@ export default function MultiDayPivotView() {
             animation: "fadeIn 0.2s ease",
           }}
         >
-          <ManpowerSummaryBar
-            workersPerDay={workersPerDay}
-            upwPerDay={upwPerDay}
-            avgWorkers={avgWorkers}
-            avgUPW={avgUPW}
-            dates={dates}
-            rowTotals={rowTotals}
-            hasData={hasManpowerData}
-            line={line}
-            stage={stage}
-          />
-          <div style={{ gridColumn: "1 / -1" }} />
-
           <div style={{ ...S.card, padding: 18 }}>
             <div
               style={{
@@ -4805,31 +2942,18 @@ export default function MultiDayPivotView() {
                   value: `${pct(slotTotals.morning, grandTotal)}%`,
                   color: "#f59e0b",
                 },
-                ...(hasManpowerData
-                  ? [
-                      {
-                        label: "Avg Workers",
-                        value: `${avgWorkers}/day`,
-                        color: MP_COLORS.day,
-                      },
-                      {
-                        label: "Avg UPW",
-                        value: avgUPW ? `${avgUPW}u/w` : "—",
-                        color: "#ea580c",
-                      },
-                    ]
-                  : [
-                      {
-                        label: "Below Target",
-                        value: `${belowTarget.length} slots`,
-                        color: belowTarget.length > 0 ? "#dc2626" : "#059669",
-                      },
-                      {
-                        label: "Active Hours",
-                        value: activeHours.length,
-                        color: "#0891b2",
-                      },
-                    ]),
+                ...[
+                  {
+                    label: "Below Target",
+                    value: `${belowTarget.length} slots`,
+                    color: belowTarget.length > 0 ? "#dc2626" : "#059669",
+                  },
+                  {
+                    label: "Active Hours",
+                    value: activeHours.length,
+                    color: "#0891b2",
+                  },
+                ],
               ].map((s) => (
                 <div
                   key={s.label}
@@ -4956,20 +3080,6 @@ export default function MultiDayPivotView() {
                       >
                         {pct(a.val, effectiveTarget)}%
                       </span>
-                      {hasManpowerData && workersPerDay[a.date]?.day > 0 && (
-                        <span
-                          style={{
-                            fontSize: 9,
-                            background: "#fff7ed",
-                            color: "#ea580c",
-                            borderRadius: 4,
-                            padding: "1px 5px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {workersPerDay[a.date].day}W
-                        </span>
-                      )}
                     </div>
                   );
                 })}
@@ -5068,20 +3178,6 @@ export default function MultiDayPivotView() {
                       >
                         {ok ? "✓ Steady" : "⚠ Variable"}
                       </span>
-                      {hasManpowerData && upwPerDay[d] != null && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            color: "#ea580c",
-                            minWidth: 50,
-                            textAlign: "right",
-                            fontFamily: "monospace",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {upwPerDay[d]}U/W
-                        </span>
-                      )}
                     </div>
                   );
                 })}
@@ -5171,32 +3267,6 @@ export default function MultiDayPivotView() {
                   Period: {from} → {to} · {dates.length} working days · Target:{" "}
                   {effectiveTarget} UPH
                 </div>
-                {activeDeptSubstrings.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: 6,
-                      display: "flex",
-                      gap: 6,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {activeDeptSubstrings.map((d) => (
-                      <span
-                        key={d}
-                        style={{
-                          fontSize: 10,
-                          background: "rgba(255,255,255,0.12)",
-                          color: "#c7d2fe",
-                          borderRadius: 5,
-                          padding: "2px 8px",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {d}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
               <div style={{ textAlign: "right" }}>
                 <div
@@ -5211,18 +3281,6 @@ export default function MultiDayPivotView() {
                 <div style={{ fontSize: 11, color: "#a5b4fc" }}>
                   Total Units
                 </div>
-                {hasManpowerData && avgWorkers > 0 && (
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 12,
-                      color: "#fed7aa",
-                      fontWeight: 700,
-                    }}
-                  >
-                    👷 ~{avgWorkers} workers/day
-                  </div>
-                )}
               </div>
             </div>
             <div
@@ -5266,20 +3324,6 @@ export default function MultiDayPivotView() {
                   value: trend ? `${trend.up ? "+" : ""}${trend.pct}%` : "N/A",
                   sub: "2nd vs 1st half",
                 },
-                ...(hasManpowerData
-                  ? [
-                      {
-                        label: "Avg UPW",
-                        value: avgUPW ? `${avgUPW}` : "—",
-                        sub: "units/worker",
-                      },
-                      {
-                        label: "Best UPW",
-                        value: bestUPWDay?.slice(0, 5) || "—",
-                        sub: bestUPWDay ? `${upwPerDay[bestUPWDay]} U/W` : "",
-                      },
-                    ]
-                  : []),
               ].map((s) => (
                 <div key={s.label}>
                   <div
@@ -5307,18 +3351,6 @@ export default function MultiDayPivotView() {
               ))}
             </div>
           </div>
-
-          <ManpowerSummaryBar
-            workersPerDay={workersPerDay}
-            upwPerDay={upwPerDay}
-            avgWorkers={avgWorkers}
-            avgUPW={avgUPW}
-            dates={dates}
-            rowTotals={rowTotals}
-            hasData={hasManpowerData}
-            line={line}
-            stage={stage}
-          />
 
           <div
             style={{
@@ -5392,89 +3424,7 @@ export default function MultiDayPivotView() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            {hasManpowerData ? (
-              <div style={{ ...S.card, padding: 18 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 14,
-                  }}
-                >
-                  <MdPeople size={13} color="#ea580c" />
-                  <span
-                    style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                  >
-                    Workers &amp; UPW per Day
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={165}>
-                  <ComposedChart
-                    data={mpDailyCD}
-                    margin={{ top: 5, right: 36, left: -10, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f1f5f9"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 9, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="w"
-                      tick={{ fontSize: 9, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={24}
-                    />
-                    <YAxis
-                      yAxisId="u"
-                      orientation="right"
-                      tick={{ fontSize: 9, fill: "#ea580c" }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={28}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar
-                      yAxisId="w"
-                      dataKey="dayWorkers"
-                      name="Day Workers"
-                      fill={MP_COLORS.day}
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={24}
-                    />
-                    <Bar
-                      yAxisId="w"
-                      dataKey="nightWorkers"
-                      name="Night Workers"
-                      fill={MP_COLORS.night}
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={24}
-                    />
-                    <Line
-                      yAxisId="u"
-                      type="monotone"
-                      dataKey="upw"
-                      name="UPW"
-                      stroke={MP_COLORS.upw}
-                      strokeWidth={2}
-                      dot={{
-                        r: 3,
-                        fill: MP_COLORS.upw,
-                        stroke: "#fff",
-                        strokeWidth: 2,
-                      }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
+            {
               <div style={{ ...S.card, padding: 18 }}>
                 <div
                   style={{
@@ -5526,7 +3476,7 @@ export default function MultiDayPivotView() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            )}
+            }
           </div>
 
           {/* Summary table */}
@@ -5543,7 +3493,7 @@ export default function MultiDayPivotView() {
                 <span
                   style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
                 >
-                  Day-wise Summary{hasManpowerData ? " (with Manpower)" : ""}
+                  Day-wise Summary
                 </span>
               </div>
             </div>
@@ -5567,9 +3517,6 @@ export default function MultiDayPivotView() {
                       "Score",
                       "Badge",
                       "Consistency",
-                      ...(hasManpowerData
-                        ? ["Day MP", "Night MP", "UPW", "UPW%"]
-                        : []),
                     ].map((h, i) => (
                       <th
                         key={h}
@@ -5605,11 +3552,6 @@ export default function MultiDayPivotView() {
                           (vals.length || 1),
                       );
                       const cv = mean ? Math.round((std / mean) * 100) : 0;
-                      const mpDay = workersPerDay[d]?.day || 0;
-                      const mpNight = workersPerDay[d]?.night || 0;
-                      const upw = upwPerDay[d];
-                      const upwPct =
-                        upw != null && avgUPW > 0 ? pct(upw, avgUPW) : null;
                       return (
                         <tr
                           key={d}
@@ -5723,67 +3665,6 @@ export default function MultiDayPivotView() {
                               CV {cv}% {cv < 30 ? "✓" : "⚠"}
                             </span>
                           </td>
-                          {hasManpowerData && (
-                            <>
-                              <td style={{ padding: "9px 14px" }}>
-                                <span
-                                  className="mono"
-                                  style={{
-                                    fontWeight: 700,
-                                    color: MP_COLORS.day,
-                                  }}
-                                >
-                                  {mpDay || "—"}
-                                </span>
-                              </td>
-                              <td style={{ padding: "9px 14px" }}>
-                                <span
-                                  className="mono"
-                                  style={{
-                                    fontWeight: 700,
-                                    color: MP_COLORS.night,
-                                  }}
-                                >
-                                  {mpNight || "—"}
-                                </span>
-                              </td>
-                              <td style={{ padding: "9px 14px" }}>
-                                <span
-                                  className="mono"
-                                  style={{
-                                    fontWeight: 800,
-                                    color:
-                                      upw != null
-                                        ? upw >= avgUPW
-                                          ? "#059669"
-                                          : "#dc2626"
-                                        : "#94a3b8",
-                                  }}
-                                >
-                                  {upw ?? "—"}
-                                </span>
-                              </td>
-                              <td style={{ padding: "9px 14px" }}>
-                                <span
-                                  className="mono"
-                                  style={{
-                                    fontWeight: 700,
-                                    fontSize: 11,
-                                    color:
-                                      upwPct != null
-                                        ? upwPct >= 100
-                                          ? "#059669"
-                                          : upwPct >= 80
-                                            ? "#d97706"
-                                            : "#dc2626"
-                                        : "#94a3b8",
-                                  }}
-                                >
-                                  {upwPct != null ? `${upwPct}%` : "—"}
-                                </span>
-                              </td>
-                            </>
-                          )}
                         </tr>
                       );
                     })}
@@ -5837,28 +3718,6 @@ export default function MultiDayPivotView() {
                       </span>
                     </td>
                     <td colSpan={3} />
-                    {hasManpowerData && (
-                      <>
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 800, color: MP_COLORS.day }}
-                          >
-                            {avgWorkers || "—"}
-                          </span>
-                        </td>
-                        <td />
-                        <td style={{ padding: "10px 14px" }}>
-                          <span
-                            className="mono"
-                            style={{ fontWeight: 800, color: "#ea580c" }}
-                          >
-                            {avgUPW || "—"}
-                          </span>
-                        </td>
-                        <td />
-                      </>
-                    )}
                   </tr>
                 </tfoot>
               </table>
@@ -5898,24 +3757,7 @@ export default function MultiDayPivotView() {
                     border: "#fecaca",
                     text: `Production is trending down ${Math.abs(trend.pct)}% in the second half of the period. Investigate if linked to specific days or shift patterns.`,
                   },
-                hasManpowerData &&
-                  avgUPW > 0 &&
-                  avgUPW < 3 && {
-                    icon: FiAlertTriangle,
-                    color: "#d97706",
-                    bg: "#fffbeb",
-                    border: "#fcd34d",
-                    text: `Average UPW is ${avgUPW} units/worker — relatively low. Consider reviewing worker allocation per shift or checking if all scans are being captured.`,
-                  },
-                hasManpowerData &&
-                  bestUPWDay &&
-                  upwPerDay[bestUPWDay] > avgUPW * 1.3 && {
-                    icon: FiCheckCircle,
-                    color: "#059669",
-                    bg: "#d1fae5",
-                    border: "#6ee7b7",
-                    text: `${bestUPWDay.slice(0, 5)} achieved ${upwPerDay[bestUPWDay]} UPW — significantly above average (${avgUPW}). Analyze what conditions led to peak worker productivity on this day.`,
-                  },
+
                 slotTotals.morning < slotTotals.afternoon && {
                   icon: FiInfo,
                   color: "#0891b2",
