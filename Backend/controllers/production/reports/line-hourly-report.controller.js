@@ -29,284 +29,7 @@ const runTimeQuery = async (query, StartTime, EndTime) => {
 };
 
 // -----------------------------------------------------------------------------
-//  FINAL LOADING
-// -----------------------------------------------------------------------------
-
-export const getFinalLoadingHPFrz = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
-
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias, Type
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-),
-HourlySummary AS (
-  SELECT
-    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
-    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME) AS HourTime,
-    COUNT(*) AS Loading_Count
-  FROM Psno
-  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
-  JOIN WorkCenter c      ON b.StationCode = c.StationCode
-  JOIN Material m        ON Psno.Material = m.MatCode
-  JOIN Users u           ON b.Operator    = u.UserCode
-  WHERE
-    c.StationCode = 1220005
-    AND b.ActivityType = 5
-    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-    AND b.Remark = 12501
-  GROUP BY
-    DATEPART(DAY,  b.ActivityOn),
-    DATEPART(HOUR, b.ActivityOn),
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME)
-)
-SELECT
-  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
-  TIMEHOUR,
-  Loading_Count AS COUNT
-FROM HourlySummary
-ORDER BY HourTime;`;
-
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP Frz hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP Frz hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
-
-export const getFinalLoadingHPChoc = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
-
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias, Type
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-),
-HourlySummary AS (
-  SELECT
-    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
-    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME) AS HourTime,
-    COUNT(*) AS Loading_Count
-  FROM Psno
-  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
-  JOIN WorkCenter c      ON b.StationCode = c.StationCode
-  JOIN Material m        ON Psno.Material = m.MatCode
-  JOIN Users u           ON b.Operator    = u.UserCode
-  WHERE
-    c.StationCode = 1220005
-    AND b.ActivityType = 5
-    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-    AND b.Remark = 12305
-  GROUP BY
-    DATEPART(DAY,  b.ActivityOn),
-    DATEPART(HOUR, b.ActivityOn),
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME)
-)
-SELECT
-  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
-  TIMEHOUR,
-  Loading_Count AS COUNT
-FROM HourlySummary
-ORDER BY HourTime;`;
-
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP Choc hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
-
-export const getFinalLoadingHPVISI = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
-
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias, Type
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-),
-HourlySummary AS (
-  SELECT
-    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
-    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME) AS HourTime,
-    COUNT(*) AS Loading_Count
-  FROM Psno
-  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
-  JOIN WorkCenter c      ON b.StationCode = c.StationCode
-  JOIN Material m        ON Psno.Material = m.MatCode
-  JOIN Users u           ON b.Operator    = u.UserCode
-  WHERE
-    c.StationCode = 1220005
-    AND b.ActivityType = 5
-    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-    AND b.Remark = 12605
-  GROUP BY
-    DATEPART(DAY,  b.ActivityOn),
-    DATEPART(HOUR, b.ActivityOn),
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME)
-)
-SELECT
-  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
-  TIMEHOUR,
-  Loading_Count AS COUNT
-FROM HourlySummary
-ORDER BY HourTime;`;
-
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP Choc hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
-
-export const getFinalLoadingHPSUS = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
-
-  // TODO: add m.Category / u.UserRole filters if needed (missing in original)
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias, Type
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-),
-HourlySummary AS (
-  SELECT
-    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
-    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME) AS HourTime,
-    COUNT(*) AS Loading_Count
-  FROM Psno
-  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
-  JOIN WorkCenter c      ON b.StationCode = c.StationCode
-  JOIN Material m        ON Psno.Material = m.MatCode
-  JOIN Users u           ON b.Operator    = u.UserCode
-  WHERE
-    c.StationCode = 1230013
-    AND b.ActivityType = 5
-    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-    AND b.Remark = 12304
-  GROUP BY
-    DATEPART(DAY,  b.ActivityOn),
-    DATEPART(HOUR, b.ActivityOn),
-    CAST(
-      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-    AS DATETIME)
-)
-SELECT
-  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
-  TIMEHOUR,
-  Loading_Count AS COUNT
-FROM HourlySummary
-ORDER BY HourTime;`;
-
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP SUS hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP SUS hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
-
-export const getFinalLoadingHPCAT = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
-
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-)
-SELECT
-  ISNULL(mc.Alias, 'N/A') AS category,
-  COUNT(*) AS TotalCount
-FROM Psno
-JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
-JOIN WorkCenter c        ON b.StationCode  = c.StationCode
-JOIN Users us            ON us.UserCode    = b.Operator
-JOIN Material m          ON m.MatCode      = Psno.Material
-LEFT JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
-WHERE
-  b.ActivityType = 5
-  AND c.StationCode IN (1230013, 1220005)
-  AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-GROUP BY ISNULL(mc.Alias, 'N/A')
-ORDER BY TotalCount DESC;`;
-
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP CAT loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP CAT loading data: ${error.message}`,
-      500,
-    );
-  }
-});
-
-// -----------------------------------------------------------------------------
-//  FINAL LINE
+//  FINAL FG STAGE
 // -----------------------------------------------------------------------------
 
 export const getFinalHPFrz = tryCatch(async (req, res) => {
@@ -584,7 +307,284 @@ ORDER BY TotalCount DESC;`;
 });
 
 // -----------------------------------------------------------------------------
-//  POST FOAMING
+//  FINAL LOADING STAGE
+// -----------------------------------------------------------------------------
+
+export const getFinalLoadingHPFrz = tryCatch(async (req, res) => {
+  const { StartTime, EndTime } = req.query;
+
+  const query = `
+WITH Psno AS (
+  SELECT DocNo, Material, Serial, VSerial, Alias, Type
+  FROM MaterialBarcode
+  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+),
+HourlySummary AS (
+  SELECT
+    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
+    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME) AS HourTime,
+    COUNT(*) AS Loading_Count
+  FROM Psno
+  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
+  JOIN WorkCenter c      ON b.StationCode = c.StationCode
+  JOIN Material m        ON Psno.Material = m.MatCode
+  JOIN Users u           ON b.Operator    = u.UserCode
+  WHERE
+    c.StationCode = 1220005
+    AND b.ActivityType = 5
+    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    AND b.Remark = 12501
+  GROUP BY
+    DATEPART(DAY,  b.ActivityOn),
+    DATEPART(HOUR, b.ActivityOn),
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME)
+)
+SELECT
+  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
+  TIMEHOUR,
+  Loading_Count AS COUNT
+FROM HourlySummary
+ORDER BY HourTime;`;
+
+  try {
+    const data = await runTimeQuery(query, StartTime, EndTime);
+    res.status(200).json({
+      success: true,
+      message: "Final HP Frz hourly loading data fetched successfully",
+      data,
+    });
+  } catch (error) {
+    throw new AppError(
+      `Failed to fetch Final HP Frz hourly loading data: ${error.message}`,
+      500,
+    );
+  }
+});
+
+export const getFinalLoadingHPChoc = tryCatch(async (req, res) => {
+  const { StartTime, EndTime } = req.query;
+
+  const query = `
+WITH Psno AS (
+  SELECT DocNo, Material, Serial, VSerial, Alias, Type
+  FROM MaterialBarcode
+  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+),
+HourlySummary AS (
+  SELECT
+    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
+    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME) AS HourTime,
+    COUNT(*) AS Loading_Count
+  FROM Psno
+  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
+  JOIN WorkCenter c      ON b.StationCode = c.StationCode
+  JOIN Material m        ON Psno.Material = m.MatCode
+  JOIN Users u           ON b.Operator    = u.UserCode
+  WHERE
+    c.StationCode = 1220005
+    AND b.ActivityType = 5
+    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    AND b.Remark = 12305
+  GROUP BY
+    DATEPART(DAY,  b.ActivityOn),
+    DATEPART(HOUR, b.ActivityOn),
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME)
+)
+SELECT
+  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
+  TIMEHOUR,
+  Loading_Count AS COUNT
+FROM HourlySummary
+ORDER BY HourTime;`;
+
+  try {
+    const data = await runTimeQuery(query, StartTime, EndTime);
+    res.status(200).json({
+      success: true,
+      message: "Final HP Choc hourly loading data fetched successfully",
+      data,
+    });
+  } catch (error) {
+    throw new AppError(
+      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
+      500,
+    );
+  }
+});
+
+export const getFinalLoadingHPVISI = tryCatch(async (req, res) => {
+  const { StartTime, EndTime } = req.query;
+
+  const query = `
+WITH Psno AS (
+  SELECT DocNo, Material, Serial, VSerial, Alias, Type
+  FROM MaterialBarcode
+  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+),
+HourlySummary AS (
+  SELECT
+    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
+    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME) AS HourTime,
+    COUNT(*) AS Loading_Count
+  FROM Psno
+  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
+  JOIN WorkCenter c      ON b.StationCode = c.StationCode
+  JOIN Material m        ON Psno.Material = m.MatCode
+  JOIN Users u           ON b.Operator    = u.UserCode
+  WHERE
+    c.StationCode = 1220005
+    AND b.ActivityType = 5
+    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    AND b.Remark = 12605
+  GROUP BY
+    DATEPART(DAY,  b.ActivityOn),
+    DATEPART(HOUR, b.ActivityOn),
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME)
+)
+SELECT
+  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
+  TIMEHOUR,
+  Loading_Count AS COUNT
+FROM HourlySummary
+ORDER BY HourTime;`;
+
+  try {
+    const data = await runTimeQuery(query, StartTime, EndTime);
+    res.status(200).json({
+      success: true,
+      message: "Final HP Choc hourly loading data fetched successfully",
+      data,
+    });
+  } catch (error) {
+    throw new AppError(
+      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
+      500,
+    );
+  }
+});
+
+export const getFinalLoadingHPSUS = tryCatch(async (req, res) => {
+  const { StartTime, EndTime } = req.query;
+
+  // TODO: add m.Category / u.UserRole filters if needed (missing in original)
+  const query = `
+WITH Psno AS (
+  SELECT DocNo, Material, Serial, VSerial, Alias, Type
+  FROM MaterialBarcode
+  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+),
+HourlySummary AS (
+  SELECT
+    DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
+    DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME) AS HourTime,
+    COUNT(*) AS Loading_Count
+  FROM Psno
+  JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
+  JOIN WorkCenter c      ON b.StationCode = c.StationCode
+  JOIN Material m        ON Psno.Material = m.MatCode
+  JOIN Users u           ON b.Operator    = u.UserCode
+  WHERE
+    c.StationCode = 1230013
+    AND b.ActivityType = 5
+    AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    AND b.Remark = 12304
+  GROUP BY
+    DATEPART(DAY,  b.ActivityOn),
+    DATEPART(HOUR, b.ActivityOn),
+    CAST(
+      CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+      CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+    AS DATETIME)
+)
+SELECT
+  CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
+  TIMEHOUR,
+  Loading_Count AS COUNT
+FROM HourlySummary
+ORDER BY HourTime;`;
+
+  try {
+    const data = await runTimeQuery(query, StartTime, EndTime);
+    res.status(200).json({
+      success: true,
+      message: "Final HP SUS hourly loading data fetched successfully",
+      data,
+    });
+  } catch (error) {
+    throw new AppError(
+      `Failed to fetch Final HP SUS hourly loading data: ${error.message}`,
+      500,
+    );
+  }
+});
+
+export const getFinalLoadingHPCAT = tryCatch(async (req, res) => {
+  const { StartTime, EndTime } = req.query;
+
+  const query = `
+WITH Psno AS (
+  SELECT DocNo, Material, Serial, VSerial, Alias
+  FROM MaterialBarcode
+  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+)
+SELECT
+  ISNULL(mc.Alias, 'N/A') AS category,
+  COUNT(*) AS TotalCount
+FROM Psno
+JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
+JOIN WorkCenter c        ON b.StationCode  = c.StationCode
+JOIN Users us            ON us.UserCode    = b.Operator
+JOIN Material m          ON m.MatCode      = Psno.Material
+LEFT JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
+WHERE
+  b.ActivityType = 5
+  AND c.StationCode IN (1230013, 1220005)
+  AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+GROUP BY ISNULL(mc.Alias, 'N/A')
+ORDER BY TotalCount DESC;`;
+
+  try {
+    const data = await runTimeQuery(query, StartTime, EndTime);
+    res.status(200).json({
+      success: true,
+      message: "Final HP CAT loading data fetched successfully",
+      data,
+    });
+  } catch (error) {
+    throw new AppError(
+      `Failed to fetch Final HP CAT loading data: ${error.message}`,
+      500,
+    );
+  }
+});
+
+// -----------------------------------------------------------------------------
+//  POST FOAMING STAGE
 // -----------------------------------------------------------------------------
 
 export const getPostGrpAHPFrz = tryCatch(async (req, res) => {
@@ -973,7 +973,7 @@ ORDER BY TotalCount DESC;`;
 });
 
 // -----------------------------------------------------------------------------
-//  FOAMING
+//  FOAMING STAGE
 // -----------------------------------------------------------------------------
 
 export const getFoamingHpFomA = tryCatch(async (req, res) => {
