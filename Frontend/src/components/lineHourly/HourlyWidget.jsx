@@ -71,10 +71,10 @@ const MODEL_COLORS = [
 
 // ⚠ SUS target is a placeholder (15, taken from the FG Label SUS target). Confirm it.
 const CATEGORY_TARGET_UPH = {
-  Freezer: 80,
+  Freezer: 87,
   Chocolate: 52,
   "Visi Cooler": 80,
-  SUS: 15,
+  SUS: 16,
 };
 
 const CATEGORY_COLORS = {
