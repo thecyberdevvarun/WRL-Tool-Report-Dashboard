@@ -816,12 +816,12 @@ const TotalModelPanel = ({ modelData, onClose }) => {
 };
 
 // ─── CategoryWidget ───────────────────────────────────────────────────────────
-// Columns: Category | Units Produced | Target UPH | Actual UPH | Achieved %
+// Columns: Line | Units Produced | Target UPH | Actual UPH | Achieved %
 //   Actual UPH = Units Produced ÷ elapsed hours
 //   Achieved % = Actual UPH ÷ Target UPH × 100
 const CATEGORY_HEADERS = [
   "#",
-  "Category",
+  "Line",
   "Units Produced",
   "Target UPH",
   "Actual UPH",

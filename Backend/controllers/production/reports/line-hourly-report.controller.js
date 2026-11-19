@@ -28,10 +28,63 @@ const runTimeQuery = async (query, StartTime, EndTime) => {
   return result.recordset;
 };
 
+// Reusable query for Line Category Data
+const getLineCategoryQuery = (stationCodes) => `
+  WITH Psno AS (
+    SELECT
+      DocNo,
+      Material,
+      Serial,
+      VSerial,
+      Alias
+    FROM MaterialBarcode
+    WHERE
+      PrintStatus = 1
+      AND Status <> 99
+      AND Type NOT IN (200)
+  ),
+  ProductionData AS (
+    SELECT
+      CASE
+        WHEN b.Remark = 12501 THEN 'Freezer'
+        WHEN b.Remark = 12305 THEN 'Chocolate'
+        WHEN b.Remark = 12605 THEN 'Visi Cooler'
+        WHEN b.Remark = 12304 THEN 'SUS'
+      END AS LineName
+    FROM Psno
+    INNER JOIN ProcessActivity b
+      ON b.PSNo = Psno.DocNo
+    INNER JOIN WorkCenter c
+      ON b.StationCode = c.StationCode
+    INNER JOIN Users us
+      ON us.UserCode = b.Operator
+    INNER JOIN Material m
+      ON m.MatCode = Psno.Material
+    WHERE
+      b.ActivityType = 5
+      AND b.Remark IN (12501, 12305, 12605, 12304)
+      AND c.StationCode IN (${stationCodes})
+      AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+  )
+  SELECT
+    LineName,
+    COUNT(*) AS TotalCount
+  FROM ProductionData
+  WHERE LineName IS NOT NULL
+  GROUP BY LineName
+  ORDER BY
+    CASE LineName
+      WHEN 'Freezer' THEN 1
+      WHEN 'Chocolate' THEN 2
+      WHEN 'Visi Cooler' THEN 3
+      WHEN 'SUS' THEN 4
+      ELSE 5
+    END;
+`;
+
 // -----------------------------------------------------------------------------
 //  FINAL FG STAGE
 // -----------------------------------------------------------------------------
-
 export const getFinalHPFrz = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
@@ -266,50 +319,23 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalHPCAT = tryCatch(async (req, res) => {
+export const getFinalHPCAT = tryCatch(async (req, res, next) => {
   const { StartTime, EndTime } = req.query;
 
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-)
-SELECT
-  ISNULL(mc.Alias, 'N/A') AS category,
-  COUNT(*) AS TotalCount
-FROM Psno
-JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
-JOIN WorkCenter c        ON b.StationCode  = c.StationCode
-JOIN Users us            ON us.UserCode    = b.Operator
-JOIN Material m          ON m.MatCode      = Psno.Material
-LEFT JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
-WHERE
-  b.ActivityType = 5
-  AND c.StationCode IN (1220010, 1230017)
-  AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-GROUP BY ISNULL(mc.Alias, 'N/A')
-ORDER BY TotalCount DESC;`;
+  const query = getLineCategoryQuery("1220010, 1230017");
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP CAT loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP CAT loading data: ${error.message}`,
-      500,
-    );
-  }
+  const result = await runTimeQuery(query, StartTime, EndTime);
+
+  res.status(200).json({
+    success: true,
+    message: "Final HP Category Performance fetched successfully",
+    data: result,
+  });
 });
 
 // -----------------------------------------------------------------------------
 //  FINAL LOADING STAGE
 // -----------------------------------------------------------------------------
-
 export const getFinalLoadingHPFrz = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
@@ -543,50 +569,23 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalLoadingHPCAT = tryCatch(async (req, res) => {
+export const getFinalLoadingHPCAT = tryCatch(async (req, res, next) => {
   const { StartTime, EndTime } = req.query;
 
-  const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-)
-SELECT
-  ISNULL(mc.Alias, 'N/A') AS category,
-  COUNT(*) AS TotalCount
-FROM Psno
-JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
-JOIN WorkCenter c        ON b.StationCode  = c.StationCode
-JOIN Users us            ON us.UserCode    = b.Operator
-JOIN Material m          ON m.MatCode      = Psno.Material
-LEFT JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
-WHERE
-  b.ActivityType = 5
-  AND c.StationCode IN (1230013, 1220005)
-  AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-GROUP BY ISNULL(mc.Alias, 'N/A')
-ORDER BY TotalCount DESC;`;
+  const query = getLineCategoryQuery("1230013, 1220005");
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP CAT loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP CAT loading data: ${error.message}`,
-      500,
-    );
-  }
+  const result = await runTimeQuery(query, StartTime, EndTime);
+
+  res.status(200).json({
+    success: true,
+    message: "Final Loading HP Category Performance fetched successfully",
+    data: result,
+  });
 });
 
 // -----------------------------------------------------------------------------
 //  POST FOAMING STAGE
 // -----------------------------------------------------------------------------
-
 export const getPostGrpAHPFrz = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
@@ -936,46 +935,104 @@ export const getPostHPCAT = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-)
-SELECT
-  ISNULL(mc.Alias, 'N/A') AS category,
-  COUNT(*) AS TotalCount
-FROM Psno
-JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
-JOIN WorkCenter c        ON b.StationCode  = c.StationCode
-JOIN Users us            ON us.UserCode    = b.Operator
-JOIN Material m          ON m.MatCode      = Psno.Material
-LEFT JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
-WHERE
-  b.ActivityType = 5
-  AND c.StationCode IN (1220003, 1220004, 1230012, 1230007)
-  AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-GROUP BY ISNULL(mc.Alias, 'N/A')
-ORDER BY TotalCount DESC;`;
+    WITH Psno AS (
+      SELECT
+        DocNo,
+        Material,
+        Serial,
+        VSerial,
+        Alias,
+        Type
+      FROM MaterialBarcode
+      WHERE
+        PrintStatus = 1
+        AND Status <> 99
+        AND Type NOT IN (200)
+    ),
+    ProductionData AS (
+      SELECT
+        CASE
+          -- Freezer: Post Foaming Group A and Group B
+          WHEN b.StationCode IN (1220003, 1220004)
+            THEN 'Freezer'
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Post Foaming HP CAT loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Post Foaming HP CAT loading data: ${error.message}`,
-      500,
-    );
-  }
+          -- Freezer: FOW Post Foaming
+          WHEN b.StationCode = 1230007
+            AND b.Remark = 12201
+            THEN 'Freezer'
+
+          -- Other Post Foaming categories
+          WHEN b.Remark = 12305 THEN 'Chocolate'
+          WHEN b.Remark = 12605 THEN 'Visi Cooler'
+          WHEN b.Remark = 12304 THEN 'SUS'
+        END AS LineName
+
+      FROM Psno
+      INNER JOIN ProcessActivity b
+        ON b.PSNo = Psno.DocNo
+      INNER JOIN WorkCenter c
+        ON b.StationCode = c.StationCode
+      INNER JOIN Users us
+        ON us.UserCode = b.Operator
+      INNER JOIN Material m
+        ON m.MatCode = Psno.Material
+
+      WHERE
+        b.ActivityOn BETWEEN @StartTime AND @EndTime
+        AND (
+          -- Freezer Group A + Group B
+          (
+            b.StationCode IN (1220003, 1220004)
+            AND b.ActivityType = 5
+          )
+
+          OR
+
+          -- FOW Post Foaming
+          (
+            b.StationCode = 1230007
+            AND b.Remark = 12201
+          )
+
+          OR
+
+          -- Chocolate, Visi Cooler and SUS
+          (
+            b.ActivityType = 5
+            AND b.StationCode IN (1230007, 1230012)
+            AND b.Remark IN (12305, 12605, 12304)
+          )
+        )
+    )
+
+    SELECT
+      LineName,
+      COUNT(*) AS TotalCount
+    FROM ProductionData
+    WHERE LineName IS NOT NULL
+    GROUP BY LineName
+    ORDER BY
+      CASE LineName
+        WHEN 'Freezer' THEN 1
+        WHEN 'Chocolate' THEN 2
+        WHEN 'Visi Cooler' THEN 3
+        WHEN 'SUS' THEN 4
+        ELSE 5
+      END;
+  `;
+
+  const result = await runTimeQuery(query, StartTime, EndTime);
+
+  res.status(200).json({
+    success: true,
+    message: "Post HP Category Performance fetched successfully",
+    data: result,
+  });
 });
 
 // -----------------------------------------------------------------------------
 //  FOAMING STAGE
 // -----------------------------------------------------------------------------
-
 export const getFoamingHpFomA = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
@@ -1094,38 +1151,48 @@ export const getFoamingHpFomCat = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
-WITH Psno AS (
-  SELECT DocNo, Material, Serial, VSerial, Alias
-  FROM MaterialBarcode
-  WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-)
-SELECT
-  ISNULL(mc.Alias, 'N/A') AS category,
-  COUNT(*) AS TotalCount
-FROM Psno
-JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
-JOIN WorkCenter c        ON b.StationCode  = c.StationCode
-JOIN Users us            ON us.UserCode    = b.Operator
-JOIN Material m          ON m.MatCode      = Psno.Material
-LEFT JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
-WHERE
-  b.ActivityType = 5
-  AND c.StationCode IN (1220001, 1220002)
-  AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-GROUP BY ISNULL(mc.Alias, 'N/A')
-ORDER BY TotalCount DESC;`;
+    WITH Psno AS (
+      SELECT
+        DocNo,
+        Material,
+        Serial,
+        VSerial,
+        Alias
+      FROM MaterialBarcode
+      WHERE
+        PrintStatus = 1
+        AND Status <> 99
+        AND Type NOT IN (200)
+    ),
+    ProductionData AS (
+      SELECT
+        'Freezer' AS LineName
+      FROM Psno
+      INNER JOIN ProcessActivity b
+        ON b.PSNo = Psno.DocNo
+      INNER JOIN WorkCenter c
+        ON b.StationCode = c.StationCode
+      INNER JOIN Users us
+        ON us.UserCode = b.Operator
+      INNER JOIN Material m
+        ON m.MatCode = Psno.Material
+      WHERE
+        b.ActivityType = 5
+        AND b.StationCode IN (1220001, 1220002)
+        AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    )
+    SELECT
+      LineName,
+      COUNT(*) AS TotalCount
+    FROM ProductionData
+    GROUP BY LineName;
+  `;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Foaming HP FOM CAT loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Foaming HP FOM CAT loading data: ${error.message}`,
-      500,
-    );
-  }
+  const result = await runTimeQuery(query, StartTime, EndTime);
+
+  res.status(200).json({
+    success: true,
+    message: "Foaming HP Category Performance fetched successfully",
+    data: result,
+  });
 });

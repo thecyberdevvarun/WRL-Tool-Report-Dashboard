@@ -2,10 +2,6 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { baseURL } from "../../../assets/assets.js";
-import {
-  CATEGORY_MAPPINGS,
-  CATEGORY_ORDER,
-} from "../../../utils/mapCategories.js";
 import HourlyWidget from "../../../components/lineHourly/HourlyWidget.jsx";
 import MultiDayPivotView from "../../../components/lineHourly/Multidaypivotview.jsx";
 import {
@@ -42,20 +38,29 @@ const getElapsedHours = (startTime, endTime) => {
   return (end - start) / (1000 * 60 * 60);
 };
 
-const CATEGORY_TITLE = "Category Performance vs Target";
+const CATEGORY_TITLE = "Line Performance vs Target";
 
-// Always returns exactly 4 categories in a fixed order.
-// Any category not listed in CATEGORY_MAPPINGS is ignored.
-const mapCategory = (data) => {
-  if (!data?.length) return [];
-  const norm = (s) => s.replace(/\s+/g, " ").trim().toUpperCase();
-  const totals = Object.fromEntries(CATEGORY_ORDER.map((c) => [c, 0]));
-  for (const item of data) {
-    if (!item?.category) continue;
-    const key = CATEGORY_MAPPINGS[norm(item.category)];
-    if (key) totals[key] += Number(item.TotalCount) || 0;
-  }
-  return CATEGORY_ORDER.map((c) => ({ category: c, TotalCount: totals[c] }));
+const mapCategory = (data = []) => {
+  const categories = ["Freezer", "Chocolate", "Visi Cooler", "SUS"];
+
+  return categories.map((category) => {
+    const matchedItems = data.filter(
+      (item) =>
+        String(item.LineName ?? item.category ?? "")
+          .trim()
+          .toLowerCase() === category.toLowerCase(),
+    );
+
+    const TotalCount = matchedItems.reduce(
+      (total, item) => total + Number(item.TotalCount || 0),
+      0,
+    );
+
+    return {
+      category,
+      TotalCount,
+    };
+  });
 };
 
 // -- Constants ------------------------------------------------------------------
