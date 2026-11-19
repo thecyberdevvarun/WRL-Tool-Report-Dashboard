@@ -15,26 +15,26 @@ import {
   getHourlySummary,
 } from "../controllers/production/reports/hourly-report.controller.js";
 import {
+  getFinalHPFrz,
+  getFinalHPChoc,
+  getFinalHPVISI,
+  getFinalHPSUS,
+  getFinalHPCAT,
   getFinalLoadingHPFrz,
   getFinalLoadingHPChoc,
+  getFinalLoadingHPVISI,
   getFinalLoadingHPSUS,
   getFinalLoadingHPCAT,
-  getFinalHPCAT,
-  getFinalHPChoc,
-  getFinalHPFrz,
-  getFinalHPSUS,
+  getPostGrpAHPFrz,
+  getPostGrpBHPFrz,
+  getPostFOWHP,
+  getPostChocHP,
+  getPostHPVISI,
+  getPostHPSUS,
+  getPostHPCAT,
   getFoamingHpFomA,
   getFoamingHpFomB,
   getFoamingHpFomCat,
-  getPostGrpAHPFrz,
-  getPostGrpBHPFrz,
-  getPostChocHP,
-  getPostFOWHP,
-  getPostHPCAT,
-  getPostHPSUS,
-  getFinalLoadingHPVISI,
-  getFinalHPVISI,
-  getPostHPVISI,
 } from "../controllers/production/reports/line-hourly-report.controller.js";
 
 import {
@@ -103,7 +103,7 @@ import {
   getScrapDetailsExportData,
   getScrapDetailsSummary,
 } from "../controllers/production/traceability/scrap-details.controller.js";
-import {fetchModelTrendReport} from "../controllers/production/trend/model-trend.controller.js";
+import { fetchModelTrendReport } from "../controllers/production/trend/model-trend.controller.js";
 
 const router = express.Router();
 
@@ -128,39 +128,35 @@ router.get("/hourly-model-count", authenticate, getHourlyModelCount);
 router.get("/hourly-category-count", authenticate, getHourlyCategoryCount);
 
 // -----------------> Line Hourly Report
-router.get("/final-loading-hp-frz", authenticate, getFinalLoadingHPFrz);
-router.get("/final-loading-hp-choc", authenticate, getFinalLoadingHPChoc);
-router.get("/final-loading-hp-sus", authenticate, getFinalLoadingHPSUS);
-router.get("/final-loading-hp-cat", authenticate, getFinalLoadingHPCAT);
-
-// -----------------> Line Wise Report
-// Component Details
-router.get("/component-details", authenticate, getComponentDetails);
-
-// Final Line Routes
+// Final FG Stage
 router.get("/final-hp-frz", authenticate, getFinalHPFrz);
 router.get("/final-hp-choc", authenticate, getFinalHPChoc);
+router.get("/visi-final-hp", authenticate, getFinalHPVISI);
 router.get("/final-hp-sus", authenticate, getFinalHPSUS);
 router.get("/final-hp-cat", authenticate, getFinalHPCAT);
 
-// Post Foaming Routes
+// Final Loading Stage
+router.get("/final-loading-hp-frz", authenticate, getFinalLoadingHPFrz);
+router.get("/final-loading-hp-choc", authenticate, getFinalLoadingHPChoc);
+router.get("/visi-loading-hp", authenticate, getFinalLoadingHPVISI);
+router.get("/final-loading-hp-sus", authenticate, getFinalLoadingHPSUS);
+router.get("/final-loading-hp-cat", authenticate, getFinalLoadingHPCAT);
+
+// Post Foaming Stage
 router.get("/post-hp-GrpA", authenticate, getPostGrpAHPFrz);
 router.get("/post-hp-GrpB", authenticate, getPostGrpBHPFrz);
-router.get("/post-hp-Choc", authenticate, getPostChocHP);
 router.get("/post-hp-FOW", authenticate, getPostFOWHP);
+router.get("/post-hp-Choc", authenticate, getPostChocHP);
+router.get("/visi-post-hp", authenticate, getPostHPVISI);
 router.get("/post-hp-sus", authenticate, getPostHPSUS);
 router.get("/post-hp-cat", authenticate, getPostHPCAT);
 
-// Foaming Routes
+// Foaming Stage
 router.get("/Foaming-hp-fom-a", authenticate, getFoamingHpFomA);
 router.get("/Foaming-hp-fom-b", authenticate, getFoamingHpFomB);
 router.get("/Foaming-hp-fom-cat", authenticate, getFoamingHpFomCat);
 
-// VISI Cooler Routes (merged into existing tabs — no new tab)
-router.get("/visi-loading-hp", authenticate, getFinalLoadingHPVISI);
-router.get("/visi-final-hp", authenticate, getFinalHPVISI);
-router.get("/visi-post-hp", authenticate, getPostHPVISI);
-
+// -----------------> Line Wise Report
 // Final Loading — model breakdown
 router.get("/final-loading-model", authenticate, getFinalLoadingModelBreakdown);
 router.get(
@@ -209,6 +205,9 @@ router.get(
   authenticate,
   getFoamingHpFomBModelBreakdown,
 );
+
+// Component Details
+router.get("/component-details", authenticate, getComponentDetails);
 
 // -----------------> Consolidated Report
 router.get("/stage-history", authenticate, getCurrentStageStatus);
