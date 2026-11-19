@@ -2,7 +2,10 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { baseURL } from "../../../assets/assets.js";
-import { CATEGORY_MAPPINGS } from "../../../utils/mapCategories.js";
+import {
+  CATEGORY_MAPPINGS,
+  CATEGORY_ORDER,
+} from "../../../utils/mapCategories.js";
 import HourlyWidget from "../../../components/lineHourly/HourlyWidget.jsx";
 import MultiDayPivotView from "../../../components/lineHourly/Multidaypivotview.jsx";
 import {
@@ -29,30 +32,30 @@ const pad = (n) => String(n).padStart(2, "0");
 const formatDate = (d) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-// Calculate the exact selected duration, including partial hours.
+// Exact selected duration in hours, including partial hours.
 const getElapsedHours = (startTime, endTime) => {
   if (!startTime || !endTime) return 0;
-
   const start = new Date(String(startTime).replace(" ", "T")).getTime();
   const end = new Date(String(endTime).replace(" ", "T")).getTime();
-
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
     return 0;
   return (end - start) / (1000 * 60 * 60);
 };
 
-const mapCategory = (data, mappings = CATEGORY_MAPPINGS) => {
+const CATEGORY_TITLE = "Category Performance vs Target";
+
+// Always returns exactly 4 categories in a fixed order.
+// Any category not listed in CATEGORY_MAPPINGS is ignored.
+const mapCategory = (data) => {
   if (!data?.length) return [];
   const norm = (s) => s.replace(/\s+/g, " ").trim().toUpperCase();
-  const grouped = {};
+  const totals = Object.fromEntries(CATEGORY_ORDER.map((c) => [c, 0]));
   for (const item of data) {
     if (!item?.category) continue;
-    const key = mappings[norm(item.category)] || item.category.trim();
-    grouped[key]
-      ? (grouped[key].TotalCount += item.TotalCount || 0)
-      : (grouped[key] = { category: key, TotalCount: item.TotalCount || 0 });
+    const key = CATEGORY_MAPPINGS[norm(item.category)];
+    if (key) totals[key] += Number(item.TotalCount) || 0;
   }
-  return Object.values(grouped).sort((a, b) => b.TotalCount - a.TotalCount);
+  return CATEGORY_ORDER.map((c) => ({ category: c, TotalCount: totals[c] }));
 };
 
 // -- Constants ------------------------------------------------------------------
@@ -64,8 +67,6 @@ const LINE_TABS = [
   { value: "multi_day", label: "Multi-Day", icon: CalendarRange },
 ];
 
-// -- EMPTY state ---------------------------------------------------------------
-// post_Foaming now has one dedicated key per endpoint, all returning COUNT
 const EMPTY = {
   // Final Loading
   finalFreezerLoading: [],
@@ -90,19 +91,19 @@ const EMPTY = {
   visiFinalModel: [],
 
   // Post Foaming — one key per endpoint (all return COUNT)
-  postGrpA: [], // post-hp-GrpA
-  postGrpB: [], // post-hp-GrpB
-  postChoc: [], // post-hp-Choc
-  postFOW: [], // post-hp-FOW
-  postSUS: [], // post-hp-sus
-  postCategory: [], // post-hp-cat
-  visiPost: [], // visi-post-hp
-  postGrpAModel: [], // post-Grp-A-model
-  postGrpBModel: [], // post-Grp-B-model
-  postChocModel: [], // post-Choc-model
-  postFOWModel: [], // post-FOW-model
-  postSUSModel: [], // post-hp-sus-model
-  visiPostModel: [], // visi-post-hp-model
+  postGrpA: [],
+  postGrpB: [],
+  postChoc: [],
+  postFOW: [],
+  postSUS: [],
+  postCategory: [],
+  visiPost: [],
+  postGrpAModel: [],
+  postGrpBModel: [],
+  postChocModel: [],
+  postFOWModel: [],
+  postSUSModel: [],
+  visiPostModel: [],
 
   // Foaming
   foamA: [],
@@ -119,7 +120,7 @@ const CHART = {
   teal: "rgba(20,184,166,0.70)",
 };
 
-// -- How tall one data-row is (px) — tune once to match HourlyWidget --
+// -- Widget sizing --------------------------------------------------------------
 const ROW_H = 34;
 const WIDGET_CHROME = 120;
 const MAX_VISIBLE_ROWS = 6;
@@ -129,6 +130,8 @@ const WIDGET_MIN_H = WIDGET_CHROME + ROW_H * MAX_VISIBLE_ROWS;
 const Spinner = ({ cls = "w-4 h-4" }) => (
   <Loader2 className={`animate-spin ${cls}`} />
 );
+
+const sumCount = (arr) => arr.reduce((s, r) => s + (r.COUNT || 0), 0);
 
 // -- Main Component -------------------------------------------------------------
 const LineHourlyReport = () => {
@@ -140,6 +143,11 @@ const LineHourlyReport = () => {
   const [apiData, setApiData] = useState(EMPTY);
   const [lastFetched, setLastFetched] = useState(null);
   const [countdown, setCountdown] = useState(300);
+  // Params of the last query that was actually run (state, so UI updates correctly)
+  const [appliedParams, setAppliedParams] = useState({
+    StartTime: "",
+    EndTime: "",
+  });
 
   const refreshRef = useRef(null);
   const cdRef = useRef(null);
@@ -152,8 +160,8 @@ const LineHourlyReport = () => {
   const API = `${baseURL}prod`;
   const isMultiDay = lineType === "multi_day";
   const elapsedHours = getElapsedHours(
-    paramsRef.current.StartTime,
-    paramsRef.current.EndTime,
+    appliedParams.StartTime,
+    appliedParams.EndTime,
   );
 
   // -- Fetch ------------------------------------------------------------------
@@ -217,37 +225,24 @@ const LineHourlyReport = () => {
         };
       }
 
-      // -- Post Foaming — 13 endpoints, correctly destructured ---------------
+      // -- Post Foaming ------------------------------------------------------
       if (lt === "post_Foaming") {
-        const [
-          r1, // post-hp-GrpA
-          r2, // post-hp-GrpB
-          r3, // post-hp-Choc
-          r4, // post-hp-FOW
-          r5, // post-hp-sus
-          r6, // post-hp-cat
-          r7, // visi-post-hp
-          m1, // post-Grp-A-model
-          m2, // post-Grp-B-model
-          m3, // post-Choc-model
-          m4, // post-FOW-model
-          m5, // post-hp-sus-model
-          m6, // visi-post-hp-model
-        ] = await Promise.allSettled([
-          get("post-hp-GrpA"),
-          get("post-hp-GrpB"),
-          get("post-hp-Choc"),
-          get("post-hp-FOW"),
-          get("post-hp-sus"),
-          get("post-hp-cat"),
-          get("visi-post-hp"),
-          get("post-Grp-A-model"),
-          get("post-Grp-B-model"),
-          get("post-Choc-model"),
-          get("post-FOW-model"),
-          get("post-hp-sus-model"),
-          get("visi-post-hp-model"),
-        ]);
+        const [r1, r2, r3, r4, r5, r6, r7, m1, m2, m3, m4, m5, m6] =
+          await Promise.allSettled([
+            get("post-hp-GrpA"),
+            get("post-hp-GrpB"),
+            get("post-hp-Choc"),
+            get("post-hp-FOW"),
+            get("post-hp-sus"),
+            get("post-hp-cat"),
+            get("visi-post-hp"),
+            get("post-Grp-A-model"),
+            get("post-Grp-B-model"),
+            get("post-Choc-model"),
+            get("post-FOW-model"),
+            get("post-hp-sus-model"),
+            get("visi-post-hp-model"),
+          ]);
         return {
           postGrpA: safe(r1),
           postGrpB: safe(r2),
@@ -292,6 +287,7 @@ const LineHourlyReport = () => {
     async (params, lt) => {
       setLoading(true);
       setApiData(EMPTY);
+      setAppliedParams(params);
       try {
         const updates = await fetchForType(lt, params);
         setApiData((prev) => ({ ...prev, ...updates }));
@@ -321,8 +317,8 @@ const LineHourlyReport = () => {
   };
 
   const handleToday = () => {
-    const now = new Date(),
-      s = new Date(now);
+    const now = new Date();
+    const s = new Date(now);
     s.setHours(8, 0, 0, 0);
     const p = { StartTime: formatDate(s), EndTime: formatDate(now) };
     paramsRef.current = p;
@@ -339,6 +335,15 @@ const LineHourlyReport = () => {
     runFetch(p, lineType);
   };
 
+  // Re-fetch when switching tabs, if a range has already been queried
+  const handleTabChange = (value) => {
+    setLineType(value);
+    if (value === "multi_day") return;
+    const p = paramsRef.current;
+    if (p.StartTime && p.EndTime) runFetch(p, value);
+    else setApiData(EMPTY);
+  };
+
   // -- Auto-refresh -----------------------------------------------------------
   useEffect(() => {
     clearInterval(refreshRef.current);
@@ -351,7 +356,7 @@ const LineHourlyReport = () => {
     );
     refreshRef.current = setInterval(() => {
       const p = paramsRef.current;
-      if (p.StartTime && p.EndTime) {
+      if (p.StartTime && p.EndTime && lineTypeRef.current !== "multi_day") {
         runFetch(p, lineTypeRef.current);
         setCountdown(300);
       }
@@ -368,10 +373,10 @@ const LineHourlyReport = () => {
     let cards = [];
 
     if (lineType === "final_line") {
-      const frz = d.finalFreezer.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const choc = d.finalChoc.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const sus = d.finalSUS.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const visi = d.visiFinal.reduce((s, r) => s + (r.COUNT || 0), 0);
+      const frz = sumCount(d.finalFreezer);
+      const choc = sumCount(d.finalChoc);
+      const sus = sumCount(d.finalSUS);
+      const visi = sumCount(d.visiFinal);
       cards = [
         { label: "Freezer", value: frz, color: "blue" },
         { label: "Choc", value: choc, color: "amber" },
@@ -384,10 +389,10 @@ const LineHourlyReport = () => {
         },
       ];
     } else if (lineType === "final_loading") {
-      const frz = d.finalFreezerLoading.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const choc = d.finalChocLoading.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const sus = d.finalSUSLoading.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const visi = d.visiLoading.reduce((s, r) => s + (r.COUNT || 0), 0);
+      const frz = sumCount(d.finalFreezerLoading);
+      const choc = sumCount(d.finalChocLoading);
+      const sus = sumCount(d.finalSUSLoading);
+      const visi = sumCount(d.visiLoading);
       cards = [
         { label: "Frz Load", value: frz, color: "blue" },
         { label: "Choc Load", value: choc, color: "amber" },
@@ -400,13 +405,12 @@ const LineHourlyReport = () => {
         },
       ];
     } else if (lineType === "post_Foaming") {
-      // All groups now read COUNT from their own dedicated arrays
-      const grpA = d.postGrpA.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const grpB = d.postGrpB.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const choc = d.postChoc.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const fow = d.postFOW.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const sus = d.postSUS.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const visi = d.visiPost.reduce((s, r) => s + (r.COUNT || 0), 0);
+      const grpA = sumCount(d.postGrpA);
+      const grpB = sumCount(d.postGrpB);
+      const choc = sumCount(d.postChoc);
+      const fow = sumCount(d.postFOW);
+      const sus = sumCount(d.postSUS);
+      const visi = sumCount(d.visiPost);
       cards = [
         { label: "Frz. Post Foaming Group A", value: grpA, color: "blue" },
         { label: "Frz. Post Foaming Group B", value: grpB, color: "violet" },
@@ -421,8 +425,8 @@ const LineHourlyReport = () => {
         },
       ];
     } else if (lineType === "Foaming") {
-      const a = d.foamA.reduce((s, r) => s + (r.COUNT || 0), 0);
-      const b = d.foamB.reduce((s, r) => s + (r.COUNT || 0), 0);
+      const a = sumCount(d.foamA);
+      const b = sumCount(d.foamB);
       cards = [
         { label: "Station A", value: a, color: "blue" },
         { label: "Station B", value: b, color: "amber" },
@@ -441,51 +445,47 @@ const LineHourlyReport = () => {
     if (!grandTotal) return null;
     const d = apiData;
     const hourMap = {};
-    const addRows = (arr, keys = ["COUNT"]) => {
+    const addRows = (arr) => {
       for (const r of arr) {
         const h = r.TIMEHOUR ?? -1;
         if (h < 0) continue;
-        hourMap[h] =
-          (hourMap[h] || 0) + keys.reduce((s, k) => s + (r[k] || 0), 0);
+        hourMap[h] = (hourMap[h] || 0) + (r.COUNT || 0);
       }
     };
 
     if (lineType === "final_line") {
-      addRows(d.finalFreezer);
-      addRows(d.finalChoc);
-      addRows(d.finalSUS);
-      addRows(d.visiFinal);
+      [d.finalFreezer, d.finalChoc, d.finalSUS, d.visiFinal].forEach(addRows);
     }
     if (lineType === "final_loading") {
-      addRows(d.finalFreezerLoading);
-      addRows(d.finalChocLoading);
-      addRows(d.finalSUSLoading);
-      addRows(d.visiLoading);
+      [
+        d.finalFreezerLoading,
+        d.finalChocLoading,
+        d.finalSUSLoading,
+        d.visiLoading,
+      ].forEach(addRows);
     }
     if (lineType === "post_Foaming") {
-      // All groups use COUNT — simply addRows with default key
-      addRows(d.postGrpA);
-      addRows(d.postGrpB);
-      addRows(d.postChoc);
-      addRows(d.postFOW);
-      addRows(d.postSUS);
-      addRows(d.visiPost);
+      [
+        d.postGrpA,
+        d.postGrpB,
+        d.postChoc,
+        d.postFOW,
+        d.postSUS,
+        d.visiPost,
+      ].forEach(addRows);
     }
     if (lineType === "Foaming") {
-      addRows(d.foamA);
-      addRows(d.foamB);
+      [d.foamA, d.foamB].forEach(addRows);
     }
 
     const hours = Object.entries(hourMap);
     if (!hours.length) return null;
     const avg = Math.round(grandTotal / hours.length);
     const peakEntry = hours.reduce((m, e) => (e[1] > m[1] ? e : m), hours[0]);
-    let day = 0,
-      night = 0;
+    let day = 0;
     for (const [h, v] of hours) {
       const n = Number(h);
       if (n >= 8 && n < 20) day += v;
-      else night += v;
     }
     const dayPct = grandTotal > 0 ? Math.round((day / grandTotal) * 100) : 0;
     return { avg, peakHour: peakEntry[0], peakCount: peakEntry[1], dayPct };
@@ -495,12 +495,12 @@ const LineHourlyReport = () => {
   const exportAll = () => {
     const d = apiData;
     let rows = [];
-    const hr = (arr, label, keys = ["COUNT"]) =>
+    const hr = (arr, label) =>
       arr.map((r) => [
         label,
         r.HOUR_NUMBER || r.HourNumber || "—",
         `${r.TIMEHOUR ?? ""}:00`,
-        ...keys.map((k) => r[k] || 0),
+        r.COUNT || 0,
       ]);
     const cat = (arr, label) =>
       arr.map((r) => [label, "—", r.category, r.TotalCount || 0]);
@@ -560,6 +560,7 @@ const LineHourlyReport = () => {
   const widgetConfig = useMemo(() => {
     const d = apiData;
     const { sky, amber, slate, teal } = CHART;
+    const categoryDataset = [{ key: "TotalCount", label: "Count", color: sky }];
 
     const configs = {
       final_line: [
@@ -588,10 +589,10 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
-          title: "Category Breakdown",
+          title: CATEGORY_TITLE,
           data: d.finalCategory,
           modelData: [],
-          datasets: [{ key: "TotalCount", label: "Count", color: sky }],
+          datasets: categoryDataset,
           isCategoryChart: true,
         },
       ],
@@ -622,15 +623,14 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
-          title: "Category Breakdown",
+          title: CATEGORY_TITLE,
           data: d.finalCategoryLoading,
           modelData: [],
-          datasets: [{ key: "TotalCount", label: "Count", color: sky }],
+          datasets: categoryDataset,
           isCategoryChart: true,
         },
       ],
 
-      // -- Post Foaming: 7 widgets, each with its own data array + COUNT -----
       post_Foaming: [
         {
           title: "Frz. Post Foaming Group A",
@@ -675,10 +675,10 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
-          title: "Category Breakdown",
+          title: CATEGORY_TITLE,
           data: d.postCategory,
           modelData: [],
-          datasets: [{ key: "TotalCount", label: "Count", color: sky }],
+          datasets: categoryDataset,
           isCategoryChart: true,
         },
       ],
@@ -697,10 +697,10 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: amber }],
         },
         {
-          title: "Category Breakdown",
+          title: CATEGORY_TITLE,
           data: d.foamCategory,
           modelData: [],
-          datasets: [{ key: "TotalCount", label: "Count", color: sky }],
+          datasets: categoryDataset,
           isCategoryChart: true,
         },
       ],
@@ -713,20 +713,22 @@ const LineHourlyReport = () => {
   const is5 = widgetConfig.length === 5; // final_line / final_loading
   const is7 = widgetConfig.length === 7; // post_Foaming
 
-  const gridTemplateRows = is7 ? "1fr 1fr 1fr" : is5 ? "1fr 1fr" : "1fr";
+  const gridTemplateRows = is7
+    ? `repeat(3, minmax(${WIDGET_MIN_H}px, auto))`
+    : is5
+      ? `repeat(2, minmax(${WIDGET_MIN_H}px, auto))`
+      : `minmax(${WIDGET_MIN_H}px, auto)`;
 
   /**
-   * Grid layout:
-   *
    * is5 (3×2):             is7 (3×3):                       default (3×1):
-   *  [0][1][2]              [0][1][2]  GrpA | GrpB | CHOC    [0][1][2]
-   *  [3][4------]           [3][4][5]  FOW  | SUS  | VISI
+   *  [0][1][2]              [0][1][2]                        [0][1][2]
+   *  [3][4------]           [3][4][5]
    *                         [6----------------------]  Category
    */
   const getGridColumn = (i) => {
     if (is5 && i === 3) return "1";
     if (is5 && i === 4) return "2 / span 2";
-    if (is7 && i === 6) return "1 / -1"; // Category spans full bottom row
+    if (is7 && i === 6) return "1 / -1";
     return undefined;
   };
 
@@ -744,7 +746,7 @@ const LineHourlyReport = () => {
   ---------------------------------------------------------- */
   return (
     <div className="h-full flex flex-col bg-slate-100 overflow-hidden">
-      {/* -- PAGE HEADER — always pinned at top, never scrolls -- */}
+      {/* -- PAGE HEADER — pinned at top -- */}
       <div className="shrink-0 z-20 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between shadow-sm">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
@@ -800,7 +802,7 @@ const LineHourlyReport = () => {
         </div>
       </div>
 
-      {/* -- SCROLLABLE BODY — everything below the header scrolls -- */}
+      {/* -- SCROLLABLE BODY -- */}
       <div className="flex-1 overflow-y-auto flex flex-col p-4 gap-3">
         {/* -- TOOLBAR CARD -- */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 shrink-0">
@@ -869,7 +871,7 @@ const LineHourlyReport = () => {
                   <button
                     onClick={exportAll}
                     disabled={loading || !grandTotal}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${loading || !grandTotal ? "bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed" : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600"}`}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${loading || !grandTotal ? "bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed" : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 cursor-pointer"}`}
                   >
                     <Download className="w-4 h-4" /> Export
                   </button>
@@ -883,8 +885,8 @@ const LineHourlyReport = () => {
               {LINE_TABS.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
-                  onClick={() => setLineType(value)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  onClick={() => handleTabChange(value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     lineType === value
                       ? value === "multi_day"
                         ? "bg-indigo-600 text-white shadow-sm"
@@ -900,17 +902,24 @@ const LineHourlyReport = () => {
             {/* Auto-refresh toggle */}
             {!isMultiDay && (
               <div className="flex items-center gap-2 ml-auto shrink-0">
-                <div
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    autoRefresh ? "translate-x-4" : "translate-x-0"
+                <span className="text-[11px] font-semibold text-slate-500">
+                  Auto refresh (5 min)
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoRefresh}
+                  onClick={() => setAutoRefresh((v) => !v)}
+                  className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
+                    autoRefresh ? "bg-blue-600" : "bg-slate-300"
                   }`}
                 >
-                  <div
+                  <span
                     className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                       autoRefresh ? "translate-x-4" : "translate-x-0"
                     }`}
                   />
-                </div>
+                </button>
               </div>
             )}
           </div>
@@ -957,59 +966,41 @@ const LineHourlyReport = () => {
 
             {/* Widget grid */}
             <div className="shrink-0">
-              {loading ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gridTemplateRows: is5
-                      ? `repeat(2, minmax(${WIDGET_MIN_H}px, auto))`
-                      : `minmax(${WIDGET_MIN_H}px, auto)`,
-                    gap: 10,
-                  }}
-                >
-                  {Array.from({ length: is5 ? 5 : 3 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white rounded-xl border border-slate-200 animate-pulse overflow-hidden"
-                      style={{
-                        gridColumn: is5 && i === 4 ? "span 2" : undefined,
-                        minHeight: WIDGET_MIN_H,
-                      }}
-                    >
-                      <div className="h-9 bg-slate-50 border-b border-slate-100" />
-                      <div className="p-3 space-y-2">
-                        {[70, 85, 60, 75].map((w, j) => (
-                          <div
-                            key={j}
-                            className="h-3 bg-slate-100 rounded"
-                            style={{ width: `${w}%` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gridTemplateRows: is5
-                      ? `repeat(2, minmax(${WIDGET_MIN_H}px, auto))`
-                      : `minmax(${WIDGET_MIN_H}px, auto)`,
-                    gap: 10,
-                  }}
-                >
-                  {widgetConfig.map((wc, i) => {
-                    let gridColumn = undefined;
-                    if (is5 && i === 3) gridColumn = "1";
-                    if (is5 && i === 4) gridColumn = "2 / span 2";
-                    return (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gridTemplateRows,
+                  gap: 10,
+                }}
+              >
+                {loading
+                  ? Array.from({ length: skeletonCount }).map((_, i) => (
                       <div
                         key={i}
+                        className="bg-white rounded-xl border border-slate-200 animate-pulse overflow-hidden"
                         style={{
-                          gridColumn,
+                          gridColumn: getGridColumn(i),
+                          minHeight: WIDGET_MIN_H,
+                        }}
+                      >
+                        <div className="h-9 bg-slate-50 border-b border-slate-100" />
+                        <div className="p-3 space-y-2">
+                          {[70, 85, 60, 75].map((w, j) => (
+                            <div
+                              key={j}
+                              className="h-3 bg-slate-100 rounded"
+                              style={{ width: `${w}%` }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  : widgetConfig.map((wc, i) => (
+                      <div
+                        key={`${lineType}-${i}`}
+                        style={{
+                          gridColumn: getGridColumn(i),
                           minHeight: WIDGET_MIN_H,
                         }}
                       >
@@ -1023,10 +1014,8 @@ const LineHourlyReport = () => {
                           elapsedHours={elapsedHours}
                         />
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+              </div>
             </div>
           </>
         )}

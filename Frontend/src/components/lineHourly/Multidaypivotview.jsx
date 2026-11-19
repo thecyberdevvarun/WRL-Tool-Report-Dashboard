@@ -43,18 +43,9 @@ import {
   FiInfo,
   FiChevronRight,
   FiTrendingDown,
-  FiUsers,
-  FiSunrise,
-  FiSunset,
 } from "react-icons/fi";
 import { HiOutlineFire, HiOutlineLightningBolt } from "react-icons/hi";
-import {
-  MdCompare,
-  MdInsights,
-  MdOutlineSpeed,
-  MdPeople,
-  MdBusiness,
-} from "react-icons/md";
+import { MdCompare, MdInsights, MdOutlineSpeed } from "react-icons/md";
 import { TbRadar, TbLayoutDashboard, TbReportAnalytics } from "react-icons/tb";
 import { BsGraphUp, BsTable } from "react-icons/bs";
 import axios from "axios";
@@ -93,14 +84,6 @@ const LINE_STAGE_MAPPING = {
   },
 };
 
-// ---------------------------------------------------------------------------
-//  Shift constants
-//  Day  shift: check-in  07:00 – 20:20  (hr >= 7 && hr < 15)
-//  Night shift: check-in 19:00 – 06:59  (hr >= 15 || hr < 7)
-// ---------------------------------------------------------------------------
-const DAY_SHIFT_START = 7;
-const DAY_SHIFT_END = 15;
-
 // Production day 08:00 → next day 08:00 (shift 1: 08–20, shift 2: 20–08)
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => (i + 8) % 24);
 
@@ -116,13 +99,11 @@ const DAY_COLORS = [
   "#ea580c",
   "#9333ea",
 ];
-const MP_COLORS = { day: "#0ea5e9", night: "#8b5cf6", upw: "#f59e0b" };
 
 const VIEWS = [
   { id: "pivot", label: "Pivot Table", Icon: BsTable },
   { id: "trend", label: "Trend", Icon: FiTrendingUp },
   { id: "compare", label: "Compare", Icon: MdCompare },
-  { id: "manpower", label: "Manpower", Icon: MdPeople },
   { id: "insights", label: "Insights", Icon: MdInsights },
   { id: "report", label: "Report", Icon: TbReportAnalytics },
 ];
@@ -197,6 +178,15 @@ function perfBadge(score) {
   return { label: "Low", color: "#dc2626", bg: "#fee2e2", border: "#fca5a5" };
 }
 
+// Coefficient of variation (%) of a day's non-zero hourly values
+function dayCV(vals) {
+  const mean = vals.reduce((s, v) => s + v, 0) / (vals.length || 1);
+  const std = Math.sqrt(
+    vals.reduce((s, v) => s + (v - mean) ** 2, 0) / (vals.length || 1),
+  );
+  return mean ? Math.round((std / mean) * 100) : 0;
+}
+
 const S = {
   card: {
     background: "#fff",
@@ -205,6 +195,16 @@ const S = {
     boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
   },
 };
+
+const labelStyle = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: "#94a3b8",
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+};
+
+const cardTitle = { fontSize: 12, fontWeight: 700, color: "#334155" };
 
 // ---------------------------------------------------------------------------
 //  Tooltip
@@ -303,17 +303,7 @@ const KPICard = ({
       >
         <Icon size={13} color={color} />
       </div>
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          color: "#94a3b8",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        {label}
-      </span>
+      <span style={labelStyle}>{label}</span>
     </div>
     <div
       style={{
@@ -662,12 +652,6 @@ export default function MultiDayPivotView() {
     return m || 1;
   }, [data, dates, activeHours]);
 
-  const maxColVal = useMemo(
-    () =>
-      Math.max(...dates.map((d) => data[d]?.[hlCol || activeHours[0]] || 0), 1),
-    [data, dates, hlCol, activeHours],
-  );
-
   const bestDay = useMemo(
     () =>
       dates.reduce(
@@ -741,6 +725,7 @@ export default function MultiDayPivotView() {
     [avgUPH, effectiveTarget, overallAvg],
   );
 
+  // Dates are keyed as DD-MM-YYYY
   const getWeekKey = useCallback((dateStr) => {
     const [d, m, y] = dateStr.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
@@ -820,11 +805,9 @@ export default function MultiDayPivotView() {
       const nextDayStr = (ds) => {
         const nd = new Date(ds);
         nd.setDate(nd.getDate() + 1);
-
         return `${nd.getFullYear()}-${pad2(nd.getMonth() + 1)}-${pad2(nd.getDate())}`;
       };
 
-      // Production API fetch only
       const prodResults = await Promise.allSettled(
         list.map(async (ds) => {
           const ns = nextDayStr(ds);
@@ -839,11 +822,9 @@ export default function MultiDayPivotView() {
           });
 
           const pivot = {};
-
           (res.data?.data || []).forEach((row) => {
             const h = row.TIMEHOUR ?? row.timehour ?? row.hour;
             const c = row.COUNT ?? row.count ?? row.Loading_Count ?? 0;
-
             if (h != null) {
               pivot[Number(h)] = (pivot[Number(h)] || 0) + c;
             }
@@ -853,15 +834,12 @@ export default function MultiDayPivotView() {
         }),
       );
 
-      // Merge production data
       const merged = {};
-
       prodResults.forEach((r) => {
         if (r.status === "fulfilled") {
           const { ds, pivot } = r.value;
           const [y, m, d] = ds.split("-");
           const key = `${d}-${m}-${y}`;
-
           if (Object.keys(pivot).length > 0) {
             merged[key] = pivot;
           }
@@ -908,12 +886,10 @@ export default function MultiDayPivotView() {
     });
 
     const csv = rows.map((r) => r.join(",")).join("\n");
-
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `Production_${line}_${stage}_${from}_to_${to}.csv`;
     a.click();
-
     URL.revokeObjectURL(a.href);
   }, [
     dates,
@@ -943,6 +919,9 @@ export default function MultiDayPivotView() {
     });
     return Object.entries(map).map(([week, ds]) => ({ week, dates: ds }));
   }, [dates, groupByWeek, getWeekKey]);
+
+  const tgtColor = (p) =>
+    p >= 100 ? "#059669" : p >= 80 ? "#d97706" : "#dc2626";
 
   // ===========================================================================
   //  RENDER
@@ -1001,7 +980,6 @@ export default function MultiDayPivotView() {
           >
             <TbLayoutDashboard size={18} color="#fff" />
           </div>
-
           <div>
             <div
               style={{
@@ -1013,7 +991,6 @@ export default function MultiDayPivotView() {
             >
               Production Analytics
             </div>
-
             <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
               {line} › {stage}
               {dates.length > 0 &&
@@ -1104,18 +1081,7 @@ export default function MultiDayPivotView() {
                 key={f.lbl}
                 style={{ display: "flex", flexDirection: "column", gap: 5 }}
               >
-                <label
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {f.lbl}
-                </label>
-
+                <label style={labelStyle}>{f.lbl}</label>
                 <select
                   value={f.val}
                   onChange={f.onChange}
@@ -1147,18 +1113,7 @@ export default function MultiDayPivotView() {
                 key={f.lbl}
                 style={{ display: "flex", flexDirection: "column", gap: 5 }}
               >
-                <label
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {f.lbl}
-                </label>
-
+                <label style={labelStyle}>{f.lbl}</label>
                 <input
                   type="date"
                   value={f.val}
@@ -1179,18 +1134,7 @@ export default function MultiDayPivotView() {
 
             {/* Target UPH */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Target UPH
-              </label>
-
+              <label style={labelStyle}>Target UPH</label>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {fixedTarget != null ? (
                   <span
@@ -1229,7 +1173,6 @@ export default function MultiDayPivotView() {
                     }}
                   />
                 )}
-
                 <button
                   onClick={() => setShowTgt((v) => !v)}
                   className="tgt-btn"
@@ -1251,18 +1194,7 @@ export default function MultiDayPivotView() {
 
             {/* Options */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Options
-              </label>
-
+              <label style={labelStyle}>Options</label>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => setSortAsc((v) => !v)}
@@ -1287,7 +1219,6 @@ export default function MultiDayPivotView() {
                   )}{" "}
                   Date
                 </button>
-
                 <button
                   onClick={() => setGroupByWeek((v) => !v)}
                   style={{
@@ -1306,7 +1237,6 @@ export default function MultiDayPivotView() {
                 >
                   <FiCalendar size={12} /> Week
                 </button>
-
                 <button
                   onClick={() => setHighlightBest((v) => !v)}
                   style={{
@@ -1385,7 +1315,6 @@ export default function MultiDayPivotView() {
             sub={`across ${dates.length} days`}
             color="#4f46e5"
           />
-
           <KPICard
             icon={MdOutlineSpeed}
             label="Overall Avg"
@@ -1394,7 +1323,6 @@ export default function MultiDayPivotView() {
             color="#059669"
             trend={overallAvg >= effectiveTarget ? "up" : "down"}
           />
-
           <KPICard
             icon={HiOutlineFire}
             label="Best Day"
@@ -1402,7 +1330,6 @@ export default function MultiDayPivotView() {
             sub={bestDay ? `${fmtN(rowTotals[bestDay])} units` : ""}
             color="#d97706"
           />
-
           <KPICard
             icon={FiClock}
             label="Peak Hour"
@@ -1410,7 +1337,6 @@ export default function MultiDayPivotView() {
             sub={bestHour != null ? `${fmtN(colTotals[bestHour])} total` : ""}
             color="#7c3aed"
           />
-
           <KPICard
             icon={FiAlertTriangle}
             label="Below Target"
@@ -1418,7 +1344,6 @@ export default function MultiDayPivotView() {
             sub={`slots < ${effectiveTarget} UPH`}
             color={belowTarget.length > 0 ? "#dc2626" : "#059669"}
           />
-
           {trend && (
             <KPICard
               icon={trend.up ? FiTrendingUp : FiTrendingDown}
@@ -1500,33 +1425,30 @@ export default function MultiDayPivotView() {
             gap: 2,
           }}
         >
-          {VIEWS.filter(({ id }) => id !== "manpower").map(
-            ({ id, label, Icon }) => (
-              <button
-                key={id}
-                onClick={() => setView(id)}
-                className="view-tab"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "7px 15px",
-                  borderRadius: 9,
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  background: view === id ? "#fff" : "transparent",
-                  color: view === id ? "#4f46e5" : "#64748b",
-                  boxShadow:
-                    view === id ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-                  transition: "all 0.15s",
-                }}
-              >
-                <Icon size={13} /> {label}
-              </button>
-            ),
-          )}
+          {VIEWS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className="view-tab"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 15px",
+                borderRadius: 9,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                background: view === id ? "#fff" : "transparent",
+                color: view === id ? "#4f46e5" : "#64748b",
+                boxShadow: view === id ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                transition: "all 0.15s",
+              }}
+            >
+              <Icon size={13} /> {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -1547,9 +1469,7 @@ export default function MultiDayPivotView() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <BsTable size={13} color="#4f46e5" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-                Hourly Pivot Table
-              </span>
+              <span style={cardTitle}>Hourly Pivot Table</span>
               <span style={{ fontSize: 11, color: "#94a3b8" }}>
                 · {dates.length} days × {activeHours.length} hours
               </span>
@@ -1831,7 +1751,6 @@ export default function MultiDayPivotView() {
                                       transition: "transform 0.2s",
                                     }}
                                   />
-
                                   {isBest && (
                                     <span
                                       style={{
@@ -1847,7 +1766,6 @@ export default function MultiDayPivotView() {
                                       BEST
                                     </span>
                                   )}
-
                                   {isWorst && (
                                     <span
                                       style={{
@@ -1863,7 +1781,6 @@ export default function MultiDayPivotView() {
                                       LOW
                                     </span>
                                   )}
-
                                   {!isBest &&
                                     !isWorst &&
                                     isTop3 &&
@@ -1882,7 +1799,6 @@ export default function MultiDayPivotView() {
                                         TOP3
                                       </span>
                                     )}
-
                                   <span
                                     className="mono"
                                     style={{
@@ -1901,7 +1817,6 @@ export default function MultiDayPivotView() {
                                 const hs = getHeatStyle(v, maxVal);
                                 const belowTgt =
                                   showTgt && v > 0 && v < effectiveTarget;
-
                                 return (
                                   <td
                                     key={h}
@@ -2004,12 +1919,7 @@ export default function MultiDayPivotView() {
                                   style={{
                                     fontSize: 11,
                                     fontWeight: 700,
-                                    color:
-                                      tgtPct >= 100
-                                        ? "#15803d"
-                                        : tgtPct >= 80
-                                          ? "#d97706"
-                                          : "#dc2626",
+                                    color: tgtColor(tgtPct),
                                   }}
                                 >
                                   {tgtPct}%
@@ -2064,7 +1974,6 @@ export default function MultiDayPivotView() {
                                       }}
                                     >
                                       <FiBarChart2 size={12} color="#4f46e5" />
-
                                       <span
                                         style={{
                                           fontSize: 11,
@@ -2074,7 +1983,6 @@ export default function MultiDayPivotView() {
                                       >
                                         Hourly breakdown — {date}
                                       </span>
-
                                       <div
                                         style={{
                                           marginLeft: "auto",
@@ -2090,14 +1998,12 @@ export default function MultiDayPivotView() {
                                             {fmtN(tot)}
                                           </strong>
                                         </span>
-
                                         <span>
                                           Avg:{" "}
                                           <strong style={{ color: "#059669" }}>
                                             {uph}/hr
                                           </strong>
                                         </span>
-
                                         <span>
                                           Score:{" "}
                                           <strong
@@ -2108,7 +2014,6 @@ export default function MultiDayPivotView() {
                                         </span>
                                       </div>
                                     </div>
-
                                     <MiniHourChart
                                       hours={activeHours}
                                       data={dd}
@@ -2282,80 +2187,67 @@ export default function MultiDayPivotView() {
                 }}
               >
                 <FiBarChart2 size={13} color="#4f46e5" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Daily Production Volume
-                </span>
+                <span style={cardTitle}>Daily Production Volume</span>
               </div>
               <ResponsiveContainer width="100%" height={200}>
-                {
-                  <AreaChart
-                    data={dailyCD}
-                    margin={{ top: 8, right: 10, left: -10, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="5%"
-                          stopColor="#4f46e5"
-                          stopOpacity={0.3}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#4f46e5"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f1f5f9"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    {showTgt && (
-                      <ReferenceLine
-                        y={effectiveTarget}
-                        stroke="#f59e0b"
-                        strokeDasharray="4 3"
-                        label={{
-                          value: `Tgt ${effectiveTarget}`,
-                          position: "right",
-                          fontSize: 9,
-                          fill: "#d97706",
-                        }}
-                      />
-                    )}
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="total"
-                      name="Total Units"
-                      stroke="#4f46e5"
-                      strokeWidth={2.5}
-                      fill="url(#gTotal)"
-                      dot={{
-                        fill: "#4f46e5",
-                        r: 3,
-                        strokeWidth: 2,
-                        stroke: "#fff",
+                <AreaChart
+                  data={dailyCD}
+                  margin={{ top: 8, right: 10, left: -10, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="gTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#f1f5f9"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  {showTgt && (
+                    <ReferenceLine
+                      y={effectiveTarget}
+                      stroke="#f59e0b"
+                      strokeDasharray="4 3"
+                      label={{
+                        value: `Tgt ${effectiveTarget}`,
+                        position: "right",
+                        fontSize: 9,
+                        fill: "#d97706",
                       }}
                     />
-                  </AreaChart>
-                }
+                  )}
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    name="Total Units"
+                    stroke="#4f46e5"
+                    strokeWidth={2.5}
+                    fill="url(#gTotal)"
+                    dot={{
+                      fill: "#4f46e5",
+                      r: 3,
+                      strokeWidth: 2,
+                      stroke: "#fff",
+                    }}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
+
             <div style={{ ...S.card, padding: 18 }}>
               <div
                 style={{
@@ -2366,11 +2258,7 @@ export default function MultiDayPivotView() {
                 }}
               >
                 <FiAward size={13} color="#d97706" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Day Rankings
-                </span>
+                <span style={cardTitle}>Day Rankings</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {[...sortedDates]
@@ -2445,7 +2333,6 @@ export default function MultiDayPivotView() {
                         >
                           {fmtN(rowTotals[d])}
                         </span>
-
                         <span
                           style={{
                             fontSize: 9,
@@ -2478,11 +2365,7 @@ export default function MultiDayPivotView() {
                 }}
               >
                 <FiTrendingUp size={13} color="#059669" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Average UPH per Day
-                </span>
+                <span style={cardTitle}>Average UPH per Day</span>
               </div>
               <ResponsiveContainer width="100%" height={175}>
                 <LineChart
@@ -2547,59 +2430,54 @@ export default function MultiDayPivotView() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            {
-              <div style={{ ...S.card, padding: 18 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 14,
-                  }}
-                >
-                  <FiClock size={13} color="#7c3aed" />
-                  <span
-                    style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                  >
-                    Hourly Volume (all days)
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={175}>
-                  <BarChart
-                    data={colCD}
-                    margin={{ top: 8, right: 10, left: -10, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f1f5f9"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="hour"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="total" name="Total" radius={[5, 5, 0, 0]}>
-                      {colCD.map((_, i) => (
-                        <Cell
-                          key={i}
-                          fill={
-                            activeHours[i] === bestHour ? "#4f46e5" : "#a5b4fc"
-                          }
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+
+            <div style={{ ...S.card, padding: 18 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 14,
+                }}
+              >
+                <FiClock size={13} color="#7c3aed" />
+                <span style={cardTitle}>Hourly Volume (all days)</span>
               </div>
-            }
+              <ResponsiveContainer width="100%" height={175}>
+                <BarChart
+                  data={colCD}
+                  margin={{ top: 8, right: 10, left: -10, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#f1f5f9"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="hour"
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="total" name="Total" radius={[5, 5, 0, 0]}>
+                    {colCD.map((_, i) => (
+                      <Cell
+                        key={i}
+                        fill={
+                          activeHours[i] === bestHour ? "#4f46e5" : "#a5b4fc"
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}
@@ -2629,11 +2507,7 @@ export default function MultiDayPivotView() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <MdCompare size={14} color="#4f46e5" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Day-by-Day Hourly Comparison
-                </span>
+                <span style={cardTitle}>Day-by-Day Hourly Comparison</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {sortedDates.map((d, i) => (
@@ -2727,13 +2601,7 @@ export default function MultiDayPivotView() {
                 const vals = activeHours
                   .map((h) => data[d]?.[h] || 0)
                   .filter((v) => v > 0);
-                const mean =
-                  vals.reduce((s, v) => s + v, 0) / (vals.length || 1);
-                const std = Math.sqrt(
-                  vals.reduce((s, v) => s + (v - mean) ** 2, 0) /
-                    (vals.length || 1),
-                );
-                const cv = mean ? Math.round((std / mean) * 100) : 0;
+                const cv = dayCV(vals);
                 return (
                   <div
                     key={d}
@@ -2823,15 +2691,7 @@ export default function MultiDayPivotView() {
                       >
                         <div style={{ color: "#94a3b8" }}>vs Target</div>
                         <div
-                          style={{
-                            fontWeight: 800,
-                            color:
-                              tgtPct >= 100
-                                ? "#059669"
-                                : tgtPct >= 80
-                                  ? "#d97706"
-                                  : "#dc2626",
-                          }}
+                          style={{ fontWeight: 800, color: tgtColor(tgtPct) }}
                         >
                           {tgtPct}%
                         </div>
@@ -2895,9 +2755,7 @@ export default function MultiDayPivotView() {
               }}
             >
               <MdInsights size={14} color="#4f46e5" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-                Period Summary
-              </span>
+              <span style={cardTitle}>Period Summary</span>
             </div>
             <div
               style={{
@@ -2942,18 +2800,16 @@ export default function MultiDayPivotView() {
                   value: `${pct(slotTotals.morning, grandTotal)}%`,
                   color: "#f59e0b",
                 },
-                ...[
-                  {
-                    label: "Below Target",
-                    value: `${belowTarget.length} slots`,
-                    color: belowTarget.length > 0 ? "#dc2626" : "#059669",
-                  },
-                  {
-                    label: "Active Hours",
-                    value: activeHours.length,
-                    color: "#0891b2",
-                  },
-                ],
+                {
+                  label: "Below Target",
+                  value: `${belowTarget.length} slots`,
+                  color: belowTarget.length > 0 ? "#dc2626" : "#059669",
+                },
+                {
+                  label: "Active Hours",
+                  value: activeHours.length,
+                  color: "#0891b2",
+                },
               ].map((s) => (
                 <div
                   key={s.label}
@@ -2998,11 +2854,7 @@ export default function MultiDayPivotView() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <FiAlertTriangle size={13} color="#dc2626" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Below-Target Slots
-                </span>
+                <span style={cardTitle}>Below-Target Slots</span>
               </div>
               <span style={{ fontSize: 11, color: "#94a3b8" }}>
                 target: {effectiveTarget} UPH
@@ -3097,9 +2949,7 @@ export default function MultiDayPivotView() {
               }}
             >
               <FiActivity size={13} color="#059669" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-                Day Consistency (CV %)
-              </span>
+              <span style={cardTitle}>Day Consistency (CV %)</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[...dates]
@@ -3108,13 +2958,7 @@ export default function MultiDayPivotView() {
                   const vals = activeHours
                     .map((h) => data[d]?.[h] || 0)
                     .filter((v) => v > 0);
-                  const mean =
-                    vals.reduce((s, v) => s + v, 0) / (vals.length || 1);
-                  const std = Math.sqrt(
-                    vals.reduce((s, v) => s + (v - mean) ** 2, 0) /
-                      (vals.length || 1),
-                  );
-                  const cv = mean ? Math.round((std / mean) * 100) : 0;
+                  const cv = dayCV(vals);
                   const ok = cv < 30;
                   return (
                     <div
@@ -3194,9 +3038,7 @@ export default function MultiDayPivotView() {
               }}
             >
               <TbRadar size={13} color="#7c3aed" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-                Daily Output Radar
-              </span>
+              <span style={cardTitle}>Daily Output Radar</span>
             </div>
             <ResponsiveContainer width="100%" height={230}>
               <RadarChart
@@ -3370,11 +3212,7 @@ export default function MultiDayPivotView() {
                 }}
               >
                 <FiBarChart2 size={13} color="#4f46e5" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Daily Production
-                </span>
+                <span style={cardTitle}>Daily Production</span>
               </div>
               <ResponsiveContainer width="100%" height={165}>
                 <AreaChart
@@ -3424,59 +3262,54 @@ export default function MultiDayPivotView() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            {
-              <div style={{ ...S.card, padding: 18 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 14,
-                  }}
-                >
-                  <FiClock size={13} color="#7c3aed" />
-                  <span
-                    style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                  >
-                    Hourly Distribution
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={165}>
-                  <BarChart
-                    data={colCD}
-                    margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f1f5f9"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="hour"
-                      tick={{ fontSize: 9, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 9, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="total" name="Total" radius={[4, 4, 0, 0]}>
-                      {colCD.map((_, i) => (
-                        <Cell
-                          key={i}
-                          fill={
-                            activeHours[i] === bestHour ? "#4f46e5" : "#a5b4fc"
-                          }
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+
+            <div style={{ ...S.card, padding: 18 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 14,
+                }}
+              >
+                <FiClock size={13} color="#7c3aed" />
+                <span style={cardTitle}>Hourly Distribution</span>
               </div>
-            }
+              <ResponsiveContainer width="100%" height={165}>
+                <BarChart
+                  data={colCD}
+                  margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#f1f5f9"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="hour"
+                    tick={{ fontSize: 9, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="total" name="Total" radius={[4, 4, 0, 0]}>
+                    {colCD.map((_, i) => (
+                      <Cell
+                        key={i}
+                        fill={
+                          activeHours[i] === bestHour ? "#4f46e5" : "#a5b4fc"
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Summary table */}
@@ -3490,11 +3323,7 @@ export default function MultiDayPivotView() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <BsTable size={13} color="#4f46e5" />
-                <span
-                  style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
-                >
-                  Day-wise Summary
-                </span>
+                <span style={cardTitle}>Day-wise Summary</span>
               </div>
             </div>
             <div style={{ overflowX: "auto" }}>
@@ -3545,13 +3374,7 @@ export default function MultiDayPivotView() {
                       const vals = activeHours
                         .map((h) => data[d]?.[h] || 0)
                         .filter((v) => v > 0);
-                      const mean =
-                        vals.reduce((s, v) => s + v, 0) / (vals.length || 1);
-                      const std = Math.sqrt(
-                        vals.reduce((s, v) => s + (v - mean) ** 2, 0) /
-                          (vals.length || 1),
-                      );
-                      const cv = mean ? Math.round((std / mean) * 100) : 0;
+                      const cv = dayCV(vals);
                       return (
                         <tr
                           key={d}
@@ -3620,12 +3443,7 @@ export default function MultiDayPivotView() {
                               className="mono"
                               style={{
                                 fontWeight: 700,
-                                color:
-                                  tgtPct >= 100
-                                    ? "#059669"
-                                    : tgtPct >= 80
-                                      ? "#d97706"
-                                      : "#dc2626",
+                                color: tgtColor(tgtPct),
                               }}
                             >
                               {tgtPct}%
@@ -3735,9 +3553,7 @@ export default function MultiDayPivotView() {
               }}
             >
               <HiOutlineLightningBolt size={14} color="#d97706" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-                Auto Recommendations
-              </span>
+              <span style={cardTitle}>Auto Recommendations</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[
@@ -3757,7 +3573,6 @@ export default function MultiDayPivotView() {
                     border: "#fecaca",
                     text: `Production is trending down ${Math.abs(trend.pct)}% in the second half of the period. Investigate if linked to specific days or shift patterns.`,
                   },
-
                 slotTotals.morning < slotTotals.afternoon && {
                   icon: FiInfo,
                   color: "#0891b2",
@@ -3774,38 +3589,35 @@ export default function MultiDayPivotView() {
                 },
               ]
                 .filter(Boolean)
-                .map(
-                  (rec, i) =>
-                    rec && (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 10,
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          background: rec.bg,
-                          border: `1px solid ${rec.border}`,
-                        }}
-                      >
-                        <rec.icon
-                          size={14}
-                          color={rec.color}
-                          style={{ flexShrink: 0, marginTop: 1 }}
-                        />
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "#334155",
-                            lineHeight: 1.55,
-                          }}
-                        >
-                          {rec.text}
-                        </span>
-                      </div>
-                    ),
-                )}
+                .map((rec, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      background: rec.bg,
+                      border: `1px solid ${rec.border}`,
+                    }}
+                  >
+                    <rec.icon
+                      size={14}
+                      color={rec.color}
+                      style={{ flexShrink: 0, marginTop: 1 }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "#334155",
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {rec.text}
+                    </span>
+                  </div>
+                ))}
             </div>
           </div>
         </div>

@@ -12,7 +12,6 @@ import permissionReducer from "./slices/permissionSlice.js";
 import masterConfigReducer from "./slices/masterConfigSlice.js";
 
 import { commonApi } from "./api/commonApi.js";
-import { taskReminderApi } from "./api/taskReminder.js";
 import { estReportApi } from "./api/estReportApi.js";
 import { gasChargingApi } from "./api/gasChargingApi.js";
 import { fpaReportApi } from "./api/fpaReportApi.js";
@@ -82,7 +81,6 @@ const rootReducer = combineReducers({
 
   masterConfig: masterConfigReducer,
   [commonApi.reducerPath]: commonApi.reducer,
-  [taskReminderApi.reducerPath]: taskReminderApi.reducer,
   [estReportApi.reducerPath]: estReportApi.reducer,
   [gasChargingApi.reducerPath]: gasChargingApi.reducer,
   [fpaReportApi.reducerPath]: fpaReportApi.reducer,
@@ -118,7 +116,6 @@ const store = configureStore({
       },
     }).concat(
       commonApi.middleware,
-      taskReminderApi.middleware,
       estReportApi.middleware,
       gasChargingApi.middleware,
       fpaReportApi.middleware,

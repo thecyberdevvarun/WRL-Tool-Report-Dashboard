@@ -38,7 +38,6 @@ import {
   Loader2,
   PackageOpen,
   Tag,
-  Zap,
   FileDown,
   FileText,
   FileSpreadsheet,
