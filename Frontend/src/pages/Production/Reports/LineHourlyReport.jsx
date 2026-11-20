@@ -3,6 +3,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { baseURL } from "../../../assets/assets.js";
 import HourlyWidget from "../../../components/lineHourly/HourlyWidget.jsx";
+import LinePerformanceWidget from "../../../components/lineHourly/LinePerformanceWidget.jsx";
 import MultiDayPivotView from "../../../components/lineHourly/Multidaypivotview.jsx";
 import {
   Factory,
@@ -373,7 +374,7 @@ const LineHourlyReport = () => {
   }, [autoRefresh, runFetch]);
 
   // -- Stat cards + grand total -----------------------------------------------
-  const { summaryCards, grandTotal } = useMemo(() => {
+  const { grandTotal } = useMemo(() => {
     const d = apiData;
     let cards = [];
 
@@ -440,7 +441,6 @@ const LineHourlyReport = () => {
     }
 
     return {
-      summaryCards: cards,
       grandTotal: cards.find((c) => c.highlight)?.value || 0,
     };
   }, [apiData, lineType]);
@@ -516,7 +516,7 @@ const LineHourlyReport = () => {
         ...hr(d.finalChoc, "Choc"),
         ...hr(d.finalSUS, "SUS"),
         ...hr(d.visiFinal, "VISI"),
-        ...cat(d.finalCategory, "Category"),
+        ...cat(d.finalCategory, "Line Performance"),
       ];
     }
     if (lineType === "final_loading") {
@@ -525,7 +525,7 @@ const LineHourlyReport = () => {
         ...hr(d.finalChocLoading, "Choc Load"),
         ...hr(d.finalSUSLoading, "SUS Load"),
         ...hr(d.visiLoading, "VISI Load"),
-        ...cat(d.finalCategoryLoading, "Category"),
+        ...cat(d.finalCategoryLoading, "Line Performance"),
       ];
     }
     if (lineType === "post_Foaming") {
@@ -536,14 +536,14 @@ const LineHourlyReport = () => {
         ...hr(d.postFOW, "FOW"),
         ...hr(d.postSUS, "Post SUS"),
         ...hr(d.visiPost, "VISI"),
-        ...cat(d.postCategory, "Category"),
+        ...cat(d.postCategory, "Line Performance"),
       ];
     }
     if (lineType === "Foaming") {
       rows = [
         ...hr(d.foamA, "Foam A"),
         ...hr(d.foamB, "Foam B"),
-        ...cat(d.foamCategory, "Category"),
+        ...cat(d.foamCategory, "Line Performance"),
       ];
     }
 
@@ -551,7 +551,7 @@ const LineHourlyReport = () => {
       toast.error("No data to export.");
       return;
     }
-    const csv = [["Section", "Hour#", "Time/Category", "Count"], ...rows]
+    const csv = [["Section", "Hour#", "Time/Line", "Count"], ...rows]
       .map((r) => r.join(","))
       .join("\n");
     const a = document.createElement("a");
@@ -565,7 +565,6 @@ const LineHourlyReport = () => {
   const widgetConfig = useMemo(() => {
     const d = apiData;
     const { sky, amber, slate, teal } = CHART;
-    const categoryDataset = [{ key: "TotalCount", label: "Count", color: sky }];
 
     const configs = {
       final_line: [
@@ -596,9 +595,7 @@ const LineHourlyReport = () => {
         {
           title: CATEGORY_TITLE,
           data: d.finalCategory,
-          modelData: [],
-          datasets: categoryDataset,
-          isCategoryChart: true,
+          isLinePerformance: true,
         },
       ],
 
@@ -630,9 +627,7 @@ const LineHourlyReport = () => {
         {
           title: CATEGORY_TITLE,
           data: d.finalCategoryLoading,
-          modelData: [],
-          datasets: categoryDataset,
-          isCategoryChart: true,
+          isLinePerformance: true,
         },
       ],
 
@@ -682,9 +677,7 @@ const LineHourlyReport = () => {
         {
           title: CATEGORY_TITLE,
           data: d.postCategory,
-          modelData: [],
-          datasets: categoryDataset,
-          isCategoryChart: true,
+          isLinePerformance: true,
         },
       ],
 
@@ -704,9 +697,7 @@ const LineHourlyReport = () => {
         {
           title: CATEGORY_TITLE,
           data: d.foamCategory,
-          modelData: [],
-          datasets: categoryDataset,
-          isCategoryChart: true,
+          isLinePerformance: true,
         },
       ],
     };
@@ -728,7 +719,7 @@ const LineHourlyReport = () => {
    * is5 (3×2):             is7 (3×3):                       default (3×1):
    *  [0][1][2]              [0][1][2]                        [0][1][2]
    *  [3][4------]           [3][4][5]
-   *                         [6----------------------]  Category
+   *                         [6----------------------]  Line Performance
    */
   const getGridColumn = (i) => {
     if (is5 && i === 3) return "1";
@@ -738,13 +729,6 @@ const LineHourlyReport = () => {
   };
 
   const skeletonCount = is7 ? 7 : is5 ? 5 : 3;
-
-  const cardColorMap = {
-    blue: "bg-blue-50 border-blue-100 text-blue-700",
-    amber: "bg-amber-50 border-amber-100 text-amber-700",
-    violet: "bg-violet-50 border-violet-100 text-violet-700",
-    emerald: "bg-emerald-50 border-emerald-100 text-emerald-700",
-  };
 
   /* ----------------------------------------------------------
      RENDER
@@ -976,15 +960,22 @@ const LineHourlyReport = () => {
                           minHeight: WIDGET_MIN_H,
                         }}
                       >
-                        <HourlyWidget
-                          title={wc.title}
-                          data={wc.data}
-                          modelData={wc.modelData}
-                          datasets={wc.datasets}
-                          isCategoryChart={!!wc.isCategoryChart}
-                          icon={wc.icon}
-                          elapsedHours={elapsedHours}
-                        />
+                        {wc.isLinePerformance ? (
+                          <LinePerformanceWidget
+                            title={wc.title}
+                            data={wc.data}
+                            icon={wc.icon}
+                            elapsedHours={elapsedHours}
+                          />
+                        ) : (
+                          <HourlyWidget
+                            title={wc.title}
+                            data={wc.data}
+                            modelData={wc.modelData}
+                            datasets={wc.datasets}
+                            icon={wc.icon}
+                          />
+                        )}
                       </div>
                     ))}
               </div>
