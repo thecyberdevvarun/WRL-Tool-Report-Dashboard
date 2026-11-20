@@ -181,11 +181,11 @@ const LineHourlyReport = () => {
       // -- Final Loading -----------------------------------------------------
       if (lt === "final_loading") {
         const [r1, r2, r3, r4, r5, m1, m2, m3, m4] = await Promise.allSettled([
-          get("final-loading-hp-frz"),
-          get("final-loading-hp-choc"),
-          get("final-loading-hp-sus"),
-          get("final-loading-hp-cat"),
-          get("visi-loading-hp"),
+          get("line-hourly-report/final-loading/freezer"),
+          get("line-hourly-report/final-loading/chocolate"),
+          get("line-hourly-report/final-loading/sus"),
+          get("line-hourly-report/final-loading/line-performance"),
+          get("line-hourly-report/final-loading/visi-cooler"),
           get("final-loading-hp-frz-model"),
           get("final-loading-hp-choc-model"),
           get("final-loading-hp-sus-model"),
@@ -207,11 +207,11 @@ const LineHourlyReport = () => {
       // -- Final Line --------------------------------------------------------
       if (lt === "final_line") {
         const [r1, r2, r3, r4, r5, m1, m2, m3, m4] = await Promise.allSettled([
-          get("final-hp-frz"),
-          get("final-hp-choc"),
-          get("final-hp-sus"),
-          get("final-hp-cat"),
-          get("visi-final-hp"),
+          get("line-hourly-report/final-fg/freezer"),
+          get("line-hourly-report/final-fg/chocolate"),
+          get("line-hourly-report/final-fg/sus"),
+          get("line-hourly-report/final-fg/line-performance"),
+          get("line-hourly-report/final-fg/visi-cooler"),
           get("final-hp-frz-model"),
           get("final-hp-choc-model"),
           get("final-hp-sus-model"),
@@ -234,13 +234,13 @@ const LineHourlyReport = () => {
       if (lt === "post_Foaming") {
         const [r1, r2, r3, r4, r5, r6, r7, m1, m2, m3, m4, m5, m6] =
           await Promise.allSettled([
-            get("post-hp-GrpA"),
-            get("post-hp-GrpB"),
-            get("post-hp-Choc"),
-            get("post-hp-FOW"),
-            get("post-hp-sus"),
-            get("post-hp-cat"),
-            get("visi-post-hp"),
+            get("line-hourly-report/post-foaming/group-a-freezer"),
+            get("line-hourly-report/post-foaming/group-b-freezer"),
+            get("line-hourly-report/post-foaming/chocolate"),
+            get("line-hourly-report/post-foaming/freezer-fow"),
+            get("line-hourly-report/post-foaming/sus"),
+            get("line-hourly-report/post-foaming/line-performance"),
+            get("line-hourly-report/post-foaming/visi-cooler"),
             get("post-Grp-A-model"),
             get("post-Grp-B-model"),
             get("post-Choc-model"),
@@ -268,9 +268,9 @@ const LineHourlyReport = () => {
       // -- Foaming -----------------------------------------------------------
       if (lt === "Foaming") {
         const [r1, r2, r3, m1, m2] = await Promise.allSettled([
-          get("Foaming-hp-fom-a"),
-          get("Foaming-hp-fom-b"),
-          get("Foaming-hp-fom-cat"),
+          get("line-hourly-report/foaming/group-a-freezer"),
+          get("line-hourly-report/foaming/group-b-freezer"),
+          get("line-hourly-report/foaming/line-performance"),
           get("Foaming-hp-fom-a-model"),
           get("Foaming-hp-fom-b-model"),
         ]);
