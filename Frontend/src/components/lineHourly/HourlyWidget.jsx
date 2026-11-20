@@ -820,9 +820,8 @@ const TotalModelPanel = ({ modelData, onClose }) => {
 //   Actual UPH = Units Produced ÷ elapsed hours
 //   Achieved % = Actual UPH ÷ Target UPH × 100
 const CATEGORY_HEADERS = [
-  "#",
   "Line",
-  "Units Produced",
+  "Count",
   "Target UPH",
   "Actual UPH",
   "Achieved %",
@@ -926,6 +925,7 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
         fontWeight: 700,
       }}
     >
+      {/* Header */}
       <div
         style={{
           height: 36,
@@ -972,9 +972,10 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
           </button>
         </div>
       </div>
-
+      {/* Main Section */}
       {data.length > 0 ? (
         <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          {/* Line Performance Table */}
           <div
             style={{
               width: "55%",
@@ -1016,15 +1017,6 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
                       key={row.category}
                       style={{ borderBottom: "1px solid #f8fafc" }}
                     >
-                      <td
-                        style={{
-                          padding: "6px 8px",
-                          color: "#cbd5e1",
-                          fontFamily: "monospace",
-                        }}
-                      >
-                        {i + 1}
-                      </td>
                       <td style={{ padding: "6px 8px", color: "#475569" }}>
                         <span
                           style={{
@@ -1052,7 +1044,7 @@ const CategoryWidget = ({ title, data = [], icon: Icon, elapsedHours = 0 }) => {
               </tbody>
             </table>
           </div>
-
+          {/* Line Performance Graph */}
           <div style={{ flex: 1, padding: "10px 12px", minWidth: 0 }}>
             <Bar
               data={{

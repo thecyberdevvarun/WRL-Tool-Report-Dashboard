@@ -28,60 +28,6 @@ const runTimeQuery = async (query, StartTime, EndTime) => {
   return result.recordset;
 };
 
-// Reusable query for Line Category Data
-const getLineCategoryQuery = (stationCodes) => `
-  WITH Psno AS (
-    SELECT
-      DocNo,
-      Material,
-      Serial,
-      VSerial,
-      Alias
-    FROM MaterialBarcode
-    WHERE
-      PrintStatus = 1
-      AND Status <> 99
-      AND Type NOT IN (200)
-  ),
-  ProductionData AS (
-    SELECT
-      CASE
-        WHEN b.Remark = 12501 THEN 'Freezer'
-        WHEN b.Remark = 12305 THEN 'Chocolate'
-        WHEN b.Remark = 12605 THEN 'Visi Cooler'
-        WHEN b.Remark = 12304 THEN 'SUS'
-      END AS LineName
-    FROM Psno
-    INNER JOIN ProcessActivity b
-      ON b.PSNo = Psno.DocNo
-    INNER JOIN WorkCenter c
-      ON b.StationCode = c.StationCode
-    INNER JOIN Users us
-      ON us.UserCode = b.Operator
-    INNER JOIN Material m
-      ON m.MatCode = Psno.Material
-    WHERE
-      b.ActivityType = 5
-      AND b.Remark IN (12501, 12305, 12605, 12304)
-      AND c.StationCode IN (${stationCodes})
-      AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-  )
-  SELECT
-    LineName,
-    COUNT(*) AS TotalCount
-  FROM ProductionData
-  WHERE LineName IS NOT NULL
-  GROUP BY LineName
-  ORDER BY
-    CASE LineName
-      WHEN 'Freezer' THEN 1
-      WHEN 'Chocolate' THEN 2
-      WHEN 'Visi Cooler' THEN 3
-      WHEN 'SUS' THEN 4
-      ELSE 5
-    END;
-`;
-
 // -----------------------------------------------------------------------------
 //  FINAL FG STAGE
 // -----------------------------------------------------------------------------
@@ -322,7 +268,58 @@ ORDER BY HourTime;`;
 export const getFinalHPCAT = tryCatch(async (req, res, next) => {
   const { StartTime, EndTime } = req.query;
 
-  const query = getLineCategoryQuery("1220010, 1230017");
+  const query = `
+    WITH Psno AS (
+      SELECT
+        DocNo,
+        Material,
+        Serial,
+        VSerial,
+        Alias
+      FROM MaterialBarcode
+      WHERE
+        PrintStatus = 1
+        AND Status <> 99
+        AND Type NOT IN (200)
+    ),
+    ProductionData AS (
+      SELECT
+        CASE
+          WHEN b.Remark = 12501 THEN 'Freezer'
+          WHEN b.Remark = 12305 THEN 'Chocolate'
+          WHEN b.Remark = 12605 THEN 'Visi Cooler'
+          WHEN b.Remark = 12304 THEN 'SUS'
+        END AS LineName
+      FROM Psno
+      INNER JOIN ProcessActivity b
+        ON b.PSNo = Psno.DocNo
+      INNER JOIN WorkCenter c
+        ON b.StationCode = c.StationCode
+      INNER JOIN Users us
+        ON us.UserCode = b.Operator
+      INNER JOIN Material m
+        ON m.MatCode = Psno.Material
+      WHERE
+        b.ActivityType = 5
+        AND b.Remark IN (12501, 12305, 12605, 12304)
+        AND c.StationCode IN (1220010, 1230017)
+        AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    )
+    SELECT
+      LineName,
+      COUNT(*) AS TotalCount
+    FROM ProductionData
+    WHERE LineName IS NOT NULL
+    GROUP BY LineName
+    ORDER BY
+      CASE LineName
+        WHEN 'Freezer' THEN 1
+        WHEN 'Chocolate' THEN 2
+        WHEN 'Visi Cooler' THEN 3
+        WHEN 'SUS' THEN 4
+        ELSE 5
+      END;
+  `;
 
   const result = await runTimeQuery(query, StartTime, EndTime);
 
@@ -572,7 +569,58 @@ ORDER BY HourTime;`;
 export const getFinalLoadingHPCAT = tryCatch(async (req, res, next) => {
   const { StartTime, EndTime } = req.query;
 
-  const query = getLineCategoryQuery("1230013, 1220005");
+  const query = `
+    WITH Psno AS (
+      SELECT
+        DocNo,
+        Material,
+        Serial,
+        VSerial,
+        Alias
+      FROM MaterialBarcode
+      WHERE
+        PrintStatus = 1
+        AND Status <> 99
+        AND Type NOT IN (200)
+    ),
+    ProductionData AS (
+      SELECT
+        CASE
+          WHEN b.Remark = 12501 THEN 'Freezer'
+          WHEN b.Remark = 12305 THEN 'Chocolate'
+          WHEN b.Remark = 12605 THEN 'Visi Cooler'
+          WHEN b.Remark = 12304 THEN 'SUS'
+        END AS LineName
+      FROM Psno
+      INNER JOIN ProcessActivity b
+        ON b.PSNo = Psno.DocNo
+      INNER JOIN WorkCenter c
+        ON b.StationCode = c.StationCode
+      INNER JOIN Users us
+        ON us.UserCode = b.Operator
+      INNER JOIN Material m
+        ON m.MatCode = Psno.Material
+      WHERE
+        b.ActivityType = 5
+        AND b.Remark IN (12501, 12305, 12605, 12304)
+        AND c.StationCode IN (1230013, 1220005)
+        AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+    )
+    SELECT
+      LineName,
+      COUNT(*) AS TotalCount
+    FROM ProductionData
+    WHERE LineName IS NOT NULL
+    GROUP BY LineName
+    ORDER BY
+      CASE LineName
+        WHEN 'Freezer' THEN 1
+        WHEN 'Chocolate' THEN 2
+        WHEN 'Visi Cooler' THEN 3
+        WHEN 'SUS' THEN 4
+        ELSE 5
+      END;
+  `;
 
   const result = await runTimeQuery(query, StartTime, EndTime);
 

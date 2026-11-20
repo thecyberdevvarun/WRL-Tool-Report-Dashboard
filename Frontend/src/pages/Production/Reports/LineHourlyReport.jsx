@@ -38,7 +38,7 @@ const getElapsedHours = (startTime, endTime) => {
   return (end - start) / (1000 * 60 * 60);
 };
 
-const CATEGORY_TITLE = "Line Performance vs Target";
+const CATEGORY_TITLE = "Line Performance";
 
 const mapCategory = (data = []) => {
   const categories = ["Freezer", "Chocolate", "Visi Cooler", "SUS"];
