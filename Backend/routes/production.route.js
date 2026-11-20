@@ -15,26 +15,33 @@ import {
   getHourlySummary,
 } from "../controllers/production/reports/hourly-report.controller.js";
 import {
-  getFinalHPFrz,
-  getFinalHPChoc,
-  getFinalHPVISI,
-  getFinalHPSUS,
-  getFinalHPCAT,
-  getFinalLoadingHPFrz,
-  getFinalLoadingHPChoc,
-  getFinalLoadingHPVISI,
-  getFinalLoadingHPSUS,
-  getFinalLoadingHPCAT,
-  getPostGrpAHPFrz,
-  getPostGrpBHPFrz,
-  getPostFOWHP,
-  getPostChocHP,
-  getPostHPVISI,
-  getPostHPSUS,
-  getPostHPCAT,
-  getFoamingHpFomA,
-  getFoamingHpFomB,
-  getFoamingHpFomCat,
+  // Final FG
+  getFinalFGFreezerHourlyReport,
+  getFinalFGChocolateHourlyReport,
+  getFinalFGVisiCoolerHourlyReport,
+  getFinalFGSUSHourlyReport,
+  getFinalFGLinePerformanceHourlyReport,
+
+  // Final Loading
+  getFinalLoadingFreezerHourlyReport,
+  getFinalLoadingChocolateHourlyReport,
+  getFinalLoadingVisiCoolerHourlyReport,
+  getFinalLoadingSUSHourlyReport,
+  getFinalLoadingLinePerformanceHourlyReport,
+
+  // Post Foaming
+  getPostFoamingGroupAFreezerHourlyReport,
+  getPostFoamingGroupBFreezerHourlyReport,
+  getPostFoamingFreezerFOWHourlyReport,
+  getPostFoamingChocolateHourlyReport,
+  getPostFoamingVisiCoolerHourlyReport,
+  getPostFoamingSUSHourlyReport,
+  getPostFoamingLinePerformanceHourlyReport,
+
+  // Foaming
+  getFoamingGroupAFreezerHourlyReport,
+  getFoamingGroupBFreezerHourlyReport,
+  getFoamingLinePerformanceHourlyReport,
 } from "../controllers/production/reports/line-hourly-report.controller.js";
 
 import {
@@ -129,32 +136,80 @@ router.get("/hourly-category-count", authenticate, getHourlyCategoryCount);
 
 // -----------------> Line Hourly Report
 // Final FG Stage
-router.get("/final-hp-frz", authenticate, getFinalHPFrz);
-router.get("/final-hp-choc", authenticate, getFinalHPChoc);
-router.get("/visi-final-hp", authenticate, getFinalHPVISI);
-router.get("/final-hp-sus", authenticate, getFinalHPSUS);
-router.get("/final-hp-cat", authenticate, getFinalHPCAT);
+router.get("/final-hp-frz", authenticate, getFinalFGFreezerHourlyReport);
+router.get("/final-hp-choc", authenticate, getFinalFGChocolateHourlyReport);
+router.get("/visi-final-hp", authenticate, getFinalFGVisiCoolerHourlyReport);
+router.get("/final-hp-sus", authenticate, getFinalFGSUSHourlyReport);
+router.get(
+  "/final-hp-cat",
+  authenticate,
+  getFinalFGLinePerformanceHourlyReport,
+);
 
 // Final Loading Stage
-router.get("/final-loading-hp-frz", authenticate, getFinalLoadingHPFrz);
-router.get("/final-loading-hp-choc", authenticate, getFinalLoadingHPChoc);
-router.get("/visi-loading-hp", authenticate, getFinalLoadingHPVISI);
-router.get("/final-loading-hp-sus", authenticate, getFinalLoadingHPSUS);
-router.get("/final-loading-hp-cat", authenticate, getFinalLoadingHPCAT);
+router.get(
+  "/final-loading-hp-frz",
+  authenticate,
+  getFinalLoadingFreezerHourlyReport,
+);
+router.get(
+  "/final-loading-hp-choc",
+  authenticate,
+  getFinalLoadingChocolateHourlyReport,
+);
+router.get(
+  "/visi-loading-hp",
+  authenticate,
+  getFinalLoadingVisiCoolerHourlyReport,
+);
+router.get(
+  "/final-loading-hp-sus",
+  authenticate,
+  getFinalLoadingSUSHourlyReport,
+);
+router.get(
+  "/final-loading-hp-cat",
+  authenticate,
+  getFinalLoadingLinePerformanceHourlyReport,
+);
 
 // Post Foaming Stage
-router.get("/post-hp-GrpA", authenticate, getPostGrpAHPFrz);
-router.get("/post-hp-GrpB", authenticate, getPostGrpBHPFrz);
-router.get("/post-hp-FOW", authenticate, getPostFOWHP);
-router.get("/post-hp-Choc", authenticate, getPostChocHP);
-router.get("/visi-post-hp", authenticate, getPostHPVISI);
-router.get("/post-hp-sus", authenticate, getPostHPSUS);
-router.get("/post-hp-cat", authenticate, getPostHPCAT);
+router.get(
+  "/post-hp-GrpA",
+  authenticate,
+  getPostFoamingGroupAFreezerHourlyReport,
+);
+router.get(
+  "/post-hp-GrpB",
+  authenticate,
+  getPostFoamingGroupBFreezerHourlyReport,
+);
+router.get("/post-hp-FOW", authenticate, getPostFoamingFreezerFOWHourlyReport);
+router.get("/post-hp-Choc", authenticate, getPostFoamingChocolateHourlyReport);
+router.get("/visi-post-hp", authenticate, getPostFoamingVisiCoolerHourlyReport);
+router.get("/post-hp-sus", authenticate, getPostFoamingSUSHourlyReport);
+router.get(
+  "/post-hp-cat",
+  authenticate,
+  getPostFoamingLinePerformanceHourlyReport,
+);
 
 // Foaming Stage
-router.get("/Foaming-hp-fom-a", authenticate, getFoamingHpFomA);
-router.get("/Foaming-hp-fom-b", authenticate, getFoamingHpFomB);
-router.get("/Foaming-hp-fom-cat", authenticate, getFoamingHpFomCat);
+router.get(
+  "/Foaming-hp-fom-a",
+  authenticate,
+  getFoamingGroupAFreezerHourlyReport,
+);
+router.get(
+  "/Foaming-hp-fom-b",
+  authenticate,
+  getFoamingGroupBFreezerHourlyReport,
+);
+router.get(
+  "/Foaming-hp-fom-cat",
+  authenticate,
+  getFoamingLinePerformanceHourlyReport,
+);
 
 // -----------------> Line Wise Report
 // Final Loading — model breakdown

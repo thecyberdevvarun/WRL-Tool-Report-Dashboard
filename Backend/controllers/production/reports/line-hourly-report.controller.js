@@ -31,7 +31,7 @@ const runTimeQuery = async (query, StartTime, EndTime) => {
 // -----------------------------------------------------------------------------
 //  FINAL FG STAGE
 // -----------------------------------------------------------------------------
-export const getFinalHPFrz = tryCatch(async (req, res) => {
+export const getFinalFGFreezerHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
@@ -90,7 +90,7 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalHPChoc = tryCatch(async (req, res) => {
+export const getFinalFGChocolateHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
@@ -149,7 +149,7 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalHPVISI = tryCatch(async (req, res) => {
+export const getFinalFGVisiCoolerHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
@@ -207,7 +207,7 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalHPSUS = tryCatch(async (req, res) => {
+export const getFinalFGSUSHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
@@ -265,10 +265,11 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalHPCAT = tryCatch(async (req, res, next) => {
-  const { StartTime, EndTime } = req.query;
+export const getFinalFGLinePerformanceHourlyReport = tryCatch(
+  async (req, res, next) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT
         DocNo,
@@ -321,19 +322,20 @@ export const getFinalHPCAT = tryCatch(async (req, res, next) => {
       END;
   `;
 
-  const result = await runTimeQuery(query, StartTime, EndTime);
+    const result = await runTimeQuery(query, StartTime, EndTime);
 
-  res.status(200).json({
-    success: true,
-    message: "Final HP Category Performance fetched successfully",
-    data: result,
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: "Final HP Category Performance fetched successfully",
+      data: result,
+    });
+  },
+);
 
 // -----------------------------------------------------------------------------
 //  FINAL LOADING STAGE
 // -----------------------------------------------------------------------------
-export const getFinalLoadingHPFrz = tryCatch(async (req, res) => {
+export const getFinalLoadingFreezerHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
@@ -391,10 +393,11 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalLoadingHPChoc = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getFinalLoadingChocolateHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
 WITH Psno AS (
   SELECT DocNo, Material, Serial, VSerial, Alias, Type
   FROM MaterialBarcode
@@ -434,25 +437,27 @@ SELECT
 FROM HourlySummary
 ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP Choc hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Final HP Choc hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getFinalLoadingHPVISI = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getFinalLoadingVisiCoolerHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
 WITH Psno AS (
   SELECT DocNo, Material, Serial, VSerial, Alias, Type
   FROM MaterialBarcode
@@ -492,22 +497,23 @@ SELECT
 FROM HourlySummary
 ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP Choc hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Final HP Choc hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getFinalLoadingHPSUS = tryCatch(async (req, res) => {
+export const getFinalLoadingSUSHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   // TODO: add m.Category / u.UserRole filters if needed (missing in original)
@@ -566,10 +572,11 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getFinalLoadingHPCAT = tryCatch(async (req, res, next) => {
-  const { StartTime, EndTime } = req.query;
+export const getFinalLoadingLinePerformanceHourlyReport = tryCatch(
+  async (req, res, next) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT
         DocNo,
@@ -622,22 +629,24 @@ export const getFinalLoadingHPCAT = tryCatch(async (req, res, next) => {
       END;
   `;
 
-  const result = await runTimeQuery(query, StartTime, EndTime);
+    const result = await runTimeQuery(query, StartTime, EndTime);
 
-  res.status(200).json({
-    success: true,
-    message: "Final Loading HP Category Performance fetched successfully",
-    data: result,
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: "Final Loading HP Category Performance fetched successfully",
+      data: result,
+    });
+  },
+);
 
 // -----------------------------------------------------------------------------
 //  POST FOAMING STAGE
 // -----------------------------------------------------------------------------
-export const getPostGrpAHPFrz = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getPostFoamingGroupAFreezerHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT DocNo, Material, Serial, VSerial, Alias, Type
       FROM MaterialBarcode
@@ -676,25 +685,27 @@ export const getPostGrpAHPFrz = tryCatch(async (req, res) => {
     FROM HourlySummary
     ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Post Foaming HP Frz hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Post Foaming HP Frz hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getPostGrpBHPFrz = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getPostFoamingGroupBFreezerHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT DocNo, Material, Serial, VSerial, Alias, Type
       FROM MaterialBarcode
@@ -733,25 +744,27 @@ export const getPostGrpBHPFrz = tryCatch(async (req, res) => {
     FROM HourlySummary
     ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Post Foaming HP Frz hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Post Foaming HP Frz hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getPostChocHP = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getPostFoamingChocolateHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT DocNo, Material, Serial, VSerial, Alias, Type
       FROM MaterialBarcode
@@ -790,25 +803,27 @@ export const getPostChocHP = tryCatch(async (req, res) => {
     FROM HourlySummary
     ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Post Foaming HP Frz hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Post Foaming HP Frz hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getPostFOWHP = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getPostFoamingFreezerFOWHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT DocNo, Material, Serial, VSerial, Alias, Type
       FROM MaterialBarcode
@@ -847,26 +862,28 @@ export const getPostFOWHP = tryCatch(async (req, res) => {
     FROM HourlySummary
     ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message:
-        "Manual Post Foaming HP hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Manual Post Foaming HP hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message:
+          "Manual Post Foaming HP hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Manual Post Foaming HP hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getPostHPVISI = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getPostFoamingVisiCoolerHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
 WITH Psno AS (
   SELECT DocNo, Material, Serial, VSerial, Alias, Type
   FROM MaterialBarcode
@@ -906,22 +923,23 @@ SELECT
 FROM HourlySummary
 ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Final HP Choc hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Final HP Choc hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Final HP Choc hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getPostHPSUS = tryCatch(async (req, res) => {
+export const getPostFoamingSUSHourlyReport = tryCatch(async (req, res) => {
   const { StartTime, EndTime } = req.query;
 
   const query = `
@@ -979,10 +997,11 @@ ORDER BY HourTime;`;
   }
 });
 
-export const getPostHPCAT = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getPostFoamingLinePerformanceHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT
         DocNo,
@@ -1069,22 +1088,24 @@ export const getPostHPCAT = tryCatch(async (req, res) => {
       END;
   `;
 
-  const result = await runTimeQuery(query, StartTime, EndTime);
+    const result = await runTimeQuery(query, StartTime, EndTime);
 
-  res.status(200).json({
-    success: true,
-    message: "Post HP Category Performance fetched successfully",
-    data: result,
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: "Post HP Category Performance fetched successfully",
+      data: result,
+    });
+  },
+);
 
 // -----------------------------------------------------------------------------
 //  FOAMING STAGE
 // -----------------------------------------------------------------------------
-export const getFoamingHpFomA = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getFoamingGroupAFreezerHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
 WITH Psno AS (
   SELECT DocNo, Material, Serial, VSerial, Alias, Type
   FROM MaterialBarcode
@@ -1123,25 +1144,27 @@ SELECT
 FROM HourlySummary
 ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Foaming HP FOM A hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Foaming HP FOM A hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Foaming HP FOM A hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Foaming HP FOM A hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getFoamingHpFomB = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getFoamingGroupBFreezerHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
 WITH Psno AS (
   SELECT DocNo, Material, Serial, VSerial, Alias, Type
   FROM MaterialBarcode
@@ -1180,25 +1203,27 @@ SELECT
 FROM HourlySummary
 ORDER BY HourTime;`;
 
-  try {
-    const data = await runTimeQuery(query, StartTime, EndTime);
-    res.status(200).json({
-      success: true,
-      message: "Foaming HP FOM B hourly loading data fetched successfully",
-      data,
-    });
-  } catch (error) {
-    throw new AppError(
-      `Failed to fetch Foaming HP FOM B hourly loading data: ${error.message}`,
-      500,
-    );
-  }
-});
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Foaming HP FOM B hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Foaming HP FOM B hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
 
-export const getFoamingHpFomCat = tryCatch(async (req, res) => {
-  const { StartTime, EndTime } = req.query;
+export const getFoamingLinePerformanceHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
 
-  const query = `
+    const query = `
     WITH Psno AS (
       SELECT
         DocNo,
@@ -1236,11 +1261,12 @@ export const getFoamingHpFomCat = tryCatch(async (req, res) => {
     GROUP BY LineName;
   `;
 
-  const result = await runTimeQuery(query, StartTime, EndTime);
+    const result = await runTimeQuery(query, StartTime, EndTime);
 
-  res.status(200).json({
-    success: true,
-    message: "Foaming HP Category Performance fetched successfully",
-    data: result,
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: "Foaming HP Category Performance fetched successfully",
+      data: result,
+    });
+  },
+);
