@@ -936,39 +936,6 @@ const LineHourlyReport = () => {
         {/* -- NORMAL HOURLY VIEWS -- */}
         {!isMultiDay && (
           <>
-            {/* Stat cards */}
-            {summaryCards.length > 0 && (
-              <div className="flex flex-wrap gap-2 shrink-0">
-                {summaryCards.map((card, i) =>
-                  card.highlight ? (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 min-w-30"
-                    >
-                      <span className="text-slate-400 text-xs font-medium truncate">
-                        {card.label}
-                      </span>
-                      <span className="font-mono font-bold text-white text-sm ml-auto shrink-0">
-                        {card.value.toLocaleString()}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl border flex-1 min-w-0 ${cardColorMap[card.color] || "bg-white border-slate-200 text-slate-700"}`}
-                    >
-                      <span className="text-xs font-medium truncate opacity-80">
-                        {card.label}
-                      </span>
-                      <span className="font-mono font-bold text-sm ml-auto shrink-0">
-                        {card.value.toLocaleString()}
-                      </span>
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-
             {/* Widget grid */}
             <div className="shrink-0">
               <div
