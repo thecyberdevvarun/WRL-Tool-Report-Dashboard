@@ -42,10 +42,8 @@ export const gasChargingApi = createApi({
 
     // Export Data
     getGasChargingExport: builder.query({
-      query: (params) => ({
-        url: "/gas-charging/export",
-        params,
-      }),
+      query: (params) => ({ url: "/gas-charging/export", params }),
+      keepUnusedDataFor: 0,
     }),
   }),
 });

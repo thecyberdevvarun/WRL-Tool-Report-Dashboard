@@ -43,6 +43,39 @@ const getDateRanges = {
   },
 };
 
+// Same filter logic for the report AND the export, so they always match.
+const buildReportFilters = ({
+  model,
+  performance,
+  refrigerant,
+  machine,
+  barcode,
+  faultCode,
+}) => {
+  let where = `WHERE
+    TRY_CONVERT(datetime, DATE + ' ' + TIME, 105) >= @startDate
+    AND TRY_CONVERT(datetime, DATE + ' ' + TIME, 105) < @endDate`;
+
+  if (model) where += ` AND MODEL = @model`;
+  if (performance) where += ` AND PERFORMANCE = @performance`;
+  if (refrigerant) where += ` AND UPPER(REFRIGERANT) = UPPER(@refrigerant)`;
+  if (machine) where += ` AND MACHINE = @machine`;
+  if (barcode) where += ` AND BARCODE LIKE @barcode`;
+  if (faultCode) where += ` AND FaultCode = @faultCode`;
+
+  const bind = (request) => {
+    if (model) request.input("model", sql.VarChar, model);
+    if (performance) request.input("performance", sql.VarChar, performance);
+    if (refrigerant) request.input("refrigerant", sql.VarChar, refrigerant);
+    if (machine) request.input("machine", sql.VarChar, machine);
+    if (barcode) request.input("barcode", sql.VarChar, `%${barcode}%`);
+    if (faultCode) request.input("faultCode", sql.Int, parseInt(faultCode));
+    return request;
+  };
+
+  return { where, bind };
+};
+
 /**
  * @desc    Get Gas Charging Report data with filters and pagination
  * @route   GET /api/v1/gas-charging/report
@@ -470,26 +503,21 @@ export const exportGasChargingReport = tryCatch(async (req, res) => {
   const istStart = convertToIST(startDate);
   const istEnd = convertToIST(endDate);
 
-  let whereClause = `WHERE 
-    (
-      TRY_CONVERT(datetime, DATE, 106) BETWEEN @startDate AND @endDate
-      OR TRY_CONVERT(datetime, DATE, 105) BETWEEN @startDate AND @endDate
-      OR TRY_CAST(DATE AS datetime) BETWEEN @startDate AND @endDate
-    )`;
+  const { where, bind } = buildReportFilters({
+    model,
+    performance,
+    refrigerant,
+    machine,
+  });
 
-  if (model) whereClause += ` AND MODEL = @model`;
-  if (performance) whereClause += ` AND PERFORMANCE = @performance`;
-  if (refrigerant)
-    whereClause += ` AND UPPER(REFRIGERANT) = UPPER(@refrigerant)`;
-  if (machine) whereClause += ` AND MACHINE = @machine`;
-
+  // No OFFSET/FETCH → returns ALL rows matching the filters
   const query = `
-    SELECT 
+    SELECT
       Result_ID AS 'Result ID',
       DATE AS 'Date',
       TIME AS 'Time',
       BARCODE AS 'Barcode',
-      MODEL AS 'Model',
+      MODEL AS 'Model Code',
       MODELNAME AS 'Model Name',
       RUNTIME_SECONDS AS 'Runtime (s)',
       REFRIGERANT AS 'Refrigerant',
@@ -507,22 +535,19 @@ export const exportGasChargingReport = tryCatch(async (req, res) => {
       MACHINE AS 'Machine',
       SyncStatus AS 'Sync Status'
     FROM ${TABLE_NAME}
-    ${whereClause}
-    ORDER BY Result_ID DESC
+    ${where}
+    ORDER BY TRY_CONVERT(datetime, DATE + ' ' + TIME, 105) DESC
   `;
 
   const pool = await new sql.ConnectionPool(dbConfig1).connect();
 
   try {
-    const request = pool
-      .request()
-      .input("startDate", sql.DateTime, istStart)
-      .input("endDate", sql.DateTime, istEnd);
-
-    if (model) request.input("model", sql.VarChar, model);
-    if (performance) request.input("performance", sql.VarChar, performance);
-    if (refrigerant) request.input("refrigerant", sql.VarChar, refrigerant);
-    if (machine) request.input("machine", sql.VarChar, machine);
+    const request = bind(
+      pool
+        .request()
+        .input("startDate", sql.DateTime, istStart)
+        .input("endDate", sql.DateTime, istEnd),
+    );
 
     const dataResult = await request.query(query);
 

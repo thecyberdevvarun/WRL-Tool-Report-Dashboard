@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import Loader from "../../components/ui/Loader";
 import SelectField from "../../components/ui/SelectField";
 import DateTimePicker from "../../components/ui/DateTimePicker";
+import Pagination from "../../components/ui/Pagination";
 import GasChargingDetailModal from "../../components/GasChargingDetailModal";
 import {
   useGetGasChargingReportQuery,
@@ -31,7 +31,6 @@ import { exportToXls } from "../../utils/exportToXls";
 import {
   Search,
   Download,
-  RefreshCw,
   RotateCcw,
   Filter,
   CheckCircle,
@@ -46,7 +45,6 @@ import {
   Factory,
   Loader2,
   PackageOpen,
-  Zap,
 } from "lucide-react";
 
 // ── Spinner ────────────────────────────────────────────────────────────────────
@@ -54,45 +52,10 @@ const Spinner = ({ cls = "w-4 h-4" }) => (
   <Loader2 className={`animate-spin ${cls}`} />
 );
 
-// ── QuickBtn ───────────────────────────────────────────────────────────────────
-const QuickBtn = ({
-  label,
-  sublabel,
-  active,
-  loading,
-  onClick,
-  colorClass,
-  activeClass,
-}) => (
-  <button
-    disabled={loading}
-    onClick={onClick}
-    className={`w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-150 ${
-      loading
-        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-        : active
-          ? activeClass
-          : colorClass
-    }`}
-  >
-    {loading ? (
-      <span className="flex items-center gap-2">
-        <Spinner /> Loading…
-      </span>
-    ) : (
-      <>
-        <span className="text-[15px] font-bold tracking-widest">{label}</span>
-        {sublabel && (
-          <span className="text-[10px] opacity-75 font-normal">{sublabel}</span>
-        )}
-      </>
-    )}
-  </button>
-);
-
 // ── Status Badge ───────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
-  const isPass = status === "PASS" || status === "Pass" || status === 1;
+  const isPass =
+    String(status).toUpperCase() === "PASS" || status === 1 || status === "1";
   return (
     <span
       className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${
@@ -145,7 +108,6 @@ const GasChargingReport = () => {
     data: reportData,
     isLoading: reportLoading,
     isFetching: reportFetching,
-    refetch: refetchReport,
   } = useGetGasChargingReportQuery(
     {
       startDate: filters.startDate,
@@ -166,6 +128,7 @@ const GasChargingReport = () => {
   const [triggerExport, { isLoading: exportLoading }] =
     useLazyGetGasChargingExportQuery();
 
+  // Keep Redux pagination totals in sync with the server response
   useEffect(() => {
     if (reportData?.pagination) {
       dispatch(
@@ -202,6 +165,7 @@ const GasChargingReport = () => {
     })) || []),
   ];
 
+  // ── Handlers ────────────────────────────────────────────────────────────────
   const handleQuery = () => {
     if (!startTime || !endTime) {
       alert("Please select both start and end date/time");
@@ -214,6 +178,7 @@ const GasChargingReport = () => {
       }),
     );
     dispatch(setGasChargingQuickFilter(null));
+    dispatch(setGasChargingPage(1));
   };
 
   const handleQuickFilter = (filterType) => {
@@ -226,10 +191,13 @@ const GasChargingReport = () => {
     if (!dateRange) return;
     dispatch(setGasChargingDateRange(dateRange));
     dispatch(setGasChargingQuickFilter(filterType));
+    dispatch(setGasChargingPage(1));
     setStartTime(formatDateTimeLocal(dateRange.startDate));
     setEndTime(formatDateTimeLocal(dateRange.endDate));
   };
 
+  // Exports ALL records matching the current filters (no page/limit sent),
+  // not just the rows visible on screen.
   const handleExport = async () => {
     try {
       const result = await triggerExport({
@@ -240,16 +208,38 @@ const GasChargingReport = () => {
         refrigerant: filters.refrigerant,
         machine: filters.machine,
       }).unwrap();
-      if (result?.data) exportToXls(result.data, "Gas_Charging_Report.xlsx");
-    } catch {
-      alert("Failed to export data");
+
+      const rows = result?.data ?? [];
+      if (!rows.length) {
+        alert("No data to export for the selected filters");
+        return;
+      }
+      exportToXls(rows, "Gas_Charging_Report.xlsx");
+    } catch (err) {
+      console.error("Export failed:", err);
+      alert(err?.data?.message || "Failed to export data");
     }
   };
 
   const handleResetFilters = () => {
     dispatch(resetGasChargingFilters());
+    dispatch(setGasChargingPage(1));
     setStartTime("");
     setEndTime("");
+  };
+
+  // Pagination
+  const handlePageChange = (page) => dispatch(setGasChargingPage(page));
+
+  const handleLimitChange = (limit) => {
+    dispatch(setGasChargingLimit(limit));
+    dispatch(setGasChargingPage(1));
+  };
+
+  // Every filter dropdown goes through this so the page resets to 1
+  const updateFilter = (patch) => {
+    dispatch(setGasChargingFilters(patch));
+    dispatch(setGasChargingPage(1));
   };
 
   // Default to Today's data on first load — filters live in Redux so they
@@ -330,9 +320,7 @@ const GasChargingReport = () => {
                 label="Model"
                 options={modelOptions}
                 value={filters.model}
-                onChange={(e) =>
-                  dispatch(setGasChargingFilters({ model: e.target.value }))
-                }
+                onChange={(e) => updateFilter({ model: e.target.value })}
               />
             </div>
             <div className="min-w-37.5 flex-1">
@@ -340,9 +328,7 @@ const GasChargingReport = () => {
                 label="Machine"
                 options={machineOptions}
                 value={filters.machine}
-                onChange={(e) =>
-                  dispatch(setGasChargingFilters({ machine: e.target.value }))
-                }
+                onChange={(e) => updateFilter({ machine: e.target.value })}
               />
             </div>
             <div className="min-w-37.5 flex-1">
@@ -350,11 +336,7 @@ const GasChargingReport = () => {
                 label="Result"
                 options={performanceOptions}
                 value={filters.performance}
-                onChange={(e) =>
-                  dispatch(
-                    setGasChargingFilters({ performance: e.target.value }),
-                  )
-                }
+                onChange={(e) => updateFilter({ performance: e.target.value })}
               />
             </div>
             <div className="min-w-37.5 flex-1">
@@ -362,11 +344,7 @@ const GasChargingReport = () => {
                 label="Refrigerant"
                 options={refrigerantOptions}
                 value={filters.refrigerant}
-                onChange={(e) =>
-                  dispatch(
-                    setGasChargingFilters({ refrigerant: e.target.value }),
-                  )
-                }
+                onChange={(e) => updateFilter({ refrigerant: e.target.value })}
               />
             </div>
             <div className="min-w-43.75 flex-1">
@@ -443,33 +421,11 @@ const GasChargingReport = () => {
                 MTD
               </button>
 
-              <button
-                onClick={() => refetchReport()}
-                disabled={isLoading}
-                title="Refresh"
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${
-                  isLoading
-                    ? "bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600"
-                }`}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
-                />
-              </button>
-
-              <button
-                onClick={handleResetFilters}
-                title="Reset"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-600 transition-all"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-
               {gasChargingData.length > 0 && (
                 <button
                   onClick={handleExport}
                   disabled={exportLoading}
+                  title="Export all records for the selected filters"
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                     exportLoading
                       ? "bg-slate-200 text-slate-400 cursor-not-allowed"
@@ -490,7 +446,7 @@ const GasChargingReport = () => {
 
         {/* ── MAIN DATA PANEL ── */}
         <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
-          {/* Loading */}
+          {/* Loading (only when there is nothing to show yet) */}
           {isLoading && gasChargingData.length === 0 && (
             <div className="flex items-center justify-center flex-1 gap-3">
               <Spinner cls="w-6 h-6 text-blue-600" />
@@ -536,13 +492,14 @@ const GasChargingReport = () => {
             </div>
           )}
 
-          {/* Table */}
-          {!isLoading && gasChargingData.length > 0 && (
+          {/* Table — stays visible while the next page loads */}
+          {gasChargingData.length > 0 && (
             <>
               {/* Table toolbar */}
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 shrink-0">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   Charging Records
+                  {reportFetching && <Spinner cls="w-3 h-3 text-blue-600" />}
                 </span>
                 <span className="text-[11px] text-slate-400">
                   Page{" "}
@@ -565,7 +522,11 @@ const GasChargingReport = () => {
               </div>
 
               {/* Scrollable table */}
-              <div className="flex-1 overflow-auto">
+              <div
+                className={`flex-1 overflow-auto transition-opacity ${
+                  reportFetching ? "opacity-50 pointer-events-none" : ""
+                }`}
+              >
                 <table className="min-w-full text-xs text-left border-separate border-spacing-0">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-100">
@@ -610,7 +571,7 @@ const GasChargingReport = () => {
                               {item.MODELNAME}
                             </span>
                             <span className="text-[10px] text-slate-400 truncate max-w-37.5">
-                              Mode Code - {item.MODEL}
+                              Model Code - {item.MODEL}
                             </span>
                           </div>
                         </td>
@@ -669,13 +630,20 @@ const GasChargingReport = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
 
-                {/* Load more spinner */}
-                {isLoading && gasChargingData.length > 0 && (
-                  <div className="flex items-center justify-center py-4 gap-2 text-blue-600 text-xs border-t border-slate-100">
-                    <Spinner /> Loading…
-                  </div>
-                )}
+              {/* Pagination */}
+              <div className="shrink-0 border-t border-slate-100 p-2">
+                <Pagination
+                  compact
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  totalRecords={pagination.totalRecords}
+                  limit={pagination.limit}
+                  onPageChange={handlePageChange}
+                  onLimitChange={handleLimitChange}
+                  isLoading={reportFetching}
+                />
               </div>
             </>
           )}
