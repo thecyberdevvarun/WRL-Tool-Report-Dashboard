@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { baseURL } from "../../../assets/assets.js";
 import HourlyWidget from "../../../components/lineHourly/HourlyWidget.jsx";
 import LinePerformanceWidget from "../../../components/lineHourly/LinePerformanceWidget.jsx";
+import CategoryPerformanceWidget from "../../../components/lineHourly/CategoryPerformanceWidget.jsx";
 import MultiDayPivotView from "../../../components/lineHourly/Multidaypivotview.jsx";
 import {
   Factory,
@@ -38,8 +39,6 @@ const getElapsedHours = (startTime, endTime) => {
     return 0;
   return (end - start) / (1000 * 60 * 60);
 };
-
-const CATEGORY_TITLE = "Line Performance";
 
 const mapCategory = (data = []) => {
   const categories = ["Freezer", "Chocolate", "Visi Cooler", "SUS"];
@@ -593,9 +592,14 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
-          title: CATEGORY_TITLE,
+          title: "Line Performance",
           data: d.finalCategory,
           isLinePerformance: true,
+        },
+        {
+          title: "Category Performance",
+          data: d.finalCategory,
+          isCategoryPerformance: true,
         },
       ],
 
@@ -625,9 +629,14 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
-          title: CATEGORY_TITLE,
+          title: "Line Performance",
           data: d.finalCategoryLoading,
           isLinePerformance: true,
+        },
+        {
+          title: "Category Performance",
+          data: d.finalCategoryLoading,
+          isCategoryPerformance: true,
         },
       ],
 
@@ -675,9 +684,14 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: slate }],
         },
         {
-          title: CATEGORY_TITLE,
+          title: "Line Performance",
           data: d.postCategory,
           isLinePerformance: true,
+        },
+        {
+          title: "Category Performance",
+          data: d.postCategory,
+          isCategoryPerformance: true,
         },
       ],
 
@@ -695,9 +709,14 @@ const LineHourlyReport = () => {
           datasets: [{ key: "COUNT", label: "Count", color: amber }],
         },
         {
-          title: CATEGORY_TITLE,
+          title: "Line Performance",
           data: d.foamCategory,
           isLinePerformance: true,
+        },
+        {
+          title: "Category Performance",
+          data: d.foamCategory,
+          isCategoryPerformance: true,
         },
       ],
     };
@@ -706,29 +725,32 @@ const LineHourlyReport = () => {
   }, [apiData, lineType]);
 
   // -- Grid layout helpers ----------------------------------------------------
-  const is5 = widgetConfig.length === 5; // final_line / final_loading
-  const is7 = widgetConfig.length === 7; // post_Foaming
+  const is7 = widgetConfig.length === 7;
+  const is6 = widgetConfig.length === 6;
+  const is9 = widgetConfig.length === 9;
 
-  const gridTemplateRows = is7
+  const gridTemplateRows = is9
     ? `repeat(3, minmax(${WIDGET_MIN_H}px, auto))`
-    : is5
-      ? `repeat(2, minmax(${WIDGET_MIN_H}px, auto))`
-      : `minmax(${WIDGET_MIN_H}px, auto)`;
+    : is7
+      ? `repeat(3, minmax(${WIDGET_MIN_H}px, auto))`
+      : is6
+        ? `repeat(2, minmax(${WIDGET_MIN_H}px, auto))`
+        : `minmax(${WIDGET_MIN_H}px, auto)`;
 
-  /**
-   * is5 (3×2):             is7 (3×3):                       default (3×1):
-   *  [0][1][2]              [0][1][2]                        [0][1][2]
-   *  [3][4------]           [3][4][5]
-   *                         [6----------------------]  Line Performance
-   */
   const getGridColumn = (i) => {
-    if (is5 && i === 3) return "1";
-    if (is5 && i === 4) return "2 / span 2";
+    // 6 widgets: last row has 3 widgets
+    if (is6) return undefined;
+
+    // 7 widgets: last widget spans full width
     if (is7 && i === 6) return "1 / -1";
+
+    // 9 widgets: normal 3 × 3 grid
+    if (is9) return undefined;
+
     return undefined;
   };
 
-  const skeletonCount = is7 ? 7 : is5 ? 5 : 3;
+  const skeletonCount = widgetConfig.length || 3;
 
   /* ----------------------------------------------------------
      RENDER
@@ -966,6 +988,12 @@ const LineHourlyReport = () => {
                             data={wc.data}
                             icon={wc.icon}
                             elapsedHours={elapsedHours}
+                          />
+                        ) : wc.isCategoryPerformance ? (
+                          <CategoryPerformanceWidget
+                            title={wc.title}
+                            data={wc.data}
+                            icon={wc.icon}
                           />
                         ) : (
                           <HourlyWidget

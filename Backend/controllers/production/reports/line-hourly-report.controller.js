@@ -266,7 +266,7 @@ ORDER BY HourTime;`;
 });
 
 export const getFinalFGLinePerformanceHourlyReport = tryCatch(
-  async (req, res, next) => {
+  async (req, res) => {
     const { StartTime, EndTime } = req.query;
 
     const query = `
@@ -326,7 +326,7 @@ export const getFinalFGLinePerformanceHourlyReport = tryCatch(
 
     res.status(200).json({
       success: true,
-      message: "Final HP Category Performance fetched successfully",
+      message: "Final HP Line Performance fetched successfully",
       data: result,
     });
   },
@@ -573,7 +573,7 @@ ORDER BY HourTime;`;
 });
 
 export const getFinalLoadingLinePerformanceHourlyReport = tryCatch(
-  async (req, res, next) => {
+  async (req, res) => {
     const { StartTime, EndTime } = req.query;
 
     const query = `
@@ -633,7 +633,7 @@ export const getFinalLoadingLinePerformanceHourlyReport = tryCatch(
 
     res.status(200).json({
       success: true,
-      message: "Final Loading HP Category Performance fetched successfully",
+      message: "Final Loading HP Line Performance fetched successfully",
       data: result,
     });
   },
@@ -1092,7 +1092,7 @@ export const getPostFoamingLinePerformanceHourlyReport = tryCatch(
 
     res.status(200).json({
       success: true,
-      message: "Post HP Category Performance fetched successfully",
+      message: "Post Foaming HP Line Performance fetched successfully",
       data: result,
     });
   },
@@ -1265,7 +1265,7 @@ export const getFoamingLinePerformanceHourlyReport = tryCatch(
 
     res.status(200).json({
       success: true,
-      message: "Foaming HP Category Performance fetched successfully",
+      message: "Foaming HP Line Performance fetched successfully",
       data: result,
     });
   },
