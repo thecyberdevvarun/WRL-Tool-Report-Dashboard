@@ -63,13 +63,6 @@ const mapLinePerformance = (data = []) => {
   });
 };
 
-const EMPTY_CATEGORY_PERFORMANCE = [
-  { category: "Freezer", TotalCount: 0 },
-  { category: "Chocolate", TotalCount: 0 },
-  { category: "Visi Cooler", TotalCount: 0 },
-  { category: "SUS", TotalCount: 0 },
-];
-
 // -- Constants ------------------------------------------------------------------
 const LINE_TABS = [
   { value: "final_line", label: "Final", icon: Factory },
@@ -123,6 +116,11 @@ const EMPTY = {
   foamB: [],
   foamBModel: [],
   foamLinePerformance: [],
+
+  finalCategoryPerformance: [],
+  finalLoadingCategoryPerformance: [],
+  postCategoryPerformance: [],
+  foamCategoryPerformance: [],
 };
 
 const CHART = {
@@ -177,7 +175,6 @@ const LineHourlyReport = () => {
   );
 
   // -- Fetch ------------------------------------------------------------------
-
   const fetchForType = useCallback(
     async (lt, params) => {
       const get = (path) => axios.get(`${API}/${path}`, { params });
@@ -189,21 +186,23 @@ const LineHourlyReport = () => {
 
       // -- Final FG Stage ------------------------------------------------
       if (lt === "final_line") {
-        const [r1, m1, r2, m2, r3, m3, r4, m4, r5] = await Promise.allSettled([
-          get("line-hourly-report/final-fg/freezer"),
-          get("final-hp-frz-model"),
+        const [r1, m1, r2, m2, r3, m3, r4, m4, r5, r6] =
+          await Promise.allSettled([
+            get("line-hourly-report/final-fg/freezer"),
+            get("final-hp-frz-model"),
 
-          get("line-hourly-report/final-fg/chocolate"),
-          get("final-hp-choc-model"),
+            get("line-hourly-report/final-fg/chocolate"),
+            get("final-hp-choc-model"),
 
-          get("line-hourly-report/final-fg/visi-cooler"),
-          get("visi-final-hp-model"),
+            get("line-hourly-report/final-fg/visi-cooler"),
+            get("visi-final-hp-model"),
 
-          get("line-hourly-report/final-fg/sus"),
-          get("final-hp-sus-model"),
+            get("line-hourly-report/final-fg/sus"),
+            get("final-hp-sus-model"),
 
-          get("line-hourly-report/final-fg/line-performance"),
-        ]);
+            get("line-hourly-report/final-fg/line-performance"),
+            get("line-hourly-report/final-fg/category-performance"),
+          ]);
 
         return {
           finalFreezer: safe(r1),
@@ -219,26 +218,29 @@ const LineHourlyReport = () => {
           finalSUSModel: safe(m4),
 
           finalLinePerformance: mapLinePerformance(safe(r5)),
+          finalCategoryPerformance: safe(r6),
         };
       }
 
       // -- Final Loading Stage -------------------------------------------
       if (lt === "final_loading") {
-        const [r1, m1, r2, m2, r3, m3, r4, m4, r5] = await Promise.allSettled([
-          get("line-hourly-report/final-loading/freezer"),
-          get("final-loading-hp-frz-model"),
+        const [r1, m1, r2, m2, r3, m3, r4, m4, r5, r6] =
+          await Promise.allSettled([
+            get("line-hourly-report/final-loading/freezer"),
+            get("final-loading-hp-frz-model"),
 
-          get("line-hourly-report/final-loading/chocolate"),
-          get("final-loading-hp-choc-model"),
+            get("line-hourly-report/final-loading/chocolate"),
+            get("final-loading-hp-choc-model"),
 
-          get("line-hourly-report/final-loading/visi-cooler"),
-          get("final-loading-hp-visi-model"),
+            get("line-hourly-report/final-loading/visi-cooler"),
+            get("final-loading-hp-visi-model"),
 
-          get("line-hourly-report/final-loading/sus"),
-          get("final-loading-hp-sus-model"),
+            get("line-hourly-report/final-loading/sus"),
+            get("final-loading-hp-sus-model"),
 
-          get("line-hourly-report/final-loading/line-performance"),
-        ]);
+            get("line-hourly-report/final-loading/line-performance"),
+            get("line-hourly-report/final-loading/category-performance"),
+          ]);
 
         return {
           finalFreezerLoading: safe(r1),
@@ -254,12 +256,13 @@ const LineHourlyReport = () => {
           finalSUSLoadingModel: safe(m4),
 
           finalLoadingLinePerformance: mapLinePerformance(safe(r5)),
+          finalLoadingCategoryPerformance: safe(r6),
         };
       }
 
       // -- Post Foaming Stage --------------------------------------------
       if (lt === "post_Foaming") {
-        const [r1, m1, r2, m2, r3, m3, r4, m4, r5, m5, r6, m6, r7] =
+        const [r1, m1, r2, m2, r3, m3, r4, m4, r5, m5, r6, m6, r7, r8] =
           await Promise.allSettled([
             get("line-hourly-report/post-foaming/group-a-freezer"),
             get("post-Grp-A-model"),
@@ -280,6 +283,7 @@ const LineHourlyReport = () => {
             get("post-hp-sus-model"),
 
             get("line-hourly-report/post-foaming/line-performance"),
+            get("line-hourly-report/post-foaming/category-performance"),
           ]);
 
         return {
@@ -302,12 +306,13 @@ const LineHourlyReport = () => {
           postSUSModel: safe(m6),
 
           postLinePerformance: mapLinePerformance(safe(r7)),
+          postCategoryPerformance: safe(r8),
         };
       }
 
       // -- Foaming Stage -------------------------------------------------
       if (lt === "Foaming") {
-        const [r1, m1, r2, m2, r3] = await Promise.allSettled([
+        const [r1, m1, r2, m2, r3, r4] = await Promise.allSettled([
           get("line-hourly-report/foaming/group-a-freezer"),
           get("Foaming-hp-fom-a-model"),
 
@@ -315,6 +320,7 @@ const LineHourlyReport = () => {
           get("Foaming-hp-fom-b-model"),
 
           get("line-hourly-report/foaming/line-performance"),
+          get("line-hourly-report/foaming/category-performance"),
         ]);
 
         return {
@@ -325,6 +331,7 @@ const LineHourlyReport = () => {
           foamBModel: safe(m2),
 
           foamLinePerformance: mapLinePerformance(safe(r3)),
+          foamCategoryPerformance: safe(r4),
         };
       }
 
@@ -643,7 +650,7 @@ const LineHourlyReport = () => {
         },
         {
           title: "Category Performance",
-          data: EMPTY_CATEGORY_PERFORMANCE,
+          data: d.finalCategoryPerformance,
           isCategoryPerformance: true,
         },
       ],
@@ -680,7 +687,7 @@ const LineHourlyReport = () => {
         },
         {
           title: "Category Performance",
-          data: EMPTY_CATEGORY_PERFORMANCE,
+          data: d.finalLoadingCategoryPerformance,
           isCategoryPerformance: true,
         },
       ],
@@ -735,7 +742,7 @@ const LineHourlyReport = () => {
         },
         {
           title: "Category Performance",
-          data: EMPTY_CATEGORY_PERFORMANCE,
+          data: d.postCategoryPerformance,
           isCategoryPerformance: true,
         },
       ],
@@ -760,7 +767,7 @@ const LineHourlyReport = () => {
         },
         {
           title: "Category Performance",
-          data: EMPTY_CATEGORY_PERFORMANCE,
+          data: d.foamCategoryPerformance,
           isCategoryPerformance: true,
         },
       ],

@@ -1270,3 +1270,89 @@ export const getFoamingLinePerformanceHourlyReport = tryCatch(
     });
   },
 );
+
+// -----------------------------------------------------------------------------
+//  CATEGORY PERFORMANCE (per stage, grouped by material category)
+// -----------------------------------------------------------------------------
+const buildCategoryQuery = (activityFilter) => `
+  WITH Psno AS (
+    SELECT DocNo, Material
+    FROM MaterialBarcode
+    WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+  )
+  SELECT
+    COALESCE(mc.Name, 'Uncategorised') AS category,
+    COUNT(*) AS TotalCount
+  FROM Psno
+  INNER JOIN ProcessActivity b   ON b.PSNo         = Psno.DocNo
+  INNER JOIN WorkCenter c        ON b.StationCode  = c.StationCode
+  INNER JOIN Users us            ON us.UserCode    = b.Operator
+  INNER JOIN Material m          ON m.MatCode      = Psno.Material
+  LEFT  JOIN MaterialCategory mc ON mc.CategoryCode = m.Category
+  WHERE
+    b.ActivityOn BETWEEN @StartTime AND @EndTime
+    AND ${activityFilter}
+  GROUP BY mc.CategoryCode, mc.Name
+  ORDER BY TotalCount DESC;`;
+
+const CATEGORY_FILTERS = {
+  finalFg: `
+    b.ActivityType = 5
+    AND b.Remark IN (12501, 12305, 12605, 12304)
+    AND c.StationCode IN (1220010, 1230017)`,
+
+  finalLoading: `
+    b.ActivityType = 5
+    AND b.Remark IN (12501, 12305, 12605, 12304)
+    AND c.StationCode IN (1230013, 1220005)`,
+
+  postFoaming: `
+    (
+      (b.StationCode IN (1220003, 1220004) AND b.ActivityType = 5)
+      OR (b.StationCode = 1230007 AND b.Remark = 12201)
+      OR (b.ActivityType = 5
+          AND b.StationCode IN (1230007, 1230012)
+          AND b.Remark IN (12305, 12605, 12304))
+    )`,
+
+  foaming: `
+    b.ActivityType = 5
+    AND b.StationCode IN (1220001, 1220002)`,
+};
+
+const makeCategoryController = (filterKey, label) =>
+  tryCatch(async (req, res) => {
+    const { StartTime, EndTime } = req.query;
+    if (!StartTime || !EndTime) {
+      throw new AppError("StartTime and EndTime are required", 400);
+    }
+
+    const data = await runTimeQuery(
+      buildCategoryQuery(CATEGORY_FILTERS[filterKey]),
+      StartTime,
+      EndTime,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `${label} category performance fetched successfully`,
+      data,
+    });
+  });
+
+export const getFinalFGCategoryPerformance = makeCategoryController(
+  "finalFg",
+  "Final FG",
+);
+export const getFinalLoadingCategoryPerformance = makeCategoryController(
+  "finalLoading",
+  "Final Loading",
+);
+export const getPostFoamingCategoryPerformance = makeCategoryController(
+  "postFoaming",
+  "Post Foaming",
+);
+export const getFoamingCategoryPerformance = makeCategoryController(
+  "foaming",
+  "Foaming",
+);

@@ -42,6 +42,10 @@ import {
   getFoamingGroupAFreezerHourlyReport,
   getFoamingGroupBFreezerHourlyReport,
   getFoamingLinePerformanceHourlyReport,
+  getFinalFGCategoryPerformance,
+  getFinalLoadingCategoryPerformance,
+  getPostFoamingCategoryPerformance,
+  getFoamingCategoryPerformance,
 } from "../controllers/production/reports/line-hourly-report.controller.js";
 
 import {
@@ -242,6 +246,11 @@ router.get(
   authenticate,
   getFoamingLinePerformanceHourlyReport,
 );
+
+router.get("/line-hourly-report/final-fg/category-performance", authenticate, getFinalFGCategoryPerformance);
+router.get("/line-hourly-report/final-loading/category-performance", authenticate, getFinalLoadingCategoryPerformance);
+router.get("/line-hourly-report/post-foaming/category-performance", authenticate, getPostFoamingCategoryPerformance);
+router.get("/line-hourly-report/foaming/category-performance", authenticate, getFoamingCategoryPerformance);
 
 // -----------------> Line Wise Report
 // Final Loading — model breakdown
