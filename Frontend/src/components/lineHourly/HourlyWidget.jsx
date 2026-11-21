@@ -133,75 +133,6 @@ const makeOptions = (maxVal, showLegend, fs = 9) => ({
   },
 });
 
-const makeStackedOptions = () => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 220 },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: "#0f172a",
-      titleColor: "#94a3b8",
-      bodyColor: "#f1f5f9",
-      padding: 8,
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      stacked: true,
-      border: { display: false },
-      grid: { color: "rgba(0,0,0,0.04)" },
-      ticks: {
-        font: { size: 9, family: "monospace" },
-        color: "#94a3b8",
-        callback: (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v),
-        maxTicksLimit: 4,
-      },
-    },
-    x: {
-      stacked: true,
-      border: { display: false },
-      grid: { display: false },
-      ticks: { font: { size: 9 }, color: "#94a3b8", maxRotation: 0 },
-    },
-  },
-});
-
-const makeHorizOptions = (maxVal) => ({
-  indexAxis: "y",
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 220 },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: "#0f172a",
-      titleColor: "#94a3b8",
-      bodyColor: "#f1f5f9",
-      padding: 8,
-    },
-  },
-  scales: {
-    x: {
-      beginAtZero: true,
-      max: maxVal + Math.max(Math.ceil(maxVal * 0.18), 5),
-      border: { display: false },
-      grid: { color: "rgba(0,0,0,0.04)" },
-      ticks: {
-        font: { size: 9, family: "monospace" },
-        color: "#94a3b8",
-        maxTicksLimit: 5,
-      },
-    },
-    y: {
-      border: { display: false },
-      grid: { display: false },
-      ticks: { font: { size: 9 }, color: "#475569" },
-    },
-  },
-});
-
 // ─── Shared small styles ──────────────────────────────────────────────────────
 const closeBtnStyle = {
   display: "flex",
@@ -258,14 +189,6 @@ const HourlyModelPanel = ({ modelData, onClose }) => {
       .sort((a, b) => b.Total - a.Total)
       .slice(0, 10);
   }, [modelData]);
-
-  const modelColorMap = useMemo(() => {
-    const map = {};
-    topModels.forEach((m, i) => {
-      map[m.MatCode] = MODEL_COLORS[i % MODEL_COLORS.length];
-    });
-    return map;
-  }, [topModels]);
 
   const exportCSV = () =>
     downloadCSV(

@@ -760,65 +760,6 @@ export const getPostFoamingGroupBFreezerHourlyReport = tryCatch(
   },
 );
 
-export const getPostFoamingChocolateHourlyReport = tryCatch(
-  async (req, res) => {
-    const { StartTime, EndTime } = req.query;
-
-    const query = `
-    WITH Psno AS (
-      SELECT DocNo, Material, Serial, VSerial, Alias, Type
-      FROM MaterialBarcode
-      WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
-    ),
-    HourlySummary AS (
-      SELECT
-        DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
-        DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
-        CAST(
-          CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-          CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-        AS DATETIME) AS HourTime,
-        COUNT(*) AS Loading_Count
-      FROM Psno
-      JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
-      JOIN WorkCenter c      ON b.StationCode = c.StationCode
-      JOIN Material m        ON Psno.Material = m.MatCode
-      JOIN Users u           ON b.Operator    = u.UserCode
-      WHERE
-        c.StationCode in (1230007,1230012)
-        AND Remark = 12305
-        AND b.ActivityOn BETWEEN @StartTime AND @EndTime
-      GROUP BY
-        DATEPART(DAY,  b.ActivityOn),
-        DATEPART(HOUR, b.ActivityOn),
-        CAST(
-          CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
-          CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
-        AS DATETIME)
-    )
-    SELECT
-      CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
-      TIMEHOUR,
-      Loading_Count AS COUNT
-    FROM HourlySummary
-    ORDER BY HourTime;`;
-
-    try {
-      const data = await runTimeQuery(query, StartTime, EndTime);
-      res.status(200).json({
-        success: true,
-        message: "Post Foaming HP Frz hourly loading data fetched successfully",
-        data,
-      });
-    } catch (error) {
-      throw new AppError(
-        `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
-        500,
-      );
-    }
-  },
-);
-
 export const getPostFoamingFreezerFOWHourlyReport = tryCatch(
   async (req, res) => {
     const { StartTime, EndTime } = req.query;
@@ -873,6 +814,65 @@ export const getPostFoamingFreezerFOWHourlyReport = tryCatch(
     } catch (error) {
       throw new AppError(
         `Failed to fetch Manual Post Foaming HP hourly loading data: ${error.message}`,
+        500,
+      );
+    }
+  },
+);
+
+export const getPostFoamingChocolateHourlyReport = tryCatch(
+  async (req, res) => {
+    const { StartTime, EndTime } = req.query;
+
+    const query = `
+    WITH Psno AS (
+      SELECT DocNo, Material, Serial, VSerial, Alias, Type
+      FROM MaterialBarcode
+      WHERE PrintStatus = 1 AND Status <> 99 AND Type NOT IN (200)
+    ),
+    HourlySummary AS (
+      SELECT
+        DATEPART(DAY,  b.ActivityOn) AS TIMEDAY,
+        DATEPART(HOUR, b.ActivityOn) AS TIMEHOUR,
+        CAST(
+          CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+          CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+        AS DATETIME) AS HourTime,
+        COUNT(*) AS Loading_Count
+      FROM Psno
+      JOIN ProcessActivity b ON b.PSNo        = Psno.DocNo
+      JOIN WorkCenter c      ON b.StationCode = c.StationCode
+      JOIN Material m        ON Psno.Material = m.MatCode
+      JOIN Users u           ON b.Operator    = u.UserCode
+      WHERE
+        c.StationCode in (1230007,1230012)
+        AND Remark = 12305
+        AND b.ActivityOn BETWEEN @StartTime AND @EndTime
+      GROUP BY
+        DATEPART(DAY,  b.ActivityOn),
+        DATEPART(HOUR, b.ActivityOn),
+        CAST(
+          CAST(CAST(b.ActivityOn AS DATE) AS VARCHAR) + ' ' +
+          CAST(DATEPART(HOUR, b.ActivityOn) AS VARCHAR) + ':00:00'
+        AS DATETIME)
+    )
+    SELECT
+      CONCAT('H', ROW_NUMBER() OVER (ORDER BY HourTime)) AS HOUR_NUMBER,
+      TIMEHOUR,
+      Loading_Count AS COUNT
+    FROM HourlySummary
+    ORDER BY HourTime;`;
+
+    try {
+      const data = await runTimeQuery(query, StartTime, EndTime);
+      res.status(200).json({
+        success: true,
+        message: "Post Foaming HP Frz hourly loading data fetched successfully",
+        data,
+      });
+    } catch (error) {
+      throw new AppError(
+        `Failed to fetch Post Foaming HP Frz hourly loading data: ${error.message}`,
         500,
       );
     }
