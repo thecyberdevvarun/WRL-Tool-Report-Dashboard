@@ -259,30 +259,6 @@ const HourlyModelPanel = ({ modelData, onClose }) => {
       .slice(0, 10);
   }, [modelData]);
 
-  const hours = useMemo(
-    () => [...new Set(modelData.map((d) => d.TIMEHOUR))].sort((a, b) => a - b),
-    [modelData],
-  );
-
-  const lookup = useMemo(() => {
-    const m = {};
-    for (const item of modelData) {
-      if (!m[item.TIMEHOUR]) m[item.TIMEHOUR] = {};
-      m[item.TIMEHOUR][item.MatCode] =
-        (m[item.TIMEHOUR][item.MatCode] || 0) + (item.Model_Count || 0);
-    }
-    return m;
-  }, [modelData]);
-
-  const chartDatasets = topModels.map((model, i) => ({
-    label: model.Name.length > 14 ? model.Name.slice(0, 12) + "…" : model.Name,
-    data: hours.map((h) => lookup[h]?.[model.MatCode] || 0),
-    backgroundColor: MODEL_COLORS[i % MODEL_COLORS.length],
-    borderWidth: 0,
-    borderRadius: 2,
-    stack: "s",
-  }));
-
   const modelColorMap = useMemo(() => {
     const map = {};
     topModels.forEach((m, i) => {
@@ -356,24 +332,6 @@ const HourlyModelPanel = ({ modelData, onClose }) => {
         </div>
       </div>
 
-      <div
-        style={{
-          height: 100,
-          flexShrink: 0,
-          padding: "5px 12px 3px",
-          borderBottom: "1px solid #f1f5f9",
-          background: "#fafbfc",
-        }}
-      >
-        <Bar
-          data={{
-            labels: hours.map((h) => `${h}:00`),
-            datasets: chartDatasets,
-          }}
-          options={makeStackedOptions()}
-        />
-      </div>
-
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         <table
           style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}
@@ -396,7 +354,7 @@ const HourlyModelPanel = ({ modelData, onClose }) => {
           </thead>
           <tbody>
             {flatRows.map((row, i) => {
-              const color = modelColorMap[row.MatCode] || "#94a3b8";
+              const color = "#0ea5e9";
               const isNewHour =
                 i === 0 || flatRows[i - 1].TIMEHOUR !== row.TIMEHOUR;
               return (
@@ -534,8 +492,6 @@ const TotalModelPanel = ({ modelData, onClose }) => {
       `total_model_${Date.now()}.csv`,
     );
 
-  const chartH = Math.max(160, modelTotals.length * 24);
-
   return (
     <div
       style={{
@@ -594,7 +550,7 @@ const TotalModelPanel = ({ modelData, onClose }) => {
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <div
           style={{
-            width: "48%",
+            width: "100%",
             display: "flex",
             flexDirection: "column",
             borderRight: "1px solid #f1f5f9",
@@ -750,37 +706,6 @@ const TotalModelPanel = ({ modelData, onClose }) => {
             >
               {grandTotal.toLocaleString()}
             </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflowY: "auto",
-            padding: "8px 10px",
-          }}
-        >
-          <div style={{ height: chartH, minHeight: "100%" }}>
-            <Bar
-              data={{
-                labels: modelTotals.map((m) =>
-                  m.Name.length > 18 ? m.Name.slice(0, 16) + "…" : m.Name,
-                ),
-                datasets: [
-                  {
-                    label: "Count",
-                    data: modelTotals.map((m) => m.Total),
-                    backgroundColor: modelTotals.map(
-                      (_, i) => MODEL_COLORS[i % MODEL_COLORS.length],
-                    ),
-                    borderWidth: 0,
-                    borderRadius: 3,
-                  },
-                ],
-              }}
-              options={makeHorizOptions(maxVal)}
-            />
           </div>
         </div>
       </div>
