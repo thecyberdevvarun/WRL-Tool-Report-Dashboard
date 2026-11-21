@@ -64,54 +64,50 @@ const Spinner = ({ cls = "w-4 h-4" }) => (
 const LINE_TABS = [
   { value: "freezer", label: "Freezer", icon: Thermometer },
   { value: "choc", label: "Chocolate", icon: Layers },
-  { value: "sus", label: "SUS", icon: Settings },
   { value: "visi", label: "VISI", icon: Eye },
+  { value: "sus", label: "SUS", icon: Settings },
 ];
 
 const ENDPOINTS = {
   freezer: [
-    "final-hp-frz",
+    "line-hourly-report/final-fg/freezer",
     "final-hp-frz-model",
-    "final-loading-hp-frz",
+    "line-hourly-report/final-loading/freezer",
     "final-loading-hp-frz-model",
-    "post-hp-GrpA",
-    "post-hp-GrpB",
-    "post-hp-FOW",
+    "line-hourly-report/post-foaming/group-a-freezer",
+    "line-hourly-report/post-foaming/group-b-freezer",
+    "line-hourly-report/post-foaming/freezer-fow",
     "post-Grp-A-model",
     "post-Grp-B-model",
     "post-FOW-model",
-    "Foaming-hp-fom-a",
-    "Foaming-hp-fom-b",
-    "Foaming-hp-fom-cat",
+    "line-hourly-report/foaming/group-a-freezer",
+    "line-hourly-report/foaming/group-b-freezer",
     "Foaming-hp-fom-a-model",
     "Foaming-hp-fom-b-model",
   ],
   choc: [
-    "final-hp-choc",
+    "line-hourly-report/final-fg/chocolate",
     "final-hp-choc-model",
-    "final-loading-hp-choc",
+    "line-hourly-report/final-loading/chocolate",
     "final-loading-hp-choc-model",
-    "post-hp-Choc",
+    "line-hourly-report/post-foaming/chocolate",
     "post-Choc-model",
-    "post-hp-cat",
   ],
   visi: [
-    "visi-final-hp",
+    "line-hourly-report/final-fg/visi-cooler",
     "visi-final-hp-model",
-    "visi-loading-hp",
+    "line-hourly-report/final-loading/visi-cooler",
     "final-loading-hp-visi-model",
-    "visi-post-hp",
+    "line-hourly-report/post-foaming/visi-cooler",
     "visi-post-hp-model",
-    "post-hp-cat",
   ],
   sus: [
-    "final-hp-sus",
+    "line-hourly-report/final-fg/sus",
     "final-hp-sus-model",
-    "final-loading-hp-sus",
+    "line-hourly-report/final-loading/sus",
     "final-loading-hp-sus-model",
-    "post-hp-sus",
+    "line-hourly-report/post-foaming/sus",
     "post-hp-sus-model",
-    "post-hp-cat",
   ],
 };
 
@@ -305,13 +301,6 @@ function buildLineData(line, raw) {
 
   return { widgets: [], summaryCards: [], grandTotal: 0 };
 }
-
-const CARD_COLOR = {
-  blue: "bg-blue-50 border-blue-100 text-blue-700",
-  amber: "bg-amber-50 border-amber-100 text-amber-700",
-  violet: "bg-violet-50 border-violet-100 text-violet-700",
-  emerald: "bg-emerald-50 border-emerald-100 text-emerald-700",
-};
 
 const ACCENT_ACTIVE = {
   freezer: "bg-blue-600 text-white shadow-sm",
@@ -648,39 +637,6 @@ const LineWiseReport = () => {
             </div>
           </div>
         </div>
-
-        {/* Summary cards */}
-        {summaryCards.length > 0 && (
-          <div className="flex flex-wrap gap-2 shrink-0">
-            {summaryCards.map((card, i) =>
-              card.highlight ? (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 min-w-30"
-                >
-                  <span className="text-slate-400 text-xs font-medium truncate">
-                    {card.label}
-                  </span>
-                  <span className="font-mono font-bold text-white text-sm ml-auto shrink-0">
-                    {card.value.toLocaleString()}
-                  </span>
-                </div>
-              ) : (
-                <div
-                  key={i}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border flex-1 min-w-0 ${CARD_COLOR[card.color] || "bg-white border-slate-200 text-slate-700"}`}
-                >
-                  <span className="text-xs font-medium truncate opacity-80">
-                    {card.label}
-                  </span>
-                  <span className="font-mono font-bold text-sm ml-auto shrink-0">
-                    {card.value.toLocaleString()}
-                  </span>
-                </div>
-              ),
-            )}
-          </div>
-        )}
 
         {/* Widget grid */}
         <div className="shrink-0">
