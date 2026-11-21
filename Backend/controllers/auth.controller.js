@@ -25,87 +25,87 @@ const auditLoginFailure = (req, empcod, detail) =>
   });
 
 // ================= SIGNUP =================
-export const signup = tryCatch(async (req, res) => {
-  const { empcod, username, password } = req.body;
+// export const signup = tryCatch(async (req, res) => {
+//   const { empcod, username, password } = req.body;
 
-  if (!empcod || !username || !password) {
-    throw new AppError("All fields are required", 400);
-  }
+//   if (!empcod || !username || !password) {
+//     throw new AppError("All fields are required", 400);
+//   }
 
-  const pool = await new sql.ConnectionPool(dbConfig1).connect();
+//   const pool = await new sql.ConnectionPool(dbConfig1).connect();
 
-  try {
-    // 1. Check duplicate user
-    const existing = await pool
-      .request()
-      .input("empcod", sql.VarChar, empcod)
-      .query(`SELECT 1 FROM Users WHERE UserID = @empcod`);
+//   try {
+//     // 1. Check duplicate user
+//     const existing = await pool
+//       .request()
+//       .input("empcod", sql.VarChar, empcod)
+//       .query(`SELECT 1 FROM Users WHERE UserID = @empcod`);
 
-    if (existing.recordset.length > 0) {
-      throw new AppError("User already exists", 409);
-    }
+//     if (existing.recordset.length > 0) {
+//       throw new AppError("User already exists", 409);
+//     }
 
-    // 2. Generate UserCode (IDMaster/IDValue — shared with admin create-user)
-    const userCode = await generateUserCode(() => pool.request());
+//     // 2. Generate UserCode (IDMaster/IDValue — shared with admin create-user)
+//     const userCode = await generateUserCode(() => pool.request());
 
-    // 3. Insert user (inactive)
-    // NOTE: Password stays plaintext here (unchanged) since GARUDA/Users may
-    // have consumers outside this app that expect to read it — PasswordHash
-    // is additive, so this app can verify via bcrypt without touching that.
-    const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+//     // 3. Insert user (inactive)
+//     // NOTE: Password stays plaintext here (unchanged) since GARUDA/Users may
+//     // have consumers outside this app that expect to read it — PasswordHash
+//     // is additive, so this app can verify via bcrypt without touching that.
+//     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
-    await pool
-      .request()
-      .input("UserCode", sql.VarChar, userCode)
-      .input("UserID", sql.VarChar, empcod)
-      .input("UserName", sql.VarChar, username)
-      .input("Password", sql.VarChar, password)
-      .input("PasswordHash", sql.VarChar, passwordHash).query(`
-        INSERT INTO Users (
-          UserCode,
-          UserID,
-          UserName,
-          Password,
-          PasswordHash,
-          UserRole,
-          Employee,
-          LastActivityOn,
-          LastPwChOn,
-          WrongPw,
-          Photo,
-          Locked,
-          DefaultForm,
-          SystemUser,
-          Status
-        )
-        VALUES (
-          @UserCode,
-          @UserID,
-          @UserName,
-          @Password,
-          @PasswordHash,
-          223009,
-          NULL,
-          NULL,
-          GETDATE(),
-          0,
-          NULL,
-          0,
-          0,
-          0,
-          200
-        )
-      `);
+//     await pool
+//       .request()
+//       .input("UserCode", sql.VarChar, userCode)
+//       .input("UserID", sql.VarChar, empcod)
+//       .input("UserName", sql.VarChar, username)
+//       .input("Password", sql.VarChar, password)
+//       .input("PasswordHash", sql.VarChar, passwordHash).query(`
+//         INSERT INTO Users (
+//           UserCode,
+//           UserID,
+//           UserName,
+//           Password,
+//           PasswordHash,
+//           UserRole,
+//           Employee,
+//           LastActivityOn,
+//           LastPwChOn,
+//           WrongPw,
+//           Photo,
+//           Locked,
+//           DefaultForm,
+//           SystemUser,
+//           Status
+//         )
+//         VALUES (
+//           @UserCode,
+//           @UserID,
+//           @UserName,
+//           @Password,
+//           @PasswordHash,
+//           223009,
+//           NULL,
+//           NULL,
+//           GETDATE(),
+//           0,
+//           NULL,
+//           0,
+//           0,
+//           0,
+//           200
+//         )
+//       `);
 
-    res.status(201).json({
-      success: true,
-      message: "Signup successful. Wait for admin approval.",
-      usercode: userCode,
-    });
-  } finally {
-    await pool.close();
-  }
-});
+//     res.status(201).json({
+//       success: true,
+//       message: "Signup successful. Wait for admin approval.",
+//       usercode: userCode,
+//     });
+//   } finally {
+//     await pool.close();
+//   }
+// });
 
 // ================= LOGIN =================
 export const login = tryCatch(async (req, res) => {
@@ -146,9 +146,8 @@ export const login = tryCatch(async (req, res) => {
     // 2. Fetch the user's stored credentials — no password in the WHERE
     // clause anymore, since the match is now done in JS (bcrypt or, for
     // rows not yet migrated, a legacy plaintext fallback below).
-    const result = await pool
-      .request()
-      .input("empcod", sql.VarChar, empcod).query(`
+    const result = await pool.request().input("empcod", sql.VarChar, empcod)
+      .query(`
         SELECT
           U.UserCode,
           U.UserName,
@@ -184,7 +183,9 @@ export const login = tryCatch(async (req, res) => {
         .request()
         .input("empcod", sql.VarChar, empcod)
         .input("passwordHash", sql.VarChar, passwordHash)
-        .query(`UPDATE Users SET PasswordHash = @passwordHash WHERE UserID = @empcod`);
+        .query(
+          `UPDATE Users SET PasswordHash = @passwordHash WHERE UserID = @empcod`,
+        );
     }
 
     if (!passwordMatches) {
@@ -218,7 +219,9 @@ export const login = tryCatch(async (req, res) => {
             detail: host ? undefined : "Host name could not be resolved",
           }),
         )
-        .catch((err) => console.error("[Session] host lookup failed:", err.message));
+        .catch((err) =>
+          console.error("[Session] host lookup failed:", err.message),
+        );
     } catch (err) {
       console.error("[Session] could not create session record:", err.message);
       sid = undefined;
@@ -293,7 +296,10 @@ export const changePassword = tryCatch(async (req, res) => {
 
     let passwordMatches = false;
     if (user.PasswordHash) {
-      passwordMatches = await bcrypt.compare(currentPassword, user.PasswordHash);
+      passwordMatches = await bcrypt.compare(
+        currentPassword,
+        user.PasswordHash,
+      );
     } else if (user.Password === currentPassword) {
       passwordMatches = true;
     }
@@ -384,9 +390,15 @@ export const logout = tryCatch(async (req, res) => {
   const token = req.cookies?.token;
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        ignoreExpiration: true,
+      });
       if (decoded.sid) {
-        const ended = await revokeSessions({ sid: decoded.sid, reason: "user", revokedBy: decoded.id });
+        const ended = await revokeSessions({
+          sid: decoded.sid,
+          reason: "user",
+          revokedBy: decoded.id,
+        });
         if (ended) {
           logAuthEventWithHost({
             type: "LOGOUT",
